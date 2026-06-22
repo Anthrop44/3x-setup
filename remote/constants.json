@@ -1,0 +1,16 @@
+{
+	"$schema": "constants.schema.json",
+	"username": "3xuser",
+	"password": "xxx",
+	"3xusername": "3xuser",
+	"3xpassword": "xxx",
+	"initialSshPort": 22,
+	"realityTargetPort": 8443,
+	"fakeSitePort": 8085,
+	"xhttpPort": 8087,
+	"subscriptionPort": 2054,
+	"localSshPort": 2053,
+	"3xpanelPort": 2053,
+	"3xpanelUriPath": "3x",
+	"initialClientEmail": "admin"
+}

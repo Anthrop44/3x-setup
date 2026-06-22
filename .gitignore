@@ -1,0 +1,8 @@
+/AGENTS.md
+/profiles/
+/log/
+/remote/fake-site/*
+/remote/cert.pem
+/remote/key.pem
+/remote/id_ed25519.pub
+/remote/config.json

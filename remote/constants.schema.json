@@ -1,0 +1,101 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "默认参数表",
+	"description": "除非你知道你在做什么，不然不要改本文件。本方案默认安全，以上是非敏感配置可分享",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"username": {
+			"type": "string",
+			"minLength": 1,
+			"description": "vps用户名"
+		},
+		"password": {
+			"type": "string",
+			"minLength": 1,
+			"description": "vps用户密码"
+		},
+		"3xusername": {
+			"type": "string",
+			"minLength": 1,
+			"description": "3x-ui用户名"
+		},
+		"3xpassword": {
+			"type": "string",
+			"minLength": 1,
+			"description": "3x-ui密码"
+		},
+		"initialSshPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "初始SSH端口"
+		},
+		"realityTargetPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "Reality目标端口"
+		},
+		"fakeSitePort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "Caddy伪装站端口"
+		},
+		"xhttpPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "Xray XHTTP端口"
+		},
+		"subscriptionPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "3x-ui订阅内部端口"
+		},
+		"localSshPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "SSH转发本地端口"
+		},
+		"3xpanelPort": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 65535,
+			"description": "3x-ui面板端口"
+		},
+		"3xpanelUriPath": {
+			"type": "string",
+			"minLength": 1,
+			"description": "3x-ui面板URI路径（只能含字母和数字）",
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"initialClientEmail": {
+			"type": "string",
+			"minLength": 1,
+			"description": "初始客户端名称（只能含字母和数字）",
+			"pattern": "^[a-zA-Z0-9]+$"
+		}
+	},
+	"required": [
+		"username",
+		"password",
+		"3xusername",
+		"3xpassword",
+		"initialSshPort",
+		"realityTargetPort",
+		"fakeSitePort",
+		"xhttpPort",
+		"subscriptionPort",
+		"localSshPort",
+		"3xpanelPort",
+		"3xpanelUriPath",
+		"initialClientEmail"
+	],
+	"additionalProperties": false
+}

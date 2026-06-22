@@ -1,0 +1,70 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "用户配置文件",
+	"description": "不要泄漏本文件，否则可能遭到攻击！",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"ip": {
+			"oneOf": [
+				{
+					"type": "string",
+					"format": "ipv4"
+				},
+				{
+					"type": "string",
+					"format": "ipv6"
+				}
+			],
+			"description": "服务器IP地址"
+		},
+		"sshPort": {
+			"type": "integer",
+			"minimum": 10001,
+			"maximum": 65535,
+			"description": "新ssh端口号（大于10000）"
+		},
+		"cdnPort": {
+			"type": "integer",
+			"minimum": 10001,
+			"maximum": 65535,
+			"description": "CDN回源端口（大于10000）"
+		},
+		"initialPassword": {
+			"type": "string",
+			"description": "root初始SSH密码。仅用于PuTTY登陆，可不写"
+		},
+		"directDomain": {
+			"type": "string",
+			"format": "hostname",
+			"description": "Cloudflare灰云域名（不能与橙云域名相同）"
+		},
+		"cdnDomain": {
+			"type": "string",
+			"format": "hostname",
+			"description": "Cloudflare橙云域名（不能与灰云域名相同）"
+		},
+		"subscriptionPath": {
+			"type": "string",
+			"minLength": 20,
+			"description": "订阅文件路径（不推荐手动设置。如果你非要，至少20位，只能含字母和数字，必须足够随机）",
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"initialClientSubId": {
+			"type": "string",
+			"minLength": 20,
+			"description": "初始客户端订阅ID（不推荐手动设置。如果你非要，至少20位，只能含字母和数字，必须足够随机）",
+			"pattern": "^[a-zA-Z0-9]+$"
+		}
+	},
+	"required": [
+		"ip",
+		"sshPort",
+		"cdnPort",
+		"directDomain",
+		"cdnDomain"
+	],
+	"additionalProperties": false
+}

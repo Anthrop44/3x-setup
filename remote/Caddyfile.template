@@ -1,0 +1,49 @@
+# 此文件会进行正则替换，不要手动编辑！
+
+{
+	auto_https disable_redirects ignore_loaded_certs
+}
+
+:80 {
+	redir https://{host}{uri} permanent
+}
+
+:{{FAKE_SITE_PORT}} {
+	root * /var/www/3x-fake-site
+	file_server
+}
+
+{{DIRECT_DOMAIN}}:{{REALITY_TARGET_PORT}} {
+	bind 127.0.0.1
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	root * /var/www/3x-fake-site
+	file_server
+}
+
+:{{REALITY_TARGET_PORT}} {
+	bind 127.0.0.1
+	tls internal
+	root * /var/www/3x-fake-site
+	file_server
+}
+
+:{{CDN_PORT}} {
+	tls /etc/caddy/3x-origin-cert.pem /etc/caddy/3x-origin-key.pem
+
+	handle /{{SUBSCRIPTION_URI_PATH}}/* {
+		reverse_proxy 127.0.0.1:{{SUBSCRIPTION_PORT}}
+	}
+
+	handle /{{XHTTP_PATH}}* {
+		reverse_proxy 127.0.0.1:{{XHTTP_PORT}}
+	}
+
+	handle {
+		root * /var/www/3x-fake-site
+		file_server
+	}
+}
