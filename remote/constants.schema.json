@@ -71,8 +71,8 @@
 		},
 		"3xpanelUriPath": {
 			"type": "string",
-			"minLength": 1,
-			"description": "3x-ui面板URI路径（只能含字母和数字）",
+			"minLength": 5,
+			"description": "3x-ui面板URI路径（只能含字母和数字，至少5位）",
 			"pattern": "^[a-zA-Z0-9]+$"
 		},
 		"initialClientEmail": {

@@ -11,6 +11,6 @@
 	"subscriptionPort": 2054,
 	"localSshPort": 2053,
 	"3xpanelPort": 2053,
-	"3xpanelUriPath": "3x",
+	"3xpanelUriPath": "3xpanel",
 	"initialClientEmail": "admin"
 }
