@@ -1,8 +1,5 @@
 # 开发文档
 
-- vless+Reality+Vision直连“偷自己”
-- vless+XHTTP+Cloudflare CDN“偷自己”
-
 主要在Debian 13 minimal上测试，理论上应兼容所有Debian系Linux Server
 
 ## 执行顺序

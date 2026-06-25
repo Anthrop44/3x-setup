@@ -1,5 +1,11 @@
 # 3x-ui一键部署脚本
 
+一键初始化服务器并通过3x-ui API部署“偷自己”双栈方案：
+- 直连：vless+Reality+Vision
+- Cloudflare CDN：vless+XHTTP
+
+本方案可以实现极高的伪装性、安全性和鲁棒性
+
 ## Cloudflare域名设置
 
 - {cdnDomain} A/AAAA->{ip}，开启小橙云，规则设置回源端口{cdnPort}
