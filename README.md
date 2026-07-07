@@ -1,37 +1,39 @@
-# 3X-UI一键部署脚本
+[简体中文](README.zh-Hans.md)
 
-最好用的3X-UI一键部署脚本。一键完成代理服务器安全性加固、伪装站搭建、3X-UI入站/客户端创建和TLS证书管理等，100%透明开源可审计
+# 3X-UI One-Click Deployment Script
 
-本方案基于3X-UI API在同一台服务器上部署多个“偷自己”方案：
-- Hysteria2直连
-- VLESS+Reality+Vision直连
-- VLESS+XHTTP+Cloudflare CDN（优选ip）
-- VLESS+XHTTP+Cloudflare CDN（使用自己的Cloudflare域名）
+The best one-click proxy server deployment script based on 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable.
 
-本方案需要一台内存至少500MB、使用Debian 13或更高版本操作系统的专用代理服务器和本地Windows环境（虽然用AI稍改一下也能适配其它操作系统）
+This solution is based on the 3X-UI API to deploy multiple "steal-from-self" (co-located masquerading) configurations on the same server:
+- Hysteria2 direct connection
+- VLESS+Reality+Vision direct connection
+- VLESS+XHTTP+Cloudflare CDN (Optimized IPs)
+- VLESS+XHTTP+Cloudflare CDN (using your own Cloudflare domain)
 
-以下是使用教程，不详细介绍原理。有命令行基础的用户可以阅读开发文档`doc.md`
+This solution requires a dedicated proxy server with at least 500MB of RAM running Debian 13 or higher, and a local Windows environment (though with some minor AI assistance, it can be adapted to other operating systems).
 
-## Cloudflare设置
+The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
-- 在Cloudflare里创建两个A/AAAA记录，指向代理服务器真实ip
-	- `cdnDomain`走Cloudflare CDN回源，开启小橙云
-	- `directDomain`关闭小橙云
-- 设置`cdnDomain`高位回源端口，记为`cdnPort`
-- SSL/TLS加密模式选择`完全（严格）`
-- 启用始终使用HTTPS
-- 启用TLS1.3
-- 最低TLS版本1.3
-- 启用gRPC
-- 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
-	- 进入`SSL/TLS`->`源站服务器`
-	- 点击创建证书
-	- 私钥类型选择`ECC`
-	- 主机名填`cdnDomain`，也可以填覆盖它的通配符域名
-	- 证书格式选择`PEM`
-	- 把源站证书保存为`cert.pem`，私钥保存为`key.pem`
+## Cloudflare Settings
 
-`cert.pem`形如：
+- Create two A/AAAA records in Cloudflare pointing to the real IP of your proxy server:
+	- `cdnDomain`: Proxied through Cloudflare CDN (enable the orange cloud).
+	- `directDomain`: DNS only (disable the orange cloud).
+- Set a high-numbered origin pull port for `cdnDomain`, and note it down as `cdnPort`.
+- Select **Full (strict)** for the SSL/TLS encryption mode.
+- Enable **Always Use HTTPS**.
+- Enable **TLS 1.3**.
+- Set **Minimum TLS Version** to 1.3.
+- Enable **gRPC**.
+- Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
+	- Go to **SSL/TLS** -> **Origin Server**.
+	- Click **Create Certificate**.
+	- Choose **ECC** for the Private Key type.
+	- Enter `cdnDomain` in the hostnames field, or use a wildcard domain that covers it.
+	- Select **PEM** for the certificate format.
+	- Save the origin certificate as `cert.pem` and the private key as `key.pem`.
+
+`cert.pem` looks like this:
 
 ```pem
 -----BEGIN CERTIFICATE-----
@@ -55,7 +57,7 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx+xxxxxxxxx/xxxxxxxx==
 -----END CERTIFICATE-----
 ```
 
-`key.pem`形如：
+`key.pem` looks like this:
 
 ```pem
 -----BEGIN PRIVATE KEY-----
@@ -65,13 +67,11 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxx
 -----END PRIVATE KEY-----
 ```
 
-如果`cdnDomain`或`directDomain`是子域名，建议同时让主域名和`www`子域名开启小橙云并指向同一服务器，降低根域名裸露带来的指纹风险
+If `cdnDomain` or `directDomain` is a subdomain, it is recommended to also enable the orange cloud for the main domain and the `www` subdomain and point them to the same server. This reduces the risk of fingerprinting exposure caused by an exposed root domain.
 
-## 本地文件准备
+## Local File Preparation
 
-先重建代理服务器。保存好ip，并确保可以用`ssh root@ip`登录该服务器；默认部署流程允许在终端中交互输入root密码，OpenSSH主机指纹确认会被脚本直接跳过
-
-先把本repo clone到本地，然后根据下方指引在`remote/`中准备以下文件：
+First rebuild the proxy server and clone this repo **locally**, then manually prepare the following files inside `remote/` according to the guidelines below:
 
 ```txt
 remote/
@@ -85,11 +85,11 @@ remote/
 
 ---
 
-把上一步从Cloudflare搞到的证书`cert.pem`和私钥`key.pem`放到`remote/`里
+Place the certificate `cert.pem` and private key `key.pem` obtained from Cloudflare in the previous step into `remote/`.
 
 ---
 
-填写`config.json`时，可先创建
+To fill in `config.json`, you can first create:
 
 ```json
 {
@@ -97,63 +97,65 @@ remote/
 }
 ```
 
-然后根据`remote/config.schema.json`，利用IDE如VS Code的json LSP提示来补全剩下的内容直到没有警告为止，不会的可以问AI
+Then, based on `remote/config.schema.json`, use an IDE like VS Code with JSON LSP autocomplete to fill in the rest of the file until no warnings remain. If you get stuck, you can ask an AI for help.
 
 ---
 
-准备静态伪装站：（若不会可让AI代写）
-- 必须存在`remote/fake-site/index.html`
-- 伪装站应像一个正常静态网站，避免只放空白页或明显的测试文本
-- 部署时脚本会把整个`remote/fake-site/`复制到服务器，由Caddy在探测路径和fallback路径返回
+Prepare the static masquerade site: (If you don't know how, you can let an AI generate it)
+- `remote/fake-site/index.html` must exist.
+- The masquerade site should look like a normal static website. Avoid blank pages or obvious placeholder/test text.
+- During deployment, the script will copy the entire `remote/fake-site/` folder to the server. Caddy will then serve it on the probe and fallback paths.
 
-## 首次部署
+## First Deployment
 
-在准备好以上所有文件后即可开始部署
+Once all the files above are ready, you can begin the deployment.
 
-在本机安装[PowerShell 7](https://github.com/PowerShell/PowerShell)，确保Windows自带OpenSSH可用，然后执行：
+Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local machine, ensure the built-in Windows OpenSSH is available, and then run:
 
 ```powershell
 pwsh init.ps1
 ```
 
-`init.ps1`会自动生成密钥对、生成订阅链接、上传文件并启动远端初始化，若需要输入密码按终端提示操作即可。它会在`clients/`中生成包含简单使用教程的订阅链接，可以直接分发给客户。整个服务器初始化过程可能持续5~20分钟，具体时间取决于服务器配置，但在触发远端执行代码后断开SSH连接不会影响服务器继续初始化，所以不需要开着终端干等
+`init.ps1` will automatically generate key pairs, generate subscription links, upload files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. It will generate subscription files containing a simple usage tutorial in the `clients/` folder, which can be distributed directly to clients. The entire server initialization process may take 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
-## 更新客户信息
+## Updating Client Information
 
-若要增删客户或编辑客户信息等，请编辑`remote/config.json`中的`clients`后执行：
+To add, remove, or edit client information, edit the `clients` field in `remote/config.json` and then run:
 
 ```powershell
 pwsh sync-clients.ps1
 ```
 
-脚本会上传新的`remote/config.json`并同步客户端信息，重启Xray，并重新导出本地`clients/*.md`
+The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-export the local `clients/*.md` files.
 
-**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的`clients`键值。因此，只要不丢失`remote/config.json`或更改`cdnDomain`，即使重建服务器也不会丢失任何客户的订阅信息，所以未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的订阅链接**
+**`init.ps1` and `sync-clients.ps1` will not modify existing `clients` key-value pairs in `remote/config.json`. Therefore, as long as you don't lose `remote/config.json` or change the `cdnDomain`, you won't lose any client subscription details even if you rebuild the server. In the future, if you need to modify inbounds or even switch servers, clients only need to update their subscriptions within their proxy clients; there is no need to issue new subscription links.**
 
-## 连接3X-UI面板
+## Connecting to the 3X-UI Panel
 
-一般来说本方案不需要手动管理3X-UI面板，但若你确实有需求，可以执行：
+Generally, this solution does not require manual management of the 3X-UI panel. However, if you do need to access it, you can run:
 
 ```powershell
 pwsh ssh-tunnel.ps1
 ```
 
-然后根据提示登陆3X-UI面板
+Then follow the prompts to log into the 3X-UI panel.
 
 ## Warning
 
-本方案测试时3X-UI版本是v3.4.2。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue
+This solution was tested using 3X-UI version v3.4.2. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
 
-本项目不是幂等部署器，需要对重建后的干净服务器执行，不能用于已有业务的服务器
+This project is not an idempotent deployer. It must be executed on a freshly rebuilt, clean server and should not be used on servers running existing production services.
 
-不要泄漏`remote/config.json`等私有配置。**一旦泄漏，请立刻重建服务器并彻底重写`remote/config.json`**
+Do not leak private configurations like `remote/config.json`. **If leaked, rebuild the server immediately and completely rewrite `remote/config.json`.**
 
-如果要用同一个域名多次重建服务器测试本脚本，请优先使用`pwsh init.ps1 -noTLS`临时使用自签证书以避免触发CA rate limit发不出证书。由于没有公信证书，这种情况下Hysteria2入站不可用。自签证书仅用于测试，**绝对不要长期使用！测试完成后必须立刻重建服务器！**
+If you want to test this script by rebuilding the server multiple times with the same domain, please use `pwsh init.ps1 -noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Note that due to the lack of a trusted certificate, the Hysteria2 inbound will not work under this mode. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
 
-地区运营商可能会阻断部分ip的QUIC，这会导致Hysteria2入站不可用，属不可抗力
+Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
 
-## 致谢
+This solution is configured for Mainland China by default. You can edit `remote/clash-rule.txt` to use it at other regions.
+
+## Acknowledgements
 
 - [Project X](https://github.com/XTLS/Xray-core)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
-- [saas.sin.fan]<https://saas.sin.fan/>
+- [saas.sin.fan](https://saas.sin.fan/)
