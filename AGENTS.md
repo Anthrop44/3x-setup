@@ -1,0 +1,5 @@
+Read `README.md`, `doc.md`, `remote/constants.schema.json`, and `remote/config.schema.json` first. Remember to modify the two markdown files to reflect actual situation after modifying features.
+
+If you mess up user's proxy server, consider asking user to rebuild it to start a fresh installation as these scripts are not designed to be idempotent.
+
+If you're asked to execute `init.ps1`, you can request user to either bind `remote/id_ed25519.pub` to the root user in the proxy server, or install PuTTY and fill in `initialPassword` in `remote/config.schema.json` to enable non-interactive execution.
