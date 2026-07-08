@@ -2,7 +2,7 @@
 
 # 3X-UI One-Click Deployment Script
 
-The best one-click proxy server deployment script based on 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable.
+The best one-click proxy server deployment script based on 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
 This solution is based on the 3X-UI API to deploy multiple "steal-from-self" (co-located masquerading) configurations on the same server:
 - Hysteria2 direct connection

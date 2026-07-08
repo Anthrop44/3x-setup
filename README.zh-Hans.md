@@ -1,6 +1,6 @@
 # 3X-UI一键部署脚本
 
-最好用的基于3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计
+最好用的基于3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
 本方案基于3X-UI API在同一台服务器上部署多个“偷自己”方案：
 - Hysteria2直连
@@ -156,4 +156,4 @@ pwsh ssh-tunnel.ps1
 
 - [Project X](https://github.com/XTLS/Xray-core)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
-- [saas.sin.fan]<https://saas.sin.fan/>
+- [saas.sin.fan](https://saas.sin.fan/)
