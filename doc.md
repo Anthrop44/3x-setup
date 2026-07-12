@@ -30,7 +30,7 @@
 
 ---
 
-`ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，启动`ssh -N -L`把本地端口转发到远端`127.0.0.1:3xpanelPort`，等待端口可连接后输出面板URL，进程退出时清理隧道
+`ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，启动`ssh -N -L`把本地端口转发到远端`127.0.0.1:3xpanelPort`，等待端口可连接后输出面板URL和登录凭据，并通过`Start-Process`在默认浏览器中打开面板；进程退出时清理隧道
 
 ---
 

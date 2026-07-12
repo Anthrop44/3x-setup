@@ -79,10 +79,12 @@ if (-not $TunnelReady)
 	throw "Timed out waiting for SSH tunnel on local port $LocalSshPort"
 }
 
+$PanelUrl = "http://127.0.0.1:$LocalSshPort/$PanelUriPath"
 Write-Host "SSH tunnel established."
-Write-Host "3X-UI panel: http://127.0.0.1:$LocalSshPort/$PanelUriPath"
+Write-Host "3X-UI panel: $PanelUrl"
 Write-Host "username: $PanelUsername"
 Write-Host "password: $PanelPassword"
+Start-Process $PanelUrl
 Write-Host "Press Ctrl+C to disconnect."
 
 try

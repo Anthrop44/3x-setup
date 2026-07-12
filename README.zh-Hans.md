@@ -136,8 +136,6 @@ pwsh sync-clients.ps1
 pwsh ssh-tunnel.ps1
 ```
 
-然后根据提示登陆3X-UI面板
-
 ## Warning
 
 本方案测试时3X-UI版本是v3.4.2。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue

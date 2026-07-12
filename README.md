@@ -132,13 +132,11 @@ The script will upload the new `remote/config.json`, sync the client information
 
 ## Connecting to the 3X-UI Panel
 
-Generally, this solution does not require manual management of the 3X-UI panel. However, if you do need to access it, you can run:
+Generally, this solution does not require manual management of the 3X-UI panel. However, if you do need to access it, run:
 
 ```powershell
 pwsh ssh-tunnel.ps1
 ```
-
-Then follow the prompts to log into the 3X-UI panel.
 
 ## Warning
 
