@@ -1,25 +1,28 @@
-# 禾斗学上网
+# How-to-use
 
-- v2rayN/v2rayNG/Shadowrocket订阅链接：<{v2raySubscriptionURL}>
-- Clash/mihomo订阅链接：<{clashSubscriptionURL}>
+Import your subscription URL to a supported proxy client listed below.
 
-**为了您的安全，请勿将您的订阅链接分享给任何人或将含有以上链接的文本复制到微信、QQ等国内平台。若要在手机上使用，请直接将此文件发给手机再用手机将链接导入客户端中**
+Subscription URL:
+- v2rayN/v2rayNG/Shadowrocket: <{v2raySubscriptionURL}>
+- Clash/mihomo: <{clashSubscriptionURL}>
 
-**请定期更新订阅。若配置不可用，也先尝试更新订阅**
+**For your own security, DO NOT share your subscription URL with anyone, and do not copy texts containing these links onto Chinese platforms such as WeChat or QQ. If you need to use them on your mobile phone, send this file directly to your device first, and then import the links into your proxy clients.**
 
-## 客户端
+**Please update your subscription regularly. If your subscription stops working, try updating the subscription first.**
 
-Windows/macOS/Linux：
-- v2rayN：<https://github.com/2dust/v2rayN/releases>
-- Clash Verge Rev：<https://github.com/clash-verge-rev/clash-verge-rev/releases>
+## Supported Clients
 
-Android：
-- v2rayNG：<https://github.com/2dust/v2rayNG/releases>（通常选`v2rayNG_2.x.x_arm64-v8a.apk`）
-- Clash Meta for Android：<https://github.com/MetaCubeX/ClashMetaForAndroid/releases>（通常选`cmfa-2.x.x-meta-arm64-v8a-release.apk`）
+Windows/macOS/Linux:
+- v2rayN: <https://github.com/2dust/v2rayN/releases>
+- Clash Verge Rev: <https://github.com/clash-verge-rev/clash-verge-rev/releases>
 
-iOS：
-- Shadowrocket：<https://apps.apple.com/us/app/shadowrocket/id932747118>
+Android:
+- v2rayNG: <https://github.com/2dust/v2rayNG/releases> (usually choose `v2rayNG_2.x.x_arm64-v8a.apk`)
+- Clash Meta for Android: <https://github.com/MetaCubeX/ClashMetaForAndroid/releases> (usually choose `cmfa-2.x.x-meta-arm64-v8a-release.apk`)
 
-## 开源地址
+iOS:
+- Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>
 
-可以用<https://github.com/Anthrop44/3x-setup>自己部署。非常简单，成本也很低，如果觉得有用可以点个star
+## Open Source Repository
+
+You can deploy your own server using <https://github.com/Anthrop44/3x-setup>. It is highly straightforward and very cost-effective. If you find it helpful, please leave a star and fork it!
