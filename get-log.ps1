@@ -101,6 +101,4 @@ try
 	Remove-Item -LiteralPath $LocalArchivePath -Force -ErrorAction SilentlyContinue
 }
 
-
-
 $global:LASTEXITCODE = 0

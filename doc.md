@@ -6,7 +6,7 @@
 
 本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`
 
-`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不能视为可用，因为客户端需要信任`directDomain`的公信证书；后续必须执行`pwsh get-TLS.ps1`
+`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不能视为可用，因为客户端需要信任`directDomain`的公信证书
 
 ## 本地脚本和模块
 
@@ -19,10 +19,6 @@
 ---
 
 `sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`clashSubscriptionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`，在远端执行`3x-client-init.sh --noTLS`，最后下载日志；这里传`--noTLS`只是为了不触发证书流程，因为客户同步只需要更新3X-UI客户端
-
----
-
-`get-TLS.ps1`用于单独触发远端`direct-tls-init.sh`；它读取`remote/config.json`中的`ip`和`sshPort`，读取`remote/constants.json`中的`username`，通过SSH进入`~/3x-setup`运行证书初始化，完成后下载日志；常见用途是在`init.ps1 -noTLS`测试通过后补齐`directDomain`公信证书
 
 ---
 
@@ -271,8 +267,6 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 本项目不追求幂等；很多远端脚本会新增系统用户、改SSH、改UFW、安装Caddy和3X-UI、写systemd单元，建议只在重装后的干净Debian VPS上跑完整初始化
 
-CA有签发频率限制；反复测试完整部署时优先使用`pwsh init.ps1 -noTLS`，确认系统、Caddy、3X-UI、Reality和XHTTP流程都通，再执行`pwsh get-TLS.ps1`触发一次真实证书签发
-
-`pwsh init.ps1 -noTLS`后，HY2入站虽然已经创建，但仍使用自签测试证书，实际客户端不会正常信任它；只有`pwsh get-TLS.ps1`成功后，`/etc/caddy/3x-direct-*.pem`换成公信证书，重启`x-ui`后HY2才可用于分发
+CA有签发频率限制；反复测试完整部署时优先使用`pwsh init.ps1 -noTLS`，确认系统、Caddy、3X-UI、Reality和XHTTP流程都通，再重建后执行`pwsh init.ps1`
 
 日志是第一排查入口；`get-log.ps1`下载的每个阶段日志都在`log/`下，最近失败通常出现在链路中最后一个没有打印“完成”的文件里

@@ -184,6 +184,6 @@ fi
 
 printf '\n== 完成 ==\n'
 
-# 执行direct-tls-check.sh
+# 执行 direct-tls-check.sh
 chmod +x "$SCRIPT_DIR/direct-tls-check.sh"
 exec bash "$SCRIPT_DIR/direct-tls-check.sh" "$@"

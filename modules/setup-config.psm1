@@ -70,8 +70,6 @@ function Test-BlankProperty
 	return (($null -eq $Property) -or [string]::IsNullOrWhiteSpace([string]$Property.Value))
 }
 
-
-
 function Read-SetupConfigFiles
 {
 	<#

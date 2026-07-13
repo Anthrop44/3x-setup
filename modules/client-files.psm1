@@ -1,7 +1,5 @@
 Set-StrictMode -Version Latest
 
-
-
 function Export-ClientFiles
 {
 	<#

@@ -27,7 +27,7 @@ normalize_workdir_permissions() {
 # 安装依赖
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get upgrade -y
+apt-get dist-upgrade -y
 apt-get install -y jq openssl openssh-server sudo curl ca-certificates ufw procps sqlite3
 
 # 读取 config.json 和 constants.json
