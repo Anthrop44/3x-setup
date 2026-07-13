@@ -510,6 +510,6 @@ ensure_no_failed_units
 
 printf '\n== 完成 ==\n'
 
-# 执行 direct-tls-init.sh
-chmod +x "$SCRIPT_DIR/direct-tls-init.sh"
-exec bash "$SCRIPT_DIR/direct-tls-init.sh" "$@"
+# 执行 fetch-apps-init.sh
+chmod +x "$SCRIPT_DIR/fetch-apps-init.sh"
+exec bash "$SCRIPT_DIR/fetch-apps-init.sh" "$@"

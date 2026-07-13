@@ -148,9 +148,10 @@ CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort' "$CONSTANTS_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort' "$CONSTANTS_PATH")"
+CLASH_SUFFIX="$(jq -r '.clashSuffix' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="$(jq -r '.clashSubscriptionPath' "$CONFIG_PATH")"
+CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath' "$PATHS_PATH")"
 PUBLIC_DIRECT_CERT_DIR="/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$DIRECT_DOMAIN"
 
@@ -184,6 +185,6 @@ fi
 
 printf '\n== 完成 ==\n'
 
-# 执行direct-tls-check.sh
+# 执行 direct-tls-check.sh
 chmod +x "$SCRIPT_DIR/direct-tls-check.sh"
 exec bash "$SCRIPT_DIR/direct-tls-check.sh" "$@"

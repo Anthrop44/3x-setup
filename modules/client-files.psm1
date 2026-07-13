@@ -1,7 +1,5 @@
 Set-StrictMode -Version Latest
 
-
-
 function Export-ClientFiles
 {
 	<#
@@ -14,11 +12,16 @@ function Export-ClientFiles
 		[pscustomobject]$Config,
 
 		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Constants,
+
+		[Parameter(Mandatory = $true)]
 		[string]$ClientsDir
 	)
 
 	$TemplatePath = Join-Path $PSScriptRoot "template.md"
 	$TemplateContent = Get-Content -LiteralPath $TemplatePath -Raw -Encoding utf8
+	$SubscriptionPath = "$($Config.cdnDomain)/$($Config.subscriptionPath)"
+	$ProxyClientsUrl = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)$($Constants.proxyClientsSuffix)"
 
 	if (-not (Test-Path -LiteralPath $ClientsDir -PathType Container))
 	{
@@ -37,10 +40,20 @@ function Export-ClientFiles
 		}
 
 		$ClientFilePath = Join-Path $ClientsDir "$ClientName.md"
-		$Url = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)/$ClientPath"
-		$ClashUrl = "https://$($Config.cdnDomain)/$($Config.clashSubscriptionPath)/$ClientPath"
-		$Content = $TemplateContent -replace [regex]::Escape("{v2raySubscriptionURL}"), $Url
-		$Content = $Content -replace [regex]::Escape("{clashSubscriptionURL}"), $ClashUrl
+		$Content = $TemplateContent.Replace("{subscriptionPath}", $SubscriptionPath)
+		$Content = $Content.Replace("{clashSuffix}", [string]$Constants.clashSuffix)
+		$Content = $Content.Replace("{proxyClientsSuffix}", [string]$Constants.proxyClientsSuffix)
+		$Content = $Content.Replace("{proxyClientsURL}", $ProxyClientsUrl)
+		$Content = $Content.Replace("{clientPath}", $ClientPath)
+		foreach ($FilenameProperty in $Constants.proxyClientsFilenames.PSObject.Properties)
+		{
+			$Placeholder = "{proxyClientsFilenames.$($FilenameProperty.Name)}"
+			$Content = $Content.Replace($Placeholder, [string]$FilenameProperty.Value)
+		}
+		if ($Content -match "\{(?:subscriptionPath|clashSuffix|proxyClientsSuffix|proxyClientsURL|clientPath|proxyClientsFilenames\.)")
+		{
+			throw "client template contains unresolved placeholder: $ClientName"
+		}
 		Set-Content -LiteralPath $ClientFilePath -Value $Content -Encoding utf8NoBOM
 	}
 }

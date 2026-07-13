@@ -16,12 +16,15 @@ exec >"$OUTPUT_FILE" 2>&1
 
 SSH_PORT="$(jq -r '.sshPort // empty' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort // empty' "$CONFIG_PATH")"
+DAILY_TASK_HOUR="$(jq -r '.dailyTaskHour // empty' "$CONSTANTS_PATH")"
+printf -v DAILY_TASK_TIME '%02d:00:00' "$DAILY_TASK_HOUR"
 
 printf '== 基本信息 ==\n'
 date -Is
 hostnamectl 2>/dev/null || true
 id
 printf '工作目录: %s\n' "$SCRIPT_DIR"
+timedatectl 2>&1 || true
 
 if sudo -n systemctl is-active --quiet ssh; then
 	SSH_SERVICE="ssh"
@@ -50,6 +53,9 @@ printf '\n== Cloudflare UFW定时器 ==\n'
 sudo -n systemctl --no-pager --full status 3x-cloudflare-ufw.timer 2>&1
 sudo -n systemctl is-enabled --quiet 3x-cloudflare-ufw.timer
 sudo -n systemctl is-active --quiet 3x-cloudflare-ufw.timer
+sudo -n systemctl cat 3x-cloudflare-ufw.timer 2>&1
+sudo -n systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
+sudo -n systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx 'RandomizedDelaySec=1h'
 
 printf '\n== BBR状态 ==\n'
 sysctl net.ipv4.tcp_available_congestion_control 2>&1

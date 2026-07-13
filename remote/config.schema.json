@@ -49,20 +49,6 @@
 			"format": "hostname",
 			"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
 		},
-		"subscriptionPath": {
-			"description": "共享订阅路径（自动生成，请勿手动设置）",
-			"type": "string",
-			"minLength": 16,
-			"maxLength": 16,
-			"pattern": "^[a-zA-Z0-9]+$"
-		},
-		"clashSubscriptionPath": {
-			"description": "Clash订阅路径（自动生成，请勿手动设置）",
-			"type": "string",
-			"minLength": 16,
-			"maxLength": 16,
-			"pattern": "^[a-zA-Z0-9]+$"
-		},
 		"clients": {
 			"description": "客户端列表",
 			"type": "array",
@@ -93,6 +79,13 @@
 				],
 				"additionalProperties": false
 			}
+		},
+		"subscriptionPath": {
+			"description": "共享订阅路径（自动生成，请勿手动设置）",
+			"type": "string",
+			"minLength": 16,
+			"maxLength": 16,
+			"pattern": "^[a-zA-Z0-9]+$"
 		}
 	},
 	"required": [

@@ -70,8 +70,6 @@ function Test-BlankProperty
 	return (($null -eq $Property) -or [string]::IsNullOrWhiteSpace([string]$Property.Value))
 }
 
-
-
 function Read-SetupConfigFiles
 {
 	<#
@@ -113,19 +111,12 @@ function Complete-SetupConfig
 		[Parameter(Mandatory = $true)]
 		[pscustomobject]$Config,
 
-		[switch]$IncludeSubscriptionPath,
-
-		[switch]$IncludeClashSubscriptionPath
+		[switch]$IncludeSubscriptionPath
 	)
 
 	if ($IncludeSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "subscriptionPath"))
 	{
 		$Config | Add-Member -MemberType NoteProperty -Name "subscriptionPath" -Value (New-HexToken) -Force
-	}
-
-	if ($IncludeClashSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath"))
-	{
-		$Config | Add-Member -MemberType NoteProperty -Name "clashSubscriptionPath" -Value (New-HexToken) -Force
 	}
 
 	foreach ($Client in @($Config.clients))
@@ -148,30 +139,13 @@ function Assert-SetupClientConfigValid
 		[Parameter(Mandatory = $true)]
 		[pscustomobject]$Config,
 
-		[switch]$RequireSubscriptionPath,
-
-		[switch]$RequireClashSubscriptionPath
+		[switch]$RequireSubscriptionPath
 	)
 
 	if ($RequireSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "subscriptionPath"))
 	{
 		throw "remote/config.json must contain subscriptionPath"
 	}
-	if ($RequireClashSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath"))
-	{
-		throw "remote/config.json must contain clashSubscriptionPath"
-	}
-	if (
-		$RequireSubscriptionPath.IsPresent -and
-		$RequireClashSubscriptionPath.IsPresent -and
-		(-not (Test-BlankProperty -InputObject $Config -Name "subscriptionPath")) -and
-		(-not (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath")) -and
-		([string]$Config.subscriptionPath -eq [string]$Config.clashSubscriptionPath)
-	)
-	{
-		throw "remote/config.json has duplicate subscription paths: subscriptionPath and clashSubscriptionPath"
-	}
-
 	$Clients = @($Config.clients)
 	if ($Clients.Count -le 0)
 	{
@@ -203,6 +177,31 @@ function Assert-SetupClientConfigValid
 	}
 }
 
+function Assert-SetupConstantsValid
+{
+	<#
+	.SYNOPSIS
+		检查常量可安全用于路径和客户端文件名
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Constants
+	)
+
+	if ([string]::Equals([string]$Constants.clashSuffix, [string]$Constants.proxyClientsSuffix, [System.StringComparison]::OrdinalIgnoreCase))
+	{
+		throw "remote/constants.json clashSuffix and proxyClientsSuffix must be different"
+	}
+
+	$FilenameProperties = @($Constants.proxyClientsFilenames.PSObject.Properties)
+	$DuplicateFilenames = @($FilenameProperties | Group-Object -Property Value | Where-Object { $_.Count -gt 1 } | ForEach-Object { [string]$_.Name })
+	if ($DuplicateFilenames.Count -gt 0)
+	{
+		throw "remote/constants.json has duplicate proxy client filenames: $($DuplicateFilenames -join ", ")"
+	}
+}
+
 function Save-SetupConfig
 {
 	<#
@@ -222,4 +221,4 @@ function Save-SetupConfig
 	Set-Content -LiteralPath $ConfigPath -Value $Json -NoNewline -Encoding utf8NoBOM
 }
 
-Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Save-SetupConfig
+Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Assert-SetupConstantsValid, Save-SetupConfig

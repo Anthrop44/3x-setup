@@ -1,25 +1,57 @@
-# 禾斗学上网
+# How-to-use
 
-- v2rayN/v2rayNG/Shadowrocket订阅链接：<{v2raySubscriptionURL}>
-- Clash/mihomo订阅链接：<{clashSubscriptionURL}>
+Import your subscription URL to a supported proxy client.
 
-**为了您的安全，请勿将您的订阅链接分享给任何人或将含有以上链接的文本复制到微信、QQ等国内平台。若要在手机上使用，请直接将此文件发给手机再用手机将链接导入客户端中**
+Subscription URL:
+- v2rayN/v2rayNG/Shadowrocket: <https://{subscriptionPath}/{clientPath}>
+- Clash Verge Rev/Clash Meta for Android: <https://{subscriptionPath}{clashSuffix}/{clientPath}>
 
-**请定期更新订阅。若配置不可用，也先尝试更新订阅**
+**For your security, DO NOT share your subscription URL with anyone or paste these links onto Chinese platforms such as WeChat or QQ.**
 
-## 客户端
+**If your subscription stops working, please update BOTH your subscription and proxy clients first.**
 
-Windows/macOS/Linux：
-- v2rayN：<https://github.com/2dust/v2rayN/releases>
-- Clash Verge Rev：<https://github.com/clash-verge-rev/clash-verge-rev/releases>
+# Supported Clients
 
-Android：
-- v2rayNG：<https://github.com/2dust/v2rayNG/releases>（通常选`v2rayNG_2.x.x_arm64-v8a.apk`）
-- Clash Meta for Android：<https://github.com/MetaCubeX/ClashMetaForAndroid/releases>（通常选`cmfa-2.x.x-meta-arm64-v8a-release.apk`）
+## Windows x64
 
-iOS：
-- Shadowrocket：<https://apps.apple.com/us/app/shadowrocket/id932747118>
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNWindowsX64}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevWindowsX64}>
 
-## 开源地址
+## Android
 
-可以用<https://github.com/Anthrop44/3x-setup>自己部署。非常简单，成本也很低，如果觉得有用可以点个star
+- **v2rayNG: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNGAndroidArm64}>**
+- Clash Meta for Android: <{proxyClientsURL}/{proxyClientsFilenames.clashMetaAndroidArm64}>
+
+## iOS
+
+- **Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>**
+
+## macOS arm64
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNMacOSArm64}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevMacOSArm64}>
+
+## Linux x64
+
+Debian, Ubuntu...
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNLinuxX64Deb}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevLinuxX64Deb}>
+
+Fedora, RHEL...
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNLinuxX64Rpm}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevLinuxX64Rpm}>
+
+# Open Source
+
+This service is deployed via <https://github.com/Anthrop44/3x-setup>. It is an open-source, one-click VPN deployment script based on 3X-UI, with which you can set up your own VPN service in 30 minutes.
+
+If you find it helpful, please consider leaving a star!
+
+# Acknowledgements
+
+- [v2rayN](https://github.com/2dust/v2rayN)
+- [v2rayNG](https://github.com/2dust/v2rayNG)
+- [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)
+- [Clash Meta for Android](https://github.com/MetaCubeX/ClashMetaForAndroid)
