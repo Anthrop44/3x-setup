@@ -12,7 +12,7 @@
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名、客户订阅路径和代理客户端固定文件名不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出`clients/*.md`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
+`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名、客户订阅路径和代理客户端固定文件名不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`clients/*.xhtml`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
 
 上传阶段默认使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；默认流程不读取`initialPassword`，也不要求非交互式登录；远端初始化完成后执行`get-log.ps1`。传入`-PuTTY`时才改用PuTTY组件`pscp.exe`和`plink.exe`，此时要求`remote/config.json`提供`initialPassword`，并沿用自动处理PuTTY首次连接hostkey确认的逻辑。PuTTY模式主要用于方便AI Agents非交互式使用`init.ps1`
 
@@ -40,7 +40,7 @@
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.md`，确保`clients/`存在，删除旧的`clients/*.md`，为每个`clients[]`生成一个同名Markdown文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。可以通过修改`modules/template.md`编辑内容模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`，确保`clients/`存在，删除旧的`clients/*.md`和`clients/*.xhtml`，为每个`clients[]`生成一个同名XHTML文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文使用每个文件独立的随机4位解锁码，经PBKDF2-SHA256迭代100000次派生AES-256-GCM密钥后加密；salt、IV、密文、认证标签和页面显示的解锁码都保存在自包含文件中，浏览器通过Web Crypto API解密正文。可以通过修改`modules/template.xhtml`编辑内容模板
 
 ## 远端初始化脚本
 

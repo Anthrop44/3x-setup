@@ -116,7 +116,7 @@ Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local m
 pwsh init.ps1
 ```
 
-`init.ps1` will automatically generate key pairs, generate subscription links, upload files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. It will generate subscription files containing a simple usage tutorial in the `clients/` folder, which can be distributed directly to clients. The entire server initialization process may take 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
+`init.ps1` will automatically generate key pairs, generate subscription links, upload files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. It will generate encrypted `clients/*.xhtml` files containing a simple usage tutorial and subscription links, which can be distributed directly to clients. The entire server initialization process may take 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
 ## Updating Client Information
 
@@ -126,7 +126,7 @@ To add, remove, or edit client information, edit the `clients` field in `remote/
 pwsh sync-clients.ps1
 ```
 
-The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-export the local `clients/*.md` files.
+The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-export the encrypted local `clients/*.xhtml` files.
 
 **`init.ps1` and `sync-clients.ps1` will not modify existing `clients` key-value pairs in `remote/config.json`. Therefore, as long as you don't lose `remote/config.json` or change `cdnDomain` or `clashSuffix`, you won't lose any client subscription details even if you rebuild the server. In the future, if you need to modify inbounds or even switch servers, clients only need to update their subscriptions within their proxy clients; there is no need to issue new subscription links.**
 

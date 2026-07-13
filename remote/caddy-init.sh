@@ -28,6 +28,8 @@ parse_args() {
 		--noTLS)
 			NO_TLS=1
 			;;
+		--noAPP)
+			;;
 		*)
 			printf '未知参数: %s\n' "$arg" >&2
 			exit 1
