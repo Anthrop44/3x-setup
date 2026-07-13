@@ -114,7 +114,7 @@ remote/
 pwsh init.ps1
 ```
 
-`init.ps1`会自动生成密钥对、生成订阅链接、上传文件并启动远端初始化，若需要输入密码按终端提示操作即可。它会在`clients/`中生成包含简单使用教程和订阅链接的加密`*.xhtml`文件，可以直接分发给客户。整个服务器初始化过程可能持续5~20分钟，具体时间取决于服务器配置，但在触发远端执行代码后断开SSH连接不会影响服务器继续初始化，所以不需要开着终端干等
+`init.ps1`会自动生成密钥对、订阅链接分发页，上传所有远端文件并启动初始化，若需要输入密码按终端提示操作即可。它生成的`clients.tsv`即为每位客户应收到的订阅分发页URL，直接将其发给客户即可。整个服务器初始化过程可能持续5~20分钟，具体时间取决于服务器配置，但在触发远端执行代码后断开SSH连接不会影响服务器继续初始化，所以不需要开着终端干等
 
 ## 更新客户信息
 
@@ -124,9 +124,9 @@ pwsh init.ps1
 pwsh sync-clients.ps1
 ```
 
-脚本会上传新的`remote/config.json`并同步客户端信息，重启Xray，并重新导出本地加密的`clients/*.xhtml`
+脚本会上传新的`remote/config.json`并同步客户端信息，重启Xray，并重新导出`clients.tsv`
 
-**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的`clients`键值。因此，只要不丢失`remote/config.json`或更改`cdnDomain`、`clashSuffix`，即使重建服务器也不会丢失任何客户的订阅信息，所以未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的订阅链接**
+**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 
 代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.ps1`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
 

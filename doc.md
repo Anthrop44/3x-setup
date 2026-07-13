@@ -12,7 +12,7 @@
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名、客户订阅路径和代理客户端固定文件名不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`clients/*.xhtml`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
+`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`、`distributionPath`和`clients[].path`，检查客户端名、客户订阅路径和代理客户端固定文件名不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`及根目录`clients.tsv`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
 
 上传阶段默认使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；默认流程不读取`initialPassword`，也不要求非交互式登录；远端初始化完成后执行`get-log.ps1`。传入`-PuTTY`时才改用PuTTY组件`pscp.exe`和`plink.exe`，此时要求`remote/config.json`提供`initialPassword`，并沿用自动处理PuTTY首次连接hostkey确认的逻辑。PuTTY模式主要用于方便AI Agents非交互式使用`init.ps1`
 
@@ -20,7 +20,7 @@
 
 ---
 
-`sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`，在远端执行`3x-client-init.sh --noTLS`，最后下载日志；这里传`--noTLS`只是为了不触发证书流程，因为客户同步只需要更新3X-UI客户端
+`sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和完整的`remote/fake-site/{distributionPath}/`，执行`3x-client-init.sh --noTLS --noAPP`，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发页面先完整上传到用户工作目录，上传或客户同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免客户同步安装或更新代理客户端静态分发资源
 
 ---
 
@@ -40,7 +40,7 @@
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`，确保`clients/`存在，删除旧的`clients/*.md`和`clients/*.xhtml`，为每个`clients[]`生成一个同名XHTML文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文使用每个文件独立的随机4位解锁码，经PBKDF2-SHA256迭代100000次派生AES-256-GCM密钥后加密；salt、IV、密文、认证标签和页面显示的解锁码都保存在自包含文件中，浏览器通过Web Crypto API解密正文。可以通过修改`modules/template.xhtml`编辑内容模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`，删除并重建`remote/fake-site/{distributionPath}/`，为每个`clients[]`生成`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文使用每个文件独立的随机4位解锁码，经PBKDF2-SHA256迭代100000次派生AES-256-GCM密钥后加密；salt、IV、密文、认证标签和页面显示的解锁码都保存在自包含文件中，浏览器通过Web Crypto API解密正文。可以通过修改`modules/template.xhtml`编辑内容模板
 
 ## 远端初始化脚本
 
@@ -100,7 +100,7 @@
 
 `remote/config.schema.json`描述用户必须准备的敏感配置；必填项包括`ip`、`sshPort`、`cdnPort`、`directDomain`、`cdnDomain`和`clients`；`initialPassword`仅供`init.ps1 -PuTTY`非交互式首次登录使用，默认OpenSSH流程不需要填写；`sshPort`和`cdnPort`必须大于10000，`directDomain`和`cdnDomain`必须是合法hostname
 
-`subscriptionPath`和`clients[].path`是自动生成字段，长度固定为16，建议不要手动设置；Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
+`subscriptionPath`和`clients[].path`是自动生成的16位字段，`distributionPath`是自动生成的15位小写字母数字字段，建议不要手动设置；客户分发URL为`https://cdnDomain/distributionPath/clientPath.html`。Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
 
 `remote/constants.json`保存默认端口、账号、隐藏路径后缀、每日任务时间和代理客户端固定文件名；`clashSuffix`与`proxyClientsSuffix`必须是不同的非空字母数字字符串。`dailyTaskHour`是0到23的integer，默认4；两个每日timer都按VPS本地时区在该整点后独立随机延迟0到1小时。`proxyClientsFilenames`的10个值必须是互不重复的安全basename，修改它们会改变公开下载URL
 
@@ -120,6 +120,11 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 
 ## 网络架构
 
+- client get distribution page
+	- client -> {cdnDomain}/{distributionPath}/{clientPath}.html:443
+	- Cloudflare cdn -> ip:{CDN_PORT}
+	- vps -> 127.0.0.1:{CDN_PORT}
+	- Caddy -> /var/www/3x-fake-site/{distributionPath}/{clientPath}.html
 - client get subscription
 	- client -> {cdnDomain}/{subscriptionPath}/{subscriptionID}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}

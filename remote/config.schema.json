@@ -86,6 +86,13 @@
 			"minLength": 16,
 			"maxLength": 16,
 			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"distributionPath": {
+			"description": "订阅+教程+客户端公开分发路径（自动生成，请勿手动设置）",
+			"type": "string",
+			"minLength": 15,
+			"maxLength": 15,
+			"pattern": "^[a-zA-Z0-9]+$"
 		}
 	},
 	"required": [

@@ -2,7 +2,7 @@ temp.*
 id_ed25519*
 /AGENTS.override.md
 /3x-setup.tar
-/clients/
+/clients.tsv
 /log*/
 /remote/fake-site/*
 /remote/cert.pem

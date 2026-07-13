@@ -15,20 +15,26 @@ function Export-ClientFiles
 		[pscustomobject]$Constants,
 
 		[Parameter(Mandatory = $true)]
-		[string]$ClientsDir
+		[string]$DistributionDir,
+
+		[Parameter(Mandatory = $true)]
+		[string]$ClientsTsvPath
 	)
 
 	$TemplatePath = Join-Path $PSScriptRoot "template.xhtml"
 	$TemplateContent = Get-Content -LiteralPath $TemplatePath -Raw -Encoding utf8
+	$TemplateContent = $TemplateContent -replace "`r`n", "`n" -replace "`r", "`n"
 	$SubscriptionPath = "$($Config.cdnDomain)/$($Config.subscriptionPath)"
 	$ProxyClientsUrl = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)$($Constants.proxyClientsSuffix)"
+	$DistributionUrl = "https://$($Config.cdnDomain)/$($Config.distributionPath)"
+	$TsvRows = [System.Collections.Generic.List[string]]::new()
+	[void]$TsvRows.Add("clients`tdistributionURL")
 
-	if (-not (Test-Path -LiteralPath $ClientsDir -PathType Container))
+	if (Test-Path -LiteralPath $DistributionDir)
 	{
-		New-Item -Path $ClientsDir -ItemType Directory -Force | Out-Null
+		Remove-Item -LiteralPath $DistributionDir -Recurse -Force
 	}
-
-	Get-ChildItem -LiteralPath $ClientsDir -File | Where-Object { $_.Extension -in @(".md", ".xhtml") } | Remove-Item -Force
+	New-Item -Path $DistributionDir -ItemType Directory -Force | Out-Null
 
 	foreach ($Client in @($Config.clients))
 	{
@@ -39,7 +45,9 @@ function Export-ClientFiles
 			throw "client path is empty: $ClientName"
 		}
 
-		$ClientFilePath = Join-Path $ClientsDir "$ClientName.xhtml"
+		$ClientFilename = "$ClientPath.html"
+		$ClientFilePath = Join-Path $DistributionDir $ClientFilename
+		[void]$TsvRows.Add("$ClientName`t$DistributionUrl/$ClientFilename")
 		$Content = $TemplateContent.Replace("{subscriptionPath}", $SubscriptionPath)
 		$Content = $Content.Replace("{clashSuffix}", [string]$Constants.clashSuffix)
 		$Content = $Content.Replace("{proxyClientsSuffix}", [string]$Constants.proxyClientsSuffix)
@@ -132,6 +140,9 @@ function Export-ClientFiles
 			$Writer.Dispose()
 		}
 	}
+
+	$TsvContent = ($TsvRows -join "`n") + "`n"
+	Set-Content -LiteralPath $ClientsTsvPath -Value $TsvContent -NoNewline -Encoding utf8NoBOM
 }
 
 Export-ModuleMember -Function Export-ClientFiles

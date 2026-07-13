@@ -51,6 +51,29 @@ function New-HexToken
 	return ([BitConverter]::ToString($Bytes) -replace "-", "").ToLowerInvariant()
 }
 
+function New-AlphanumericToken
+{
+	<#
+	.SYNOPSIS
+		生成指定长度的随机小写字母数字token
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)]
+		[ValidateRange(1, 1024)]
+		[int]$Length
+	)
+
+	$Alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	$Builder = [System.Text.StringBuilder]::new($Length)
+	for ($Index = 0; $Index -lt $Length; $Index++)
+	{
+		$CharacterIndex = [System.Security.Cryptography.RandomNumberGenerator]::GetInt32($Alphabet.Length)
+		[void]$Builder.Append($Alphabet[$CharacterIndex])
+	}
+	return $Builder.ToString()
+}
+
 function Test-BlankProperty
 {
 	<#
@@ -118,6 +141,10 @@ function Complete-SetupConfig
 	{
 		$Config | Add-Member -MemberType NoteProperty -Name "subscriptionPath" -Value (New-HexToken) -Force
 	}
+	if (Test-BlankProperty -InputObject $Config -Name "distributionPath")
+	{
+		$Config | Add-Member -MemberType NoteProperty -Name "distributionPath" -Value (New-AlphanumericToken -Length 15) -Force
+	}
 
 	foreach ($Client in @($Config.clients))
 	{
@@ -145,6 +172,10 @@ function Assert-SetupClientConfigValid
 	if ($RequireSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "subscriptionPath"))
 	{
 		throw "remote/config.json must contain subscriptionPath"
+	}
+	if (Test-BlankProperty -InputObject $Config -Name "distributionPath")
+	{
+		throw "remote/config.json must contain distributionPath"
 	}
 	$Clients = @($Config.clients)
 	if ($Clients.Count -le 0)

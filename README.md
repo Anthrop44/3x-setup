@@ -116,7 +116,7 @@ Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local m
 pwsh init.ps1
 ```
 
-`init.ps1` will automatically generate key pairs, generate subscription links, upload files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. It will generate encrypted `clients/*.xhtml` files containing a simple usage tutorial and subscription links, which can be distributed directly to clients. The entire server initialization process may take 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
+`init.ps1` will automatically generate key pairs, subscription links, encrypted client distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The `clients.tsv` file it generates contains the subscription distribution page URL that each client should receive — just send the listed URL directly to your clients. The entire server initialization process may take 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
 ## Updating Client Information
 
@@ -126,9 +126,9 @@ To add, remove, or edit client information, edit the `clients` field in `remote/
 pwsh sync-clients.ps1
 ```
 
-The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-export the encrypted local `clients/*.xhtml` files.
+The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-generate `clients.tsv`.
 
-**`init.ps1` and `sync-clients.ps1` will not modify existing `clients` key-value pairs in `remote/config.json`. Therefore, as long as you don't lose `remote/config.json` or change `cdnDomain` or `clashSuffix`, you won't lose any client subscription details even if you rebuild the server. In the future, if you need to modify inbounds or even switch servers, clients only need to update their subscriptions within their proxy clients; there is no need to issue new subscription links.**
+**`init.ps1` and `sync-clients.ps1` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
 Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.ps1`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
 

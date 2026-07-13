@@ -2,7 +2,7 @@
 .SYNOPSIS
 	同步远程3x-ui客户端
 .DESCRIPTION
-	上传 remote/config.json 到已有VPS，远程执行 3x-client-init.sh --noTLS，同步完成后下载日志
+	上传 remote/config.json 和客户分发页面到已有VPS，远程同步客户并更新伪装站分发目录
 #>
 
 [CmdletBinding()]
@@ -17,7 +17,8 @@ $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConfigSchemaPath = Join-Path $RemoteDir "config.schema.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
 $ConstantsSchemaPath = Join-Path $RemoteDir "constants.schema.json"
-$ClientsDir = Join-Path $ProjectDir "clients"
+$FakeSiteDir = Join-Path $RemoteDir "fake-site"
+$ClientsTsvPath = Join-Path $ProjectDir "clients.tsv"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
 Import-Module (Join-Path $ModuleDir "setup-config.psm1") -Force
@@ -60,9 +61,15 @@ Complete-SetupConfig -Config $Config
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
 Assert-SetupConstantsValid -Constants $Constants
 
-# 写回自动生成字段并导出本地客户端订阅文件
+# 写回自动生成字段并导出客户分发页面和URL清单
 Save-SetupConfig -Config $Config -ConfigPath $ConfigPath
-Export-ClientFiles -Config $Config -Constants $Constants -ClientsDir $ClientsDir
+$DistributionPath = [string]$Config.distributionPath
+$DistributionDir = Join-Path $FakeSiteDir $DistributionPath
+Export-ClientFiles -Config $Config -Constants $Constants -DistributionDir $DistributionDir -ClientsTsvPath $ClientsTsvPath
+if ($DistributionPath -notmatch "^[a-zA-Z0-9]{15}$")
+{
+	throw "remote/config.json distributionPath is unsafe"
+}
 
 $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
@@ -87,20 +94,40 @@ if ([string]::IsNullOrWhiteSpace($SftpPath))
 }
 
 $SftpBatchPath = Join-Path $ProjectDir "sync-clients-$([Guid]::NewGuid().ToString("N")).sftp"
-$RemoteCommand = "cd ~/3x-setup && (setsid bash -c 'exec bash ./3x-client-init.sh --noTLS </dev/null' >/dev/null 2>&1 < /dev/null & RemotePid=`$!; echo 'Remote client sync has started in the background; waiting for it to complete'; wait `$RemotePid)"
+$RemoteFakeSiteDir = "3x-setup/fake-site"
+$RemoteDistributionDir = "$RemoteFakeSiteDir/$DistributionPath"
+$PrepareRemoteCommand = "set -eu; cd ~; rm -rf -- '$RemoteDistributionDir'; mkdir -p -- '$RemoteFakeSiteDir'"
+$RemoteCommand = @"
+set -eu
+cd ~/3x-setup
+(setsid bash -c 'exec bash ./3x-client-init.sh --noTLS --noAPP </dev/null' >/dev/null 2>&1 < /dev/null & RemotePid=`$!; echo 'Remote client sync has started in the background; waiting for it to complete'; wait `$RemotePid)
+SourceDir="./fake-site/$DistributionPath"
+TargetDir="/var/www/3x-fake-site/$DistributionPath"
+test -d "`$SourceDir"
+sudo -n rm -rf -- "`$TargetDir"
+sudo -n install -d -m 755 -o caddy -g caddy "`$TargetDir"
+sudo -n cp -a -- "`$SourceDir"/. "`$TargetDir"/
+sudo -n chown -R caddy:caddy "`$TargetDir"
+"@
 
 try
 {
 	$ConfigSftpPath = $ConfigPath -replace "\\", "/"
+	$DistributionSftpPath = $DistributionDir -replace "\\", "/"
 	$SftpCommands = @(
 		"put `"$ConfigSftpPath`" `"3x-setup/config.json`"",
+		"put -r `"$DistributionSftpPath`" `"$RemoteFakeSiteDir`"",
 		"bye"
 	)
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
-	Write-Host "Uploading remote/config.json to $RemoteHost"
+	Write-Host "Preparing remote client distribution directory"
+	& $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $PrepareRemoteCommand
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote client distribution directory"
+
+	Write-Host "Uploading remote/config.json and client distribution pages to $RemoteHost"
 	& $SftpPath @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
-	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote/config.json"
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote client files"
 } finally
 {
 	Remove-Item -LiteralPath $SftpBatchPath -Force -ErrorAction SilentlyContinue

@@ -22,7 +22,8 @@ $ConfigSchemaPath = Join-Path $RemoteDir "config.schema.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
 $ConstantsSchemaPath = Join-Path $RemoteDir "constants.schema.json"
 $TarPath = Join-Path $ProjectDir "3x-setup.tar"
-$ClientsDir = Join-Path $ProjectDir "clients"
+$FakeSiteDir = Join-Path $RemoteDir "fake-site"
+$ClientsTsvPath = Join-Path $ProjectDir "clients.tsv"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
 # 自动准备部署所需的SSH密钥对
@@ -210,9 +211,10 @@ Complete-SetupConfig -Config $Config -IncludeSubscriptionPath
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
 Assert-SetupConstantsValid -Constants $Constants
 
-# 写回自动生成字段并导出本地客户端订阅文件
+# 写回自动生成字段并导出客户分发页面和URL清单
 Save-SetupConfig -Config $Config -ConfigPath $ConfigPath
-Export-ClientFiles -Config $Config -Constants $Constants -ClientsDir $ClientsDir
+$DistributionDir = Join-Path $FakeSiteDir ([string]$Config.distributionPath)
+Export-ClientFiles -Config $Config -Constants $Constants -DistributionDir $DistributionDir -ClientsTsvPath $ClientsTsvPath
 
 $RemoteHost = $Config.ip
 $InitialSshPort = $Constants.initialSshPort
