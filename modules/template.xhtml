@@ -4,7 +4,19 @@
 
 <head>
 	<meta charset="UTF-8" />
-	<title>HTML Example</title>
+	<title>Distribution</title>
+	<style type="text/css">
+		button[data-copy-subscription] {
+			padding: 0;
+			border: 0;
+			background: #dddddd;
+			color: #0000ee;
+			font: inherit;
+			font-weight: bold;
+			text-decoration: underline;
+			cursor: pointer;
+		}
+	</style>
 </head>
 
 <body>
@@ -18,13 +30,15 @@
 
 		<p>Import your subscription URL to a supported proxy client.</p>
 
-		<p>Subscription URL: <b>(Click to copy)</b></p>
+		<p>Please use a updated secure browser like Firefox, Edge, or Chrome and enable JavaScript before
+			continuing.</p>
+		<p>Subscription URL: <b style="background: #dddddd;">(Click to copy)</b></p>
 		<ul>
-			<li>v2rayN/v2rayNG/Shadowrocket: <a data-copy-subscription="true"
-					href="https://{subscriptionPath}/{clientPath}">https://{subscriptionPath}/{clientPath}</a>
+			<li>v2rayN/Xray/Shadowrocket: <button type="button" data-copy-subscription="true"
+					data-copy-subscription-name="v2rayN/Xray/Shadowrocket">https://{subscriptionPath}/{clientPath}</button>
 			</li>
-			<li>Clash Verge Rev/Clash Meta for Android: <a data-copy-subscription="true"
-					href="https://{subscriptionPath}{clashSuffix}/{clientPath}">https://{subscriptionPath}{clashSuffix}/{clientPath}</a>
+			<li>Clash/mihomo: <button type="button" data-copy-subscription="true"
+					data-copy-subscription-name="Clash/mihomo">https://{subscriptionPath}{clashSuffix}/{clientPath}</button>
 			</li>
 		</ul>
 
@@ -120,7 +134,8 @@
 		<ul>
 			<li>v2rayN：<a href="https://github.com/2dust/v2rayN">https://github.com/2dust/v2rayN</a>
 			</li>
-			<li>v2rayNG：<a href="https://github.com/2dust/v2rayNG">https://github.com/2dust/v2rayNG</a>
+			<li>v2rayNG：<a
+					href="https://github.com/2dust/v2rayNG">https://github.com/2dust/v2rayNG</a>
 			</li>
 			<li>Clash Verge Rev：<a
 					href="https://github.com/clash-verge-rev/clash-verge-rev">https://github.com/clash-verge-rev/clash-verge-rev</a>
@@ -197,14 +212,14 @@
 		 * @returns {Promise} 完成后无返回值
 		 */
 		async function copySubscription(event) {
-			const link = event.target.closest("a[data-copy-subscription]");
-			if (!link) {
+			const button = event.target.closest("button[data-copy-subscription]");
+			if (!button) {
 				return;
 			}
 
-			event.preventDefault();
 			try {
-				await navigator.clipboard.writeText(link.textContent);
+				await navigator.clipboard.writeText(button.textContent.trim());
+				window.alert(`${button.dataset.copySubscriptionName} subscription URL copied`);
 			} catch {
 				window.alert("Failed to copy subscription URL");
 			}
