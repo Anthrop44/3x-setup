@@ -8,6 +8,7 @@
 [CmdletBinding()]
 param(
 	[switch]$NoTLS,
+	[switch]$NoAPP,
 	[switch]$PuTTY
 )
 
@@ -220,9 +221,18 @@ $SshPort = $Config.sshPort
 # 打包 remote/ 为 3x-setup.tar
 tar -cf $TarPath -C $RemoteDir .
 
-$RemoteInitArgs = if ($NoTLS.IsPresent)
+$RemoteInitArgs = @()
+if ($NoTLS.IsPresent)
 {
-	" --noTLS"
+	$RemoteInitArgs += "--noTLS"
+}
+if ($NoAPP.IsPresent)
+{
+	$RemoteInitArgs += "--noAPP"
+}
+$RemoteInitArgs = if ($RemoteInitArgs.Count -gt 0)
+{
+	" " + ($RemoteInitArgs -join " ")
 } else
 {
 	""

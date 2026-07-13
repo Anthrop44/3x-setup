@@ -510,6 +510,20 @@ ensure_no_failed_units
 
 printf '\n== 完成 ==\n'
 
-# 执行 fetch-apps-init.sh
+# 执行后续初始化脚本
+for arg in "$@"; do
+	if [ "$arg" = "--noAPP" ]; then
+		printf '收到--noAPP，跳过代理客户端静态分发\n'
+		chmod +x "$SCRIPT_DIR/direct-tls-init.sh"
+		next_args=()
+		for next_arg in "$@"; do
+			if [ "$next_arg" != "--noAPP" ]; then
+				next_args+=("$next_arg")
+			fi
+		done
+		exec bash "$SCRIPT_DIR/direct-tls-init.sh" "${next_args[@]}"
+	fi
+done
+
 chmod +x "$SCRIPT_DIR/fetch-apps-init.sh"
 exec bash "$SCRIPT_DIR/fetch-apps-init.sh" "$@"
