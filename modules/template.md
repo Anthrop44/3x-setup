@@ -1,28 +1,57 @@
 # How-to-use
 
-Import your subscription URL to a supported proxy client listed below.
+Import your subscription URL to a supported proxy client.
 
 Subscription URL:
-- v2rayN/v2rayNG/Shadowrocket: <{v2raySubscriptionURL}>
-- Clash/mihomo: <{clashSubscriptionURL}>
+- v2rayN/v2rayNG/Shadowrocket: <https://{subscriptionPath}/{clientPath}>
+- Clash Verge Rev/Clash Meta for Android: <https://{subscriptionPath}{clashSuffix}/{clientPath}>
 
-**For your own security, DO NOT share your subscription URL with anyone, and do not copy texts containing these links onto Chinese platforms such as WeChat or QQ. If you need to use them on your mobile phone, send this file directly to your device first, and then import the links into your proxy clients.**
+**For your security, DO NOT share your subscription URL with anyone or paste these links onto Chinese platforms such as WeChat or QQ.**
 
-**Please update your subscription regularly. If your subscription stops working, try updating the subscription first.**
+**If your subscription stops working, please update BOTH your subscription and proxy clients first.**
 
-## Supported Clients
+# Supported Clients
 
-Windows/macOS/Linux:
-- v2rayN: <https://github.com/2dust/v2rayN/releases>
-- Clash Verge Rev: <https://github.com/clash-verge-rev/clash-verge-rev/releases>
+## Windows x64
 
-Android:
-- v2rayNG: <https://github.com/2dust/v2rayNG/releases> (usually choose `v2rayNG_2.x.x_arm64-v8a.apk`)
-- Clash Meta for Android: <https://github.com/MetaCubeX/ClashMetaForAndroid/releases> (usually choose `cmfa-2.x.x-meta-arm64-v8a-release.apk`)
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNWindowsX64}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevWindowsX64}>
 
-iOS:
-- Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>
+## Android
 
-## Open Source Repository
+- **v2rayNG: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNGAndroidArm64}>**
+- Clash Meta for Android: <{proxyClientsURL}/{proxyClientsFilenames.clashMetaAndroidArm64}>
 
-You can deploy your own server using <https://github.com/Anthrop44/3x-setup>. It is highly straightforward and very cost-effective. If you find it helpful, please leave a star and fork it!
+## iOS
+
+- **Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>**
+
+## macOS arm64
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNMacOSArm64}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevMacOSArm64}>
+
+## Linux x64
+
+Debian, Ubuntu...
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNLinuxX64Deb}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevLinuxX64Deb}>
+
+Fedora, RHEL...
+
+- **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNLinuxX64Rpm}>**
+- Clash Verge Rev: <{proxyClientsURL}/{proxyClientsFilenames.clashVergeRevLinuxX64Rpm}>
+
+# Open Source
+
+This service is deployed via <https://github.com/Anthrop44/3x-setup>. It is an open-source, one-click VPN deployment script based on 3X-UI, with which you can set up your own VPN service in 30 minutes.
+
+If you find it helpful, please consider leaving a star!
+
+# Acknowledgements
+
+- [v2rayN](https://github.com/2dust/v2rayN)
+- [v2rayNG](https://github.com/2dust/v2rayNG)
+- [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)
+- [Clash Meta for Android](https://github.com/MetaCubeX/ClashMetaForAndroid)

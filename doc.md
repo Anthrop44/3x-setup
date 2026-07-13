@@ -4,13 +4,13 @@
 
 本方案默认安全，不需要任何额外加固，服务器只对公网暴露80、443和自定义SSH端口，对Cloudflare ip段暴露自定义高位cdn回源端口。3X-UI面板不暴露公网，通过SSH通道访问。普通HTTP(S)访问和GFW主动探测会回落到本机自托管的伪装站。XHTTP和订阅链接隐藏路径由脚本自动随机生成以确保无特征隐蔽性
 
-本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`
+本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`
 
 `init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不能视为可用，因为客户端需要信任`directDomain`的公信证书
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名和客户订阅路径不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出`clients/*.md`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSubscriptionPathSuffix`派生
+`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名、客户订阅路径和代理客户端固定文件名不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出`clients/*.md`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
 
 上传阶段默认使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；默认流程不读取`initialPassword`，也不要求非交互式登录；远端初始化完成后执行`get-log.ps1`。传入`-PuTTY`时才改用PuTTY组件`pscp.exe`和`plink.exe`，此时要求`remote/config.json`提供`initialPassword`，并沿用自动处理PuTTY首次连接hostkey确认的逻辑。PuTTY模式主要用于方便AI Agents非交互式使用`init.ps1`
 
@@ -34,11 +34,11 @@
 
 ---
 
-`modules/setup-config.psm1`封装配置处理；它用`Test-Json`校验schema，用加密随机数生成16位十六进制token，补齐空白字段，确保客户端数组非空、`client`非空、`path`非空、客户端名不重复、订阅ID不重复，并写回json
+`modules/setup-config.psm1`封装配置处理；它用`Test-Json`校验schema，用加密随机数生成16位十六进制token，补齐空白字段，确保客户端数组非空、`client`非空、`path`非空、客户端名不重复、订阅ID不重复，并检查`clashSuffix`和`proxyClientsSuffix`不冲突、`proxyClientsFilenames`中的固定文件名不重复
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.md`，确保`clients/`存在，删除旧的`clients/*.md`，为每个`clients[]`生成一个同名Markdown文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSubscriptionPathSuffix}/path`。可以通过修改`modules/template.md`编辑内容模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.md`，确保`clients/`存在，删除旧的`clients/*.md`，为每个`clients[]`生成一个同名Markdown文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。可以通过修改`modules/template.md`编辑内容模板
 
 ## 远端初始化脚本
 
@@ -50,7 +50,7 @@
 
 `remote/user-init.sh`配置系统安全基线；它把SSH切换到`config.json`里的`sshPort`，启用公钥认证，禁用密码登录和root登录，重启`ssh`或`sshd`；随后配置UFW默认拒绝入站、允许出站，只开放`80/tcp`、`443/tcp`、`443/udp`和`sshPort/tcp`
 
-同一脚本还生成`/usr/local/sbin/3x-update-cloudflare-ufw.sh`，从Cloudflare官方IP列表刷新`cdnPort`白名单规则，并安装`3x-cloudflare-ufw.service`和每日运行的`3x-cloudflare-ufw.timer`；最后加载并要求内核支持BBR，把`fq`和`bbr`写入`/etc/sysctl.d/99-3x-bbr.conf`后进入`service-check.sh`
+同一脚本还生成`/usr/local/sbin/3x-update-cloudflare-ufw.sh`，从Cloudflare官方IP列表刷新`cdnPort`白名单规则，并安装`3x-cloudflare-ufw.service`和每日运行的`3x-cloudflare-ufw.timer`；timer按VPS本地时区在`dailyTaskHour`整点后随机延迟0到1小时执行。最后脚本加载并要求内核支持BBR，把`fq`和`bbr`写入`/etc/sysctl.d/99-3x-bbr.conf`后进入`service-check.sh`
 
 ---
 
@@ -82,6 +82,14 @@
 
 ---
 
+`remote/fetch-apps-init.sh`和`remote/fetch-apps-check.sh`负责代理客户端静态分发；初始化脚本把自身安装为`/usr/local/sbin/3x-fetch-apps`，在`/var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}`创建隐藏目录，并安装与Cloudflare任务使用相同`dailyTaskHour`和1小时随机延迟的`3x-fetch-apps.timer`
+
+更新器通过GitHub`releases/latest`API获取v2rayN、v2rayNG、Clash Verge Rev和Clash Meta for Android的最新稳定release，严格匹配10个目标asset；状态保存在`/var/lib/3x-fetch-apps/state.json`。asset发生变化或文件缺失、校验失败时才重新下载，临时文件通过大小和可用SHA-256 digest校验后才原子替换旧文件
+
+资源级错误按每日任务计数，每次任务内部HTTP最多尝试3次；连续3个每日任务失败后只禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、10项状态、文件权限和本机CDN固定URL后进入TLS阶段
+
+---
+
 `remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书
 
 `--noTLS`模式下，脚本只记录跳过公信TLS，不渲染ACME配置也不触发CA；检查脚本会验证Caddy和x-ui状态、Caddyfile、证书文件、端口监听、HTTP到HTTPS跳转、伪装站正文和失败单元；只有非`--noTLS`模式才要求`directDomain`证书不是自签、Cloudflare Origin、Staging或FakeLE证书
@@ -90,9 +98,9 @@
 
 `remote/config.schema.json`描述用户必须准备的敏感配置；必填项包括`ip`、`sshPort`、`cdnPort`、`directDomain`、`cdnDomain`和`clients`；`initialPassword`仅供`init.ps1 -PuTTY`非交互式首次登录使用，默认OpenSSH流程不需要填写；`sshPort`和`cdnPort`必须大于10000，`directDomain`和`cdnDomain`必须是合法hostname
 
-`subscriptionPath`和`clients[].path`是自动生成字段，长度固定为16，建议不要手动设置；Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSubscriptionPathSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
+`subscriptionPath`和`clients[].path`是自动生成字段，长度固定为16，建议不要手动设置；Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
 
-`remote/constants.json`保存默认端口、账号和Clash订阅路径追加字符串；`clashSubscriptionPathSuffix`必须是非空字符串，默认为`c`；除非明确知道影响范围，否则不建议修改；默认`username`和`3xusername`都是`3xuser`，默认`localSshPort`和`3xpanelPort`都是`2053`，这是安全的，因为一个是本机转发端口，一个是远端本机监听端口
+`remote/constants.json`保存默认端口、账号、隐藏路径后缀、每日任务时间和代理客户端固定文件名；`clashSuffix`与`proxyClientsSuffix`必须是不同的非空字母数字字符串。`dailyTaskHour`是0到23的integer，默认4；两个每日timer都按VPS本地时区在该整点后独立随机延迟0到1小时。`proxyClientsFilenames`的10个值必须是互不重复的安全basename，修改它们会改变公开下载URL
 
 `remote/paths.json`不在仓库中，由远端`caddy-init.sh`生成，目前保存随机`xhttpPath`；后续Caddy、3X-UI入站、检查脚本都会读取它，所以不要在远端初始化中途删除
 
@@ -117,11 +125,16 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 	- Caddy -> 127.0.0.1:{subscriptionPort}
 	- 3X-UI subscription
 - client get Clash/Mihomo subscription
-	- client -> {cdnDomain}/{subscriptionPath}{clashSubscriptionPathSuffix}/{subscriptionID}:443
+	- client -> {cdnDomain}/{subscriptionPath}{clashSuffix}/{subscriptionID}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
 	- Caddy -> 127.0.0.1:{subscriptionPort}
 	- 3X-UI Clash/Mihomo subscription
+- client download proxy application
+	- client -> {cdnDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
+	- Cloudflare cdn -> ip:{CDN_PORT}
+	- vps -> 127.0.0.1:{CDN_PORT}
+	- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
 - Hysteria2 Direct Connection
 	- client -> {directDomain}:443/udp
 	- vps -> 0.0.0.0:443/udp
@@ -157,7 +170,7 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 
 面板SSL模式为无，因为公网不直接访问面板；面板监听地址强制设置为`127.0.0.1`，需要通过`ssh-tunnel.ps1`访问
 
-订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/{subscriptionPath}{clashSubscriptionPathSuffix}/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/{subscriptionPath}{clashSubscriptionPathSuffix}/`
+订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/{subscriptionPath}{clashSuffix}/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/{subscriptionPath}{clashSuffix}/`
 
 订阅加密开启，显示流量信息，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”；Clash规则来自`remote/clash-rule.txt`
 
@@ -261,7 +274,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 `directDomain:realityTargetPort`绑定`127.0.0.1`，提供Reality fallback要访问的HTTPS伪装站；初始阶段使用`/etc/caddy/3x-direct-*.pem`文件证书；公信TLS阶段临时改成ACME配置，签发成功后再把证书复制回稳定路径供Xray读取
 
-`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`和`/{subscriptionPath}{clashSubscriptionPathSuffix}/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径返回伪装站
+`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`和`/{subscriptionPath}{clashSuffix}/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
 
 ## Hints
 

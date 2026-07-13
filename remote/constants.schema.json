@@ -139,11 +139,92 @@
 			"minLength": 5,
 			"pattern": "^[a-zA-Z0-9]+$"
 		},
-		"clashSubscriptionPathSuffix": {
+		"clashSuffix": {
 			"description": "Clash订阅路径追加字符串",
 			"type": "string",
 			"default": "c",
-			"minLength": 1
+			"minLength": 1,
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"proxyClientsSuffix": {
+			"description": "代理客户端下载路径追加字符串",
+			"type": "string",
+			"default": "p",
+			"minLength": 1,
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"dailyTaskHour": {
+			"description": "VPS本地时区的每日任务开始小时，任务会在此后随机延迟一小时内执行",
+			"type": "integer",
+			"default": 4,
+			"minimum": 0,
+			"maximum": 23
+		},
+		"proxyClientsFilenames": {
+			"description": "代理客户端固定下载文件名",
+			"type": "object",
+			"properties": {
+				"v2rayNWindowsX64": {
+					"type": "string",
+					"default": "v2rayN-windows-64.zip"
+				},
+				"clashVergeRevWindowsX64": {
+					"type": "string",
+					"default": "Clash.Verge_latest_x64-setup.exe"
+				},
+				"v2rayNGAndroidArm64": {
+					"type": "string",
+					"default": "v2rayNG_latest-fdroid_arm64-v8a.apk"
+				},
+				"clashMetaAndroidArm64": {
+					"type": "string",
+					"default": "cmfa-latest-meta-arm64-v8a-release.apk"
+				},
+				"v2rayNMacOSArm64": {
+					"type": "string",
+					"default": "v2rayN-macos-arm64.dmg"
+				},
+				"clashVergeRevMacOSArm64": {
+					"type": "string",
+					"default": "Clash.Verge_latest_aarch64.dmg"
+				},
+				"v2rayNLinuxX64Deb": {
+					"type": "string",
+					"default": "v2rayN-linux-64.deb"
+				},
+				"clashVergeRevLinuxX64Deb": {
+					"type": "string",
+					"default": "Clash.Verge_latest_amd64.deb"
+				},
+				"v2rayNLinuxX64Rpm": {
+					"type": "string",
+					"default": "v2rayN-linux-rhel-64.rpm"
+				},
+				"clashVergeRevLinuxX64Rpm": {
+					"type": "string",
+					"default": "Clash.Verge-latest.x86_64.rpm"
+				}
+			},
+			"required": [
+				"v2rayNWindowsX64",
+				"clashVergeRevWindowsX64",
+				"v2rayNGAndroidArm64",
+				"clashMetaAndroidArm64",
+				"v2rayNMacOSArm64",
+				"clashVergeRevMacOSArm64",
+				"v2rayNLinuxX64Deb",
+				"clashVergeRevLinuxX64Deb",
+				"v2rayNLinuxX64Rpm",
+				"clashVergeRevLinuxX64Rpm"
+			],
+			"additionalProperties": false,
+			"patternProperties": {
+				"^[a-zA-Z0-9]+$": {
+					"minLength": 1,
+					"maxLength": 255,
+					"pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+				}
+			}
 		}
 	},
 	"required": [
@@ -157,7 +238,10 @@
 		"xhttpPort",
 		"cdnOptDomain",
 		"subscriptionPort",
-		"clashSubscriptionPathSuffix",
+		"clashSuffix",
+		"proxyClientsSuffix",
+		"dailyTaskHour",
+		"proxyClientsFilenames",
 		"localSshPort",
 		"3xpanelPort",
 		"3xpanelUriPath"

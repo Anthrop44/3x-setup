@@ -177,6 +177,31 @@ function Assert-SetupClientConfigValid
 	}
 }
 
+function Assert-SetupConstantsValid
+{
+	<#
+	.SYNOPSIS
+		检查常量可安全用于路径和客户端文件名
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Constants
+	)
+
+	if ([string]::Equals([string]$Constants.clashSuffix, [string]$Constants.proxyClientsSuffix, [System.StringComparison]::OrdinalIgnoreCase))
+	{
+		throw "remote/constants.json clashSuffix and proxyClientsSuffix must be different"
+	}
+
+	$FilenameProperties = @($Constants.proxyClientsFilenames.PSObject.Properties)
+	$DuplicateFilenames = @($FilenameProperties | Group-Object -Property Value | Where-Object { $_.Count -gt 1 } | ForEach-Object { [string]$_.Name })
+	if ($DuplicateFilenames.Count -gt 0)
+	{
+		throw "remote/constants.json has duplicate proxy client filenames: $($DuplicateFilenames -join ", ")"
+	}
+}
+
 function Save-SetupConfig
 {
 	<#
@@ -196,4 +221,4 @@ function Save-SetupConfig
 	Set-Content -LiteralPath $ConfigPath -Value $Json -NoNewline -Encoding utf8NoBOM
 }
 
-Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Save-SetupConfig
+Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Assert-SetupConstantsValid, Save-SetupConfig

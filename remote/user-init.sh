@@ -16,6 +16,8 @@ exec >>"$LOG_PATH" 2>&1
 # 读取 config.json 和 constants.json
 SSH_PORT="$(jq -r '.sshPort' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
+DAILY_TASK_HOUR="$(jq -r '.dailyTaskHour' "$CONSTANTS_PATH")"
+printf -v DAILY_TASK_TIME '%02d:00:00' "$DAILY_TASK_HOUR"
 
 # 配置SSH高位端口、禁止SSH密码登录、禁止SSH直接使用root登录
 sudo install -d /etc/ssh/sshd_config.d
@@ -98,13 +100,12 @@ Type=oneshot
 ExecStart=/usr/local/sbin/3x-update-cloudflare-ufw.sh
 EOF
 
-sudo tee /etc/systemd/system/3x-cloudflare-ufw.timer >/dev/null <<'EOF'
+sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | sudo tee /etc/systemd/system/3x-cloudflare-ufw.timer >/dev/null
 [Unit]
 Description=Update Cloudflare UFW rules for 3x CDN port daily
 
 [Timer]
-OnBootSec=5min
-OnCalendar=daily
+OnCalendar=*-*-* {{DAILY_TASK_TIME}}
 RandomizedDelaySec=1h
 Persistent=true
 Unit=3x-cloudflare-ufw.service

@@ -58,6 +58,7 @@ Complete-SetupConfig -Config $Config
 
 # 检查 config.json 中的客户端名和订阅路径不重复
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
+Assert-SetupConstantsValid -Constants $Constants
 
 # 写回自动生成字段并导出本地客户端订阅文件
 Save-SetupConfig -Config $Config -ConfigPath $ConfigPath

@@ -178,6 +178,8 @@ $RequiredFiles = @(
 	"3x-inbound-check.sh",
 	"3x-client-init.sh",
 	"3x-client-check.sh",
+	"fetch-apps-init.sh",
+	"fetch-apps-check.sh",
 	"direct-tls-init.sh",
 	"direct-tls-check.sh"
 )
@@ -205,6 +207,7 @@ Complete-SetupConfig -Config $Config -IncludeSubscriptionPath
 
 # 检查 config.json 中的客户端名和订阅路径不重复
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
+Assert-SetupConstantsValid -Constants $Constants
 
 # 写回自动生成字段并导出本地客户端订阅文件
 Save-SetupConfig -Config $Config -ConfigPath $ConfigPath
