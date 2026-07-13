@@ -97,6 +97,8 @@ remote/
 
 然后根据`remote/config.schema.json`，利用IDE如VS Code的json LSP提示来补全剩下的内容直到没有警告为止，不会的可以问AI
 
+普通订阅路径由脚本自动生成。Clash/Mihomo订阅路径是在普通订阅路径后追加`remote/constants.json`中的`clashSubscriptionPathSuffix`派生而来，默认追加`c`
+
 ---
 
 准备静态伪装站：（若不会可让AI代写）
@@ -126,7 +128,7 @@ pwsh sync-clients.ps1
 
 脚本会上传新的`remote/config.json`并同步客户端信息，重启Xray，并重新导出本地`clients/*.md`
 
-**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的`clients`键值。因此，只要不丢失`remote/config.json`或更改`cdnDomain`，即使重建服务器也不会丢失任何客户的订阅信息，所以未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的订阅链接**
+**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的`clients`键值。因此，只要不丢失`remote/config.json`或更改`cdnDomain`、`clashSubscriptionPathSuffix`，即使重建服务器也不会丢失任何客户的订阅信息，所以未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的订阅链接**
 
 ## 连接3X-UI面板
 

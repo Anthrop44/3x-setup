@@ -12,6 +12,9 @@ function Export-ClientFiles
 		[pscustomobject]$Config,
 
 		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Constants,
+
+		[Parameter(Mandatory = $true)]
 		[string]$ClientsDir
 	)
 
@@ -36,7 +39,7 @@ function Export-ClientFiles
 
 		$ClientFilePath = Join-Path $ClientsDir "$ClientName.md"
 		$Url = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)/$ClientPath"
-		$ClashUrl = "https://$($Config.cdnDomain)/$($Config.clashSubscriptionPath)/$ClientPath"
+		$ClashUrl = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)$($Constants.clashSubscriptionPathSuffix)/$ClientPath"
 		$Content = $TemplateContent -replace [regex]::Escape("{v2raySubscriptionURL}"), $Url
 		$Content = $Content -replace [regex]::Escape("{clashSubscriptionURL}"), $ClashUrl
 		Set-Content -LiteralPath $ClientFilePath -Value $Content -Encoding utf8NoBOM

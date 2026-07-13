@@ -10,7 +10,7 @@
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`、`clashSubscriptionPath`和`clients[].path`，检查客户端名和订阅路径不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出`clients/*.md`
+`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，然后把`remote/`中的文本文件统一为LF，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`subscriptionPath`和`clients[].path`，检查客户端名和客户订阅路径不重复，最后写回`remote/config.json`并调用`modules/client-files.psm1`导出`clients/*.md`。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSubscriptionPathSuffix`派生
 
 上传阶段默认使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；默认流程不读取`initialPassword`，也不要求非交互式登录；远端初始化完成后执行`get-log.ps1`。传入`-PuTTY`时才改用PuTTY组件`pscp.exe`和`plink.exe`，此时要求`remote/config.json`提供`initialPassword`，并沿用自动处理PuTTY首次连接hostkey确认的逻辑。PuTTY模式主要用于方便AI Agents非交互式使用`init.ps1`
 
@@ -18,7 +18,7 @@
 
 ---
 
-`sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`clashSubscriptionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`，在远端执行`3x-client-init.sh --noTLS`，最后下载日志；这里传`--noTLS`只是为了不触发证书流程，因为客户同步只需要更新3X-UI客户端
+`sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`，在远端执行`3x-client-init.sh --noTLS`，最后下载日志；这里传`--noTLS`只是为了不触发证书流程，因为客户同步只需要更新3X-UI客户端
 
 ---
 
@@ -38,7 +38,7 @@
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.md`，确保`clients/`存在，删除旧的`clients/*.md`，为每个`clients[]`生成一个同名Markdown文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/clashSubscriptionPath/path`。可以通过修改`modules/template.md`编辑内容模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.md`，确保`clients/`存在，删除旧的`clients/*.md`，为每个`clients[]`生成一个同名Markdown文件，把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSubscriptionPathSuffix}/path`。可以通过修改`modules/template.md`编辑内容模板
 
 ## 远端初始化脚本
 
@@ -90,9 +90,9 @@
 
 `remote/config.schema.json`描述用户必须准备的敏感配置；必填项包括`ip`、`sshPort`、`cdnPort`、`directDomain`、`cdnDomain`和`clients`；`initialPassword`仅供`init.ps1 -PuTTY`非交互式首次登录使用，默认OpenSSH流程不需要填写；`sshPort`和`cdnPort`必须大于10000，`directDomain`和`cdnDomain`必须是合法hostname
 
-`subscriptionPath`、`clashSubscriptionPath`和`clients[].path`是自动生成字段，长度固定为16，建议不要手动设置；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
+`subscriptionPath`和`clients[].path`是自动生成字段，长度固定为16，建议不要手动设置；Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSubscriptionPathSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
 
-`remote/constants.json`保存默认端口和账号；除非明确知道影响范围，否则不建议修改；默认`username`和`3xusername`都是`3xuser`，默认`localSshPort`和`3xpanelPort`都是`2053`，这是安全的，因为一个是本机转发端口，一个是远端本机监听端口
+`remote/constants.json`保存默认端口、账号和Clash订阅路径追加字符串；`clashSubscriptionPathSuffix`必须是非空字符串，默认为`c`；除非明确知道影响范围，否则不建议修改；默认`username`和`3xusername`都是`3xuser`，默认`localSshPort`和`3xpanelPort`都是`2053`，这是安全的，因为一个是本机转发端口，一个是远端本机监听端口
 
 `remote/paths.json`不在仓库中，由远端`caddy-init.sh`生成，目前保存随机`xhttpPath`；后续Caddy、3X-UI入站、检查脚本都会读取它，所以不要在远端初始化中途删除
 
@@ -117,7 +117,7 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 	- Caddy -> 127.0.0.1:{subscriptionPort}
 	- 3X-UI subscription
 - client get Clash/Mihomo subscription
-	- client -> {cdnDomain}/{clashSubscriptionPath}/{subscriptionID}:443
+	- client -> {cdnDomain}/{subscriptionPath}{clashSubscriptionPathSuffix}/{subscriptionID}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
 	- Caddy -> 127.0.0.1:{subscriptionPort}
@@ -157,7 +157,7 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 
 面板SSL模式为无，因为公网不直接访问面板；面板监听地址强制设置为`127.0.0.1`，需要通过`ssh-tunnel.ps1`访问
 
-订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/clashSubscriptionPath/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/clashSubscriptionPath/`
+订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/{subscriptionPath}{clashSubscriptionPathSuffix}/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/{subscriptionPath}{clashSubscriptionPathSuffix}/`
 
 订阅加密开启，显示流量信息，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”；Clash规则来自`remote/clash-rule.txt`
 
@@ -261,7 +261,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 `directDomain:realityTargetPort`绑定`127.0.0.1`，提供Reality fallback要访问的HTTPS伪装站；初始阶段使用`/etc/caddy/3x-direct-*.pem`文件证书；公信TLS阶段临时改成ACME配置，签发成功后再把证书复制回稳定路径供Xray读取
 
-`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`和`/clashSubscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径返回伪装站
+`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`和`/{subscriptionPath}{clashSubscriptionPathSuffix}/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径返回伪装站
 
 ## Hints
 

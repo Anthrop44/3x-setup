@@ -201,14 +201,14 @@ $Config = $ConfigFiles.Config
 $Constants = $ConfigFiles.Constants
 
 # 补齐 config.json 自动生成字段
-Complete-SetupConfig -Config $Config -IncludeSubscriptionPath -IncludeClashSubscriptionPath
+Complete-SetupConfig -Config $Config -IncludeSubscriptionPath
 
 # 检查 config.json 中的客户端名和订阅路径不重复
-Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath -RequireClashSubscriptionPath
+Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
 
 # 写回自动生成字段并导出本地客户端订阅文件
 Save-SetupConfig -Config $Config -ConfigPath $ConfigPath
-Export-ClientFiles -Config $Config -ClientsDir $ClientsDir
+Export-ClientFiles -Config $Config -Constants $Constants -ClientsDir $ClientsDir
 
 $RemoteHost = $Config.ip
 $InitialSshPort = $Constants.initialSshPort

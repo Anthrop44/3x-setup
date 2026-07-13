@@ -25,8 +25,9 @@ PANEL_PORT="$(jq -r '."3xpanelPort" // empty' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath" // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
 PANEL_URL_PATH="/$PANEL_URI_PATH/"
+CLASH_SUBSCRIPTION_PATH_SUFFIX="$(jq -r '.clashSubscriptionPathSuffix // empty' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath // empty' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="$(jq -r '.clashSubscriptionPath // empty' "$CONFIG_PATH")"
+CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUBSCRIPTION_PATH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath // empty' "$PATHS_PATH")"
 
 require_setting_value() {

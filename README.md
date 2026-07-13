@@ -99,6 +99,8 @@ To fill in `config.json`, you can first create:
 
 Then, based on `remote/config.schema.json`, use an IDE like VS Code with JSON LSP autocomplete to fill in the rest of the file until no warnings remain. If you get stuck, you can ask an AI for help.
 
+The ordinary subscription path is generated automatically. The Clash/Mihomo subscription path is derived by appending `clashSubscriptionPathSuffix` from `remote/constants.json`; its default value is `c`.
+
 ---
 
 Prepare the static masquerade site: (If you don't know how, you can let an AI generate it)
@@ -128,7 +130,7 @@ pwsh sync-clients.ps1
 
 The script will upload the new `remote/config.json`, sync the client information, restart Xray, and re-export the local `clients/*.md` files.
 
-**`init.ps1` and `sync-clients.ps1` will not modify existing `clients` key-value pairs in `remote/config.json`. Therefore, as long as you don't lose `remote/config.json` or change the `cdnDomain`, you won't lose any client subscription details even if you rebuild the server. In the future, if you need to modify inbounds or even switch servers, clients only need to update their subscriptions within their proxy clients; there is no need to issue new subscription links.**
+**`init.ps1` and `sync-clients.ps1` will not modify existing `clients` key-value pairs in `remote/config.json`. Therefore, as long as you don't lose `remote/config.json` or change `cdnDomain` or `clashSubscriptionPathSuffix`, you won't lose any client subscription details even if you rebuild the server. In the future, if you need to modify inbounds or even switch servers, clients only need to update their subscriptions within their proxy clients; there is no need to issue new subscription links.**
 
 ## Connecting to the 3X-UI Panel
 

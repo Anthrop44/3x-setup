@@ -138,6 +138,12 @@
 			"default": "3xpanel",
 			"minLength": 5,
 			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"clashSubscriptionPathSuffix": {
+			"description": "Clash订阅路径追加字符串",
+			"type": "string",
+			"default": "c",
+			"minLength": 1
 		}
 	},
 	"required": [
@@ -151,6 +157,7 @@
 		"xhttpPort",
 		"cdnOptDomain",
 		"subscriptionPort",
+		"clashSubscriptionPathSuffix",
 		"localSshPort",
 		"3xpanelPort",
 		"3xpanelUriPath"

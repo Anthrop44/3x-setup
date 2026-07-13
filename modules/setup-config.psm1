@@ -111,19 +111,12 @@ function Complete-SetupConfig
 		[Parameter(Mandatory = $true)]
 		[pscustomobject]$Config,
 
-		[switch]$IncludeSubscriptionPath,
-
-		[switch]$IncludeClashSubscriptionPath
+		[switch]$IncludeSubscriptionPath
 	)
 
 	if ($IncludeSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "subscriptionPath"))
 	{
 		$Config | Add-Member -MemberType NoteProperty -Name "subscriptionPath" -Value (New-HexToken) -Force
-	}
-
-	if ($IncludeClashSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath"))
-	{
-		$Config | Add-Member -MemberType NoteProperty -Name "clashSubscriptionPath" -Value (New-HexToken) -Force
 	}
 
 	foreach ($Client in @($Config.clients))
@@ -146,30 +139,13 @@ function Assert-SetupClientConfigValid
 		[Parameter(Mandatory = $true)]
 		[pscustomobject]$Config,
 
-		[switch]$RequireSubscriptionPath,
-
-		[switch]$RequireClashSubscriptionPath
+		[switch]$RequireSubscriptionPath
 	)
 
 	if ($RequireSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "subscriptionPath"))
 	{
 		throw "remote/config.json must contain subscriptionPath"
 	}
-	if ($RequireClashSubscriptionPath.IsPresent -and (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath"))
-	{
-		throw "remote/config.json must contain clashSubscriptionPath"
-	}
-	if (
-		$RequireSubscriptionPath.IsPresent -and
-		$RequireClashSubscriptionPath.IsPresent -and
-		(-not (Test-BlankProperty -InputObject $Config -Name "subscriptionPath")) -and
-		(-not (Test-BlankProperty -InputObject $Config -Name "clashSubscriptionPath")) -and
-		([string]$Config.subscriptionPath -eq [string]$Config.clashSubscriptionPath)
-	)
-	{
-		throw "remote/config.json has duplicate subscription paths: subscriptionPath and clashSubscriptionPath"
-	}
-
 	$Clients = @($Config.clients)
 	if ($Clients.Count -le 0)
 	{

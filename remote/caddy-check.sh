@@ -42,8 +42,9 @@ CDN_DOMAIN="$(jq -r '.cdnDomain // empty' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort // empty' "$CONFIG_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
+CLASH_SUBSCRIPTION_PATH_SUFFIX="$(jq -r '.clashSubscriptionPathSuffix // empty' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath // empty' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="$(jq -r '.clashSubscriptionPath // empty' "$CONFIG_PATH")"
+CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUBSCRIPTION_PATH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath // empty' "$PATHS_PATH")"
 
 printf '== 基本信息 ==\n'
