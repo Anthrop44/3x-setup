@@ -18,12 +18,12 @@
 
 		<p>Import your subscription URL to a supported proxy client.</p>
 
-		<p>Subscription URL:</p>
+		<p>Subscription URL: (Click to copy)</p>
 		<ul>
-			<li>v2rayN/v2rayNG/Shadowrocket: <a
+			<li>v2rayN/v2rayNG/Shadowrocket: <a data-copy-subscription="true"
 					href="https://{subscriptionPath}/{clientPath}">https://{subscriptionPath}/{clientPath}</a>
 			</li>
-			<li>Clash Verge Rev/Clash Meta for Android: <a
+			<li>Clash Verge Rev/Clash Meta for Android: <a data-copy-subscription="true"
 					href="https://{subscriptionPath}{clashSuffix}/{clientPath}">https://{subscriptionPath}{clashSuffix}/{clientPath}</a>
 			</li>
 		</ul>
@@ -120,8 +120,7 @@
 		<ul>
 			<li>v2rayN：<a href="https://github.com/2dust/v2rayN">https://github.com/2dust/v2rayN</a>
 			</li>
-			<li>v2rayNG：<a
-					href="https://github.com/2dust/v2rayNG">https://github.com/2dust/v2rayNG</a>
+			<li>v2rayNG：<a href="https://github.com/2dust/v2rayNG">https://github.com/2dust/v2rayNG</a>
 			</li>
 			<li>Clash Verge Rev：<a
 					href="https://github.com/clash-verge-rev/clash-verge-rev">https://github.com/clash-verge-rev/clash-verge-rev</a>
@@ -192,8 +191,28 @@
 			input.setCustomValidity("");
 		}
 
+		/**
+		 * 将订阅链接复制到剪贴板
+		 * @param {MouseEvent} event 点击事件
+		 * @returns {Promise} 完成后无返回值
+		 */
+		async function copySubscription(event) {
+			const link = event.target.closest("a[data-copy-subscription]");
+			if (!link) {
+				return;
+			}
+
+			event.preventDefault();
+			try {
+				await navigator.clipboard.writeText(link.textContent);
+			} catch {
+				window.alert("Failed to copy subscription URL");
+			}
+		}
+
 		input.addEventListener("input", clearInputValidity);
 		form.addEventListener("submit", decrypt);
+		encrypted.addEventListener("click", copySubscription);
 	</script>
 </body>
 
