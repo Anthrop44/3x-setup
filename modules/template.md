@@ -12,6 +12,10 @@ Subscription URL:
 
 # Supported Clients
 
+Please download the latest recommended proxy clients using the links below. If the download fails, try downloading manually from the official GitHub releases at the end of this document.
+
+We recommend using proxy clients powered by [Xray core](https://github.com/XTLS/Xray-core) such as v2rayN and v2rayNG as they provide superior security.
+
 ## Windows x64
 
 - **v2rayN: <{proxyClientsURL}/{proxyClientsFilenames.v2rayNWindowsX64}>**
@@ -24,7 +28,7 @@ Subscription URL:
 
 ## iOS
 
-- **Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>**
+- Shadowrocket: <https://apps.apple.com/us/app/shadowrocket/id932747118>
 
 ## macOS arm64
 
@@ -45,13 +49,13 @@ Fedora, RHEL...
 
 # Open Source
 
-This service is deployed via <https://github.com/Anthrop44/3x-setup>. It is an open-source, one-click VPN deployment script based on 3X-UI, with which you can set up your own VPN service in 30 minutes.
+This service is deployed via <https://github.com/Anthrop44/3x-setup>. It is an free, open-source, one-click VPN deployment script based on 3X-UI, with which you can set up your own VPN service in 30 minutes.
 
-If you find it helpful, please consider leaving a star!
+**You can help support the anti-censorship cause by clicking Star!**
 
 # Acknowledgements
 
-- [v2rayN](https://github.com/2dust/v2rayN)
-- [v2rayNG](https://github.com/2dust/v2rayNG)
-- [Clash Verge Rev](https://github.com/clash-verge-rev/clash-verge-rev)
-- [Clash Meta for Android](https://github.com/MetaCubeX/ClashMetaForAndroid)
+- v2rayN：<https://github.com/2dust/v2rayN>
+- v2rayNG：<https://github.com/2dust/v2rayNG>
+- Clash Verge Rev：<https://github.com/clash-verge-rev/clash-verge-rev>
+- Clash Meta for Android：<https://github.com/MetaCubeX/ClashMetaForAndroid>
