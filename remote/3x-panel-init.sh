@@ -40,7 +40,7 @@ if curl -fsSL --retry 3 --connect-timeout 20 --max-time 900 \
 	bash; then
 	sudo /usr/local/x-ui/x-ui setting -port "$PANEL_PORT" -username "$PANEL_USERNAME" -password "$PANEL_PASSWORD" -webBasePath "$PANEL_URI_PATH"
 	sudo /usr/local/x-ui/x-ui setting -listenIP 127.0.0.1
-	sudo systemctl restart x-ui
+	sudo systemctl enable --now x-ui
 else
 	echo "3x-ui安装失败" >&2
 	exit 1

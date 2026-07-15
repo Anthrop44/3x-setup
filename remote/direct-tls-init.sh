@@ -139,6 +139,50 @@ install_public_direct_cert() {
 	sudo -n openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName
 }
 
+install_direct_tls_sync_task() {
+	# 安装Caddy续期证书同步任务
+	local sync_config_path="/etc/3x-setup/direct-tls-sync.conf"
+	local sync_config_temp_path
+
+	sync_config_temp_path="$(mktemp)"
+	trap 'rm -f "$sync_config_temp_path"' RETURN
+	printf 'DIRECT_DOMAIN=%s\n' "$DIRECT_DOMAIN" >"$sync_config_temp_path"
+	sudo -n install -d -m 755 -o root -g root /etc/3x-setup
+	sudo -n install -m 644 -o root -g root "$sync_config_temp_path" "$sync_config_path"
+	sudo -n install -m 755 -o root -g root "$SCRIPT_DIR/direct-tls-sync.sh" /usr/local/sbin/3x-sync-direct-tls
+	trap - RETURN
+	rm -f "$sync_config_temp_path"
+
+	sudo tee /etc/systemd/system/3x-direct-tls-sync.service >/dev/null <<'EOF'
+[Unit]
+Description=Synchronize Caddy managed certificate to 3x-ui Xray
+Wants=network-online.target
+After=network-online.target caddy.service x-ui.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/3x-sync-direct-tls --sync
+EOF
+
+	sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | sudo tee /etc/systemd/system/3x-direct-tls-sync.timer >/dev/null
+[Unit]
+Description=Synchronize Caddy managed certificate to 3x-ui Xray daily
+
+[Timer]
+OnCalendar=*-*-* {{DAILY_TASK_TIME}}
+RandomizedDelaySec=1h
+Persistent=true
+Unit=3x-direct-tls-sync.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+	sudo -n systemctl daemon-reload
+	sudo -n systemctl enable --now 3x-direct-tls-sync.timer
+	sudo -n systemctl start 3x-direct-tls-sync.service
+}
+
 parse_args "$@"
 
 DIRECT_DOMAIN="$(jq -r '.directDomain' "$CONFIG_PATH")"
@@ -150,6 +194,8 @@ XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort' "$CONSTANTS_PATH")"
 CLASH_SUFFIX="$(jq -r '.clashSuffix' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort' "$CONSTANTS_PATH")"
+DAILY_TASK_HOUR="$(jq -r '.dailyTaskHour' "$CONSTANTS_PATH")"
+DAILY_TASK_TIME="$(printf '%02d:00:00' "$DAILY_TASK_HOUR")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
 CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath' "$PATHS_PATH")"
@@ -181,6 +227,9 @@ else
 
 	printf '\n== 重启x-ui加载新证书 ==\n'
 	sudo -n systemctl restart x-ui
+
+	printf '\n== 安装证书同步任务 ==\n'
+	install_direct_tls_sync_task
 fi
 
 printf '\n== 完成 ==\n'

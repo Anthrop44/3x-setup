@@ -24,13 +24,13 @@ parse_args() {
 
 	for arg in "$@"; do
 		case "$arg" in
-			--noTLS)
-				NO_TLS=1
-				;;
-			*)
-				printf '未知参数: %s\n' "$arg" >&2
-				exit 1
-				;;
+		--noTLS)
+			NO_TLS=1
+			;;
+		*)
+			printf '未知参数: %s\n' "$arg" >&2
+			exit 1
+			;;
 		esac
 	done
 }
@@ -43,6 +43,8 @@ IP_ADDRESS="$(jq -r '.ip // empty' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort // empty' "$CONFIG_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
+DAILY_TASK_HOUR="$(jq -r '.dailyTaskHour // empty' "$CONSTANTS_PATH")"
+DAILY_TASK_TIME="$(printf '%02d:00:00' "$DAILY_TASK_HOUR")"
 
 require_fake_site_index() {
 	# 要求本机已安装伪装站首页可读
@@ -127,6 +129,15 @@ ensure_no_failed_units() {
 	fi
 }
 
+require_direct_tls_sync_task() {
+	# 要求Caddy证书同步任务可用
+	sudo -n systemctl is-enabled --quiet 3x-direct-tls-sync.timer
+	sudo -n systemctl is-active --quiet 3x-direct-tls-sync.timer
+	sudo -n systemctl cat 3x-direct-tls-sync.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
+	sudo -n systemctl cat 3x-direct-tls-sync.timer | grep -Fqx 'RandomizedDelaySec=1h'
+	sudo -n /usr/local/sbin/3x-sync-direct-tls --check
+}
+
 printf '== 基本信息 ==\n'
 date -Is
 printf '工作目录: %s\n' "$SCRIPT_DIR"
@@ -162,6 +173,9 @@ if [ "$NO_TLS" = "1" ]; then
 	printf '收到--noTLS，跳过生产公信证书检查\n'
 else
 	require_public_direct_tls
+	printf '\n== Caddy证书同步任务 ==\n'
+	sudo -n systemctl --no-pager --full status 3x-direct-tls-sync.timer 2>&1
+	require_direct_tls_sync_task
 fi
 
 printf '\n== 监听端口 ==\n'

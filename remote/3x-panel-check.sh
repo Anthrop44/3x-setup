@@ -73,6 +73,7 @@ printf '面板本机URL: http://127.0.0.1:%s%s\n' "$PANEL_PORT" "$PANEL_URL_PATH
 printf '\n== 3x-ui服务状态 ==\n'
 sudo -n systemctl --no-pager --full status x-ui 2>&1
 sudo -n systemctl is-active --quiet x-ui
+sudo -n systemctl is-enabled --quiet x-ui
 
 printf '\n== 3x-ui配置 ==\n'
 sudo -n /usr/local/x-ui/x-ui setting -show true 2>&1

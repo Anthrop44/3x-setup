@@ -66,9 +66,9 @@
 
 ---
 
-`remote/3x-panel-init.sh`和`remote/3x-panel-check.sh`负责安装3X-UI并设置面板；初始化脚本通过官方安装脚本非交互安装3X-UI，设置SQLite、面板端口、面板路径、用户名、密码、无面板SSL，并强制面板监听`127.0.0.1`；随后登录本机面板API，开启普通订阅和Clash订阅，设置订阅监听为`127.0.0.1:subscriptionPort`，配置反代URI、Clash规则、加密订阅、流量信息显示和备注模板
+`remote/3x-panel-init.sh`和`remote/3x-panel-check.sh`负责安装3X-UI并设置面板；初始化脚本通过官方安装脚本非交互安装3X-UI，设置SQLite、面板端口、面板路径、用户名、密码、无面板SSL，并强制面板监听`127.0.0.1`；随后显式启用并启动`x-ui.service`，保证VPS重启后3X-UI/Xray自动恢复。接着登录本机面板API，开启普通订阅和Clash订阅，设置订阅监听为`127.0.0.1:subscriptionPort`，配置反代URI、Clash规则、加密订阅、流量信息显示和备注模板
 
-同一阶段还读取Xray模板并确保存在`direct`自由出站，给它写入Happy Eyeballs参数`tryDelayMs=0`、`prioritizeIPv6=false`、`interleave=1`、`maxConcurrentTry=4`，再重启Xray和面板；检查脚本验证面板只监听本机、订阅服务只监听本机、数据库设置符合预期、Clash规则与文件一致、Xray模板包含Happy Eyeballs设置，并探测订阅入口和CDN默认入口
+同一阶段还读取Xray模板并确保存在`direct`自由出站，给它写入Happy Eyeballs参数`tryDelayMs=0`、`prioritizeIPv6=false`、`interleave=1`、`maxConcurrentTry=4`，再重启Xray和面板；检查脚本验证`x-ui.service`已启用、面板只监听本机、订阅服务只监听本机、数据库设置符合预期、Clash规则与文件一致、Xray模板包含Happy Eyeballs设置，并探测订阅入口和CDN默认入口
 
 ---
 
@@ -92,9 +92,9 @@
 
 ---
 
-`remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书
+`remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书。随后它会安装root拥有的`/usr/local/sbin/3x-sync-direct-tls`、`3x-direct-tls-sync.service`和每日timer；timer按`dailyTaskHour`及0到1小时随机延迟运行，仅当Caddy管理的证书和私钥均有效、匹配`directDomain`且与稳定路径不同，才原子替换两份文件并重启`x-ui`。`sudo /usr/local/sbin/3x-sync-direct-tls --check`只校验证书同步状态而不修改文件或重启服务
 
-`--noTLS`模式下，脚本只记录跳过公信TLS，不渲染ACME配置也不触发CA；检查脚本会验证Caddy和x-ui状态、Caddyfile、证书文件、端口监听、HTTP到HTTPS跳转、伪装站正文和失败单元；只有非`--noTLS`模式才要求`directDomain`证书不是自签、Cloudflare Origin、Staging或FakeLE证书
+`--noTLS`模式下，脚本只记录跳过公信TLS，不渲染ACME配置、不触发CA也不安装证书同步任务；检查脚本会验证Caddy和x-ui状态、Caddyfile、证书文件、端口监听、HTTP到HTTPS跳转、伪装站正文和失败单元；只有非`--noTLS`模式才要求`directDomain`证书不是自签、Cloudflare Origin、Staging或FakeLE证书，并验证证书同步timer和`--check`诊断
 
 ## 配置文件
 
@@ -158,7 +158,7 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 	- Xray (XHTTP)
 - directDomain cert
 	- noTLS：脚本生成自签测试证书，不访问CA
-	- TLS：direct-tls-init.sh触发ACMEHTTP-01，为{directDomain}申请公信证书
+	- TLS：direct-tls-init.sh触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy续期后，3x-direct-tls-sync.timer会把新证书同步给Xray并重启x-ui
 - GFW detection: {cdnDomain}
 	- GFW -> {cdnDomain}/{*}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
