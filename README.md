@@ -132,16 +132,6 @@ The script will upload the new `remote/config.json`, sync the client information
 
 Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.ps1`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
 
-## Updating the Server
-
-To update Debian packages and 3X-UI, then immediately check for proxy-client updates, run:
-
-```powershell
-pwsh update-all.ps1
-```
-
-The script connects with the deployed sudo user, runs `apt-get update`, `apt-get dist-upgrade -y`, and `x-ui update` in order, then starts `3x-fetch-apps.service` once and waits for all commands to finish. The client-update task must have been installed during deployment; a deployment created with `init.ps1 -NoAPP` does not include it.
-
 ## Connecting to the 3X-UI Panel
 
 Generally, this solution does not require manual management of the 3X-UI panel. However, if you do need to access it, run:
@@ -149,6 +139,16 @@ Generally, this solution does not require manual management of the 3X-UI panel. 
 ```powershell
 pwsh ssh-tunnel.ps1
 ```
+
+## Updating Software
+
+To update Debian packages and 3X-UI, then immediately check for proxy-client updates, run:
+
+```powershell
+pwsh update-all.ps1
+```
+
+Please run this regularly or redeploy proxy server to stay up-to-date with upstream security updates.
 
 ## Warning
 
