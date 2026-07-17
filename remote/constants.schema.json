@@ -1,0 +1,250 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "默认参数表",
+	"description": "除非你知道你在做什么，不然不要改本文件。本方案默认安全，以上是非敏感配置可分享",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"description": "schema文件路径",
+			"type": "string",
+			"default": "constants.schema.json"
+		},
+		"username": {
+			"description": "服务器sudo用户名。没必要改，用新版OpenSSH不会产生特征",
+			"type": "string",
+			"default": "3xuser",
+			"minLength": 1
+		},
+		"password": {
+			"description": "服务器sudo用户密码。没必要改，服务器没法通过这个密码登陆",
+			"type": "string",
+			"default": "xxx",
+			"minLength": 1
+		},
+		"3xusername": {
+			"description": "3X-UI面板用户名。没必要改，3X-UI面板不会暴露于公网",
+			"type": "string",
+			"default": "3xuser",
+			"minLength": 1
+		},
+		"3xpassword": {
+			"description": "3X-UI密码。没必要改，3X-UI面板不会暴露于公网",
+			"type": "string",
+			"default": "xxx",
+			"minLength": 1
+		},
+		"initialSshPort": {
+			"description": "初始SSH端口",
+			"type": "integer",
+			"default": 22,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"realityTargetPort": {
+			"description": "Reality目标端口",
+			"type": "integer",
+			"default": 8443,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"fakeSitePort": {
+			"description": "Caddy伪装站端口",
+			"type": "integer",
+			"default": 8085,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"xhttpPort": {
+			"description": "Xray XHTTP端口",
+			"type": "integer",
+			"default": 8087,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"cdnOptDomain": {
+			"description": "Cloudflare优选域名，用于额外生成XHTTP订阅主机",
+			"type": "string",
+			"default": "saas.sin.fan",
+			"format": "hostname",
+			"minLength": 1,
+			"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+		},
+		"subscriptionPort": {
+			"description": "3X-UI订阅内部端口",
+			"type": "integer",
+			"default": 2054,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"localSshPort": {
+			"description": "SSH转发本地端口",
+			"type": "integer",
+			"default": 2053,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"3xpanelPort": {
+			"description": "3X-UI面板端口",
+			"type": "integer",
+			"default": 2053,
+			"minimum": 1,
+			"maximum": 65535,
+			"not": {
+				"enum": [
+					80,
+					443
+				]
+			}
+		},
+		"3xpanelUriPath": {
+			"description": "3X-UI面板URI路径（只能含字母和数字，至少5位）",
+			"type": "string",
+			"default": "3xpanel",
+			"minLength": 5,
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"clashSuffix": {
+			"description": "Clash订阅路径追加字符串",
+			"type": "string",
+			"default": "c",
+			"minLength": 1,
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"proxyClientsSuffix": {
+			"description": "代理客户端下载路径追加字符串",
+			"type": "string",
+			"default": "p",
+			"minLength": 1,
+			"pattern": "^[a-zA-Z0-9]+$"
+		},
+		"dailyTaskHour": {
+			"description": "VPS本地时区的每日任务开始小时，任务会在此后随机延迟一小时内执行",
+			"type": "integer",
+			"default": 4,
+			"minimum": 0,
+			"maximum": 23
+		},
+		"proxyClientsFilenames": {
+			"description": "代理客户端固定下载文件名",
+			"type": "object",
+			"properties": {
+				"v2rayNWindowsX64": {
+					"type": "string",
+					"default": "v2rayN-windows-64.zip"
+				},
+				"clashVergeRevWindowsX64": {
+					"type": "string",
+					"default": "Clash.Verge_latest_x64-setup.exe"
+				},
+				"v2rayNGAndroidArm64": {
+					"type": "string",
+					"default": "v2rayNG_latest-fdroid_arm64-v8a.apk"
+				},
+				"clashMetaAndroidArm64": {
+					"type": "string",
+					"default": "cmfa-latest-meta-arm64-v8a-release.apk"
+				},
+				"v2rayNMacOSArm64": {
+					"type": "string",
+					"default": "v2rayN-macos-arm64.dmg"
+				},
+				"clashVergeRevMacOSArm64": {
+					"type": "string",
+					"default": "Clash.Verge_latest_aarch64.dmg"
+				},
+				"v2rayNLinuxX64Deb": {
+					"type": "string",
+					"default": "v2rayN-linux-64.deb"
+				},
+				"clashVergeRevLinuxX64Deb": {
+					"type": "string",
+					"default": "Clash.Verge_latest_amd64.deb"
+				},
+				"v2rayNLinuxX64Rpm": {
+					"type": "string",
+					"default": "v2rayN-linux-rhel-64.rpm"
+				},
+				"clashVergeRevLinuxX64Rpm": {
+					"type": "string",
+					"default": "Clash.Verge-latest.x86_64.rpm"
+				}
+			},
+			"required": [
+				"v2rayNWindowsX64",
+				"clashVergeRevWindowsX64",
+				"v2rayNGAndroidArm64",
+				"clashMetaAndroidArm64",
+				"v2rayNMacOSArm64",
+				"clashVergeRevMacOSArm64",
+				"v2rayNLinuxX64Deb",
+				"clashVergeRevLinuxX64Deb",
+				"v2rayNLinuxX64Rpm",
+				"clashVergeRevLinuxX64Rpm"
+			],
+			"additionalProperties": false,
+			"patternProperties": {
+				"^[a-zA-Z0-9]+$": {
+					"minLength": 1,
+					"maxLength": 255,
+					"pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
+				}
+			}
+		}
+	},
+	"required": [
+		"username",
+		"password",
+		"3xusername",
+		"3xpassword",
+		"initialSshPort",
+		"realityTargetPort",
+		"fakeSitePort",
+		"xhttpPort",
+		"cdnOptDomain",
+		"subscriptionPort",
+		"clashSuffix",
+		"proxyClientsSuffix",
+		"dailyTaskHour",
+		"proxyClientsFilenames",
+		"localSshPort",
+		"3xpanelPort",
+		"3xpanelUriPath"
+	],
+	"additionalProperties": false
+}
