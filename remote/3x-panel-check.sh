@@ -30,13 +30,32 @@ SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath // empty' "$CONFIG_PATH")"
 CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath // empty' "$PATHS_PATH")"
 
+sqlite3_retry() {
+	# 带重试的sqlite3查询，防止3x-ui进程持有数据库写锁导致失败
+	local query="$1"
+	local max_retries=5
+	local output
+
+	for ((i = 1; i <= max_retries; i++)); do
+		output="$(sudo -n sqlite3 -cmd '.timeout 5000' /etc/x-ui/x-ui.db "$query" 2>&1)" && {
+			printf '%s\n' "$output"
+			return 0
+		}
+		printf 'sqlite3查询重试(%d/%d): %s\n' "$i" "$max_retries" "$output" >&2
+		sleep 2
+	done
+
+	printf 'sqlite3查询最终失败: %s\n' "$output" >&2
+	return 1
+}
+
 require_setting_value() {
 	# 要求3x-ui设置值符合预期
 	local key="$1"
 	local expected="$2"
 	local actual
 
-	actual="$(sudo -n sqlite3 /etc/x-ui/x-ui.db "select value from settings where key = '$key';" 2>&1)"
+	actual="$(sqlite3_retry "select value from settings where key = '$key';")"
 	if [ "$actual" != "$expected" ]; then
 		printf '3x-ui设置不符合预期: %s\n' "$key" >&2
 		printf '预期: %s\n' "$expected" >&2
@@ -52,7 +71,7 @@ require_setting_file_value() {
 	local actual
 	local expected
 
-	actual="$(sudo -n sqlite3 /etc/x-ui/x-ui.db "select value from settings where key = '$key';" 2>&1)"
+	actual="$(sqlite3_retry "select value from settings where key = '$key';")"
 	expected="$(cat "$expected_path")"
 	if [ "$actual" != "$expected" ]; then
 		printf '3x-ui设置不符合文件内容: %s\n' "$key" >&2
@@ -96,8 +115,8 @@ sudo -n ss -lntp 2>&1 | grep -E "127\\.0\\.0\\.1:$SUBSCRIPTION_PORT\\b|\\[::1\\]
 
 printf '\n== 3x-ui数据库 ==\n'
 sudo -n ls -l /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db-shm /etc/x-ui/x-ui.db-wal 2>&1 || true
-sudo -n sqlite3 /etc/x-ui/x-ui.db '.tables' 2>&1
-sudo -n sqlite3 /etc/x-ui/x-ui.db 'select key,value from settings order by key;' 2>&1
+sqlite3_retry '.tables'
+sqlite3_retry 'select key,value from settings order by key;'
 require_setting_value "remarkTemplate" "{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}"
 require_setting_value "subClashEnable" "true"
 require_setting_value "subClashEnableRouting" "true"
