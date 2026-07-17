@@ -22,6 +22,10 @@
 
 ---
 
+`update-all.ps1`用于维护已有服务器；它从`remote/config.json`和`remote/constants.json`读取部署后的SSH端口、IP和sudo用户名，以非交互公钥认证连接远端，依次执行`sudo -n apt-get update`、`sudo -n apt-get dist-upgrade -y`和`sudo -n x-ui update`，随后用`sudo -n systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -NoAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后明确失败
+
+---
+
 `get-log.ps1`负责日志下载；它让远端把`~/3x-setup/log/`打包到`/tmp`，用SFTP下载到本地，再解包到`log/`；如果本地`log/`非空，会先轮转为`log0/`、`log1/`等目录，避免覆盖上一次结果。如果失败，请检查云服务器商的防火墙设置，通常全放通即可，因为本方案自带端口加固
 
 ---

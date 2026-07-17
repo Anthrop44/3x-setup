@@ -130,6 +130,16 @@ pwsh sync-clients.ps1
 
 代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.ps1`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
 
+## 更新服务器
+
+若要更新Debian软件包和3X-UI，并立刻检查一次代理客户端更新，请执行：
+
+```powershell
+pwsh update-all.ps1
+```
+
+脚本会使用部署好的sudo用户连接服务器，依次执行`apt-get update`、`apt-get dist-upgrade -y`和`x-ui update`，然后启动一次`3x-fetch-apps.service`并等待所有命令完成。客户端更新任务必须已在部署时安装；使用`init.ps1 -NoAPP`部署的服务器不包含该任务
+
 ## 连接3X-UI面板
 
 一般来说本方案不需要手动管理3X-UI面板，但若你确实有需求，可以执行：
@@ -140,7 +150,7 @@ pwsh ssh-tunnel.ps1
 
 ## Warning
 
-本方案测试时3X-UI版本是v3.4.2。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue
+本方案测试时3X-UI版本是v3.5.0。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue
 
 本项目不是幂等部署器，需要对重建后的干净服务器执行，不能用于已有业务的服务器
 
