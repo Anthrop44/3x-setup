@@ -39,13 +39,18 @@
 			"maximum": 65535
 		},
 		"cdnOptDomains": {
-			"description": "Cloudflare优选域名列表，用于额外生成XHTTP订阅主机",
+			"description": "（可选）Cloudflare优选域名列表。可以用schema中提供的默认值",
 			"type": "array",
 			"uniqueItems": true,
 			"items": {
-				"description": "Cloudflare优选域名",
+				"description": "Cloudflare优选域名。需要能解析到Cloudflare anycast ip",
 				"type": "string",
 				"format": "hostname",
+				"default": [
+					"www.shopify.com",
+					"time.is",
+					"www.visa.cn"
+				],
 				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
 			}
 		},

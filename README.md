@@ -4,11 +4,10 @@
 
 The best one-click proxy server deployment script based on 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
-This solution is based on the 3X-UI API to deploy multiple "steal-from-self" (co-located masquerading) configurations on the same server:
+This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
 - Hysteria2 direct connection
 - VLESS+Reality+Vision direct connection
-- VLESS+XHTTP+Cloudflare CDN (Optimized IPs)
-- VLESS+XHTTP+Cloudflare CDN (using your own Cloudflare domain)
+- VLESS+XHTTP+Cloudflare CDN
 
 This solution requires a dedicated proxy server with at least 500MB of RAM running Debian 13 or higher, and a local Windows environment (though with some minor AI assistance, it can be adapted to other operating systems).
 

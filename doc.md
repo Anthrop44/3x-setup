@@ -6,9 +6,9 @@
 
 本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`。传入`-noAPP`时会跳过`fetch-apps-init.sh`和`fetch-apps-check.sh`，从`3x-client-check.sh`直接进入`direct-tls-init.sh`
 
-`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不能视为可用，因为客户端需要信任`directDomain`的公信证书
+`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不可用
 
-`init.ps1 -noAPP`会把`--noAPP`传给远端链路，`3x-client-check.sh`会跳过代理客户端静态分发阶段，直接执行`direct-tls-init.sh`；因此不会安装`3x-fetch-apps`、对应service和timer，也不会生成代理客户端固定下载文件
+`init.ps1 -noAPP`会把`--noAPP`传给远端链路，`3x-client-check.sh`会跳过`3x-fetch-apps`代理客户端静态分发，直接执行`direct-tls-init.sh`
 
 ## 本地脚本和模块
 
@@ -80,15 +80,15 @@
 
 ---
 
-`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先创建或更新普通CDN Host，再按`cdnOptDomains`数组顺序逐个创建或更新优选Host，最后删除该XHTTP入站中配置未定义的其它Host组。普通组固定排在最前面，备注为`Cloudflare Vanilla`；优选组依次备注为`Cloudflare OPT 1`、`Cloudflare OPT 2`等。所有Host都使用443、TLS、`cdnDomain`作为SNI和Chrome指纹
+`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先为普通CDN地址创建或更新独立H2、H3 Host，再按`cdnOptDomains`数组顺序为每个优选地址创建或更新同样的Host对，最后删除该XHTTP入站中配置未定义的其它Host组。Host按`Cloudflare Vanilla h2`、`Cloudflare Vanilla h3`、`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`等顺序排列，ALPN分别为单项`h2`或单项`h3`。所有Host都使用443、TLS、`cdnDomain`作为SNI和Chrome指纹
 
-Host组使用固定ID，重复同步会原地替换对应组；优选域名数量减少或清空时，多余组会被删除。在3X-UI GUI中手工添加的XHTTP Host也会在下次同步时删除。检查脚本要求Host数量、顺序、域名、备注和TLS参数与`config.json`完全一致，成功后进入客户阶段
+Host组使用包含协议后缀的固定ID，重复同步会原地替换对应组；从旧版单Host配置首次同步时会创建新的H2/H3 Host并删除旧Host。优选域名数量减少或清空时，多余组会被删除。在3X-UI GUI中手工添加的XHTTP Host也会在下次同步时删除。检查脚本要求Host数量等于`2 * (1 + cdnOptDomains.length)`，并要求顺序、域名、备注、单项ALPN和其它TLS参数与`config.json`完全一致，成功后进入客户阶段
 
 ---
 
 `remote/3x-client-init.sh`和`remote/3x-client-check.sh`负责按`config.json`同步客户；初始化脚本要求`clients`非空、`client`和`path`存在且不重复、`traffic`为非负整数；随后找到三条入站ID，读取当前3X-UI客户端，删除不在配置中或订阅ID、流量、重置周期不匹配的客户端，再为缺失客户端创建关联三条入站的新客户端，最后重启Xray并等待运行
 
-客户端的`traffic`会换算成`totalGB=traffic*1073741824`，大于0时设置`reset=30`，否则`reset=0`；检查脚本逐个验证客户端配置、入站关联和订阅链接。订阅链接包含1条`cdnDomain`普通XHTTP入口和每个`cdnOptDomains[]`对应的优选XHTTP入口，链接总数必须为`3+cdnOptDomains.length`，且全部使用443、不暴露`cdnPort`或`xhttpPort`。3X-UI v3.5的客户端分享链接API不应用Host，XHTTP分享链接会保留入站监听端口，因此客户应使用订阅URL。检查脚本再用本机临时Xray配置跑Reality和XHTTP的SOCKS代理端到端请求；HY2不在这个端到端代理测试中，因为生产可用性取决于后续公信TLS
+客户端的`traffic`会换算成`totalGB=traffic*1073741824`，大于0时设置`reset=30`，否则`reset=0`；检查脚本逐个验证客户端配置、入站关联和订阅链接。订阅链接包含`cdnDomain`普通地址和每个`cdnOptDomains[]`优选地址各自对应的1条H2和1条H3 XHTTP入口，链接总数必须为`4+2*cdnOptDomains.length`，且每个地址的两条链接分别携带`alpn=h2`和`alpn=h3`；全部链接使用443，不暴露`cdnPort`或`xhttpPort`。3X-UI v3.5的客户端分享链接API不应用Host，XHTTP分享链接会保留入站监听端口，因此客户应使用订阅URL。检查脚本再用本机临时Xray配置跑Reality和XHTTP的SOCKS代理端到端请求；HY2不在这个端到端代理测试中，因为生产可用性取决于后续公信TLS
 
 ---
 
@@ -260,8 +260,8 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 ## XHTTP主机
 
-- 对`cdnOptDomains`中的每个域名按数组顺序创建一个Host组
-	- 备注：`Cloudflare OPT 1`、`Cloudflare OPT 2`等
+- 对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
+	- 备注：`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`、`Cloudflare OPT 2 h2`、`Cloudflare OPT 2 h3`等
 	- 基本
 		- 入站：`Cloudflare`
 		- 地址：`{cdnOptDomains[i]}`
@@ -269,7 +269,8 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 	- 安全
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
-- 备注：`Cloudflare Vanilla`
+		- ALPN：H2 Host仅为`h2`，H3 Host仅为`h3`
+- 备注：`Cloudflare Vanilla h2`和`Cloudflare Vanilla h3`
 	- 基本
 		- 入站：`Cloudflare`
 		- 地址：`{cdnDomain}`
@@ -277,6 +278,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 	- 安全
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
+		- ALPN：分别仅为`h2`和`h3`
 
 ## Caddy配置
 

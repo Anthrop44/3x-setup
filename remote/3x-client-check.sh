@@ -195,13 +195,21 @@ require_links_valid() {
 		'
 			def links: if (.obj | type) == "array" then .obj elif (.obj.externalLinks? | type) == "array" then .obj.externalLinks elif (.obj | type) == "string" then (.obj | split("\n") | map(select(length > 0))) else [] end;
 			def encoded_remark($remark): ($remark | @uri);
+			def xhttp_link($link; $domain; $alpn):
+				($link | startswith("vless://"))
+				and ($link | contains("@" + $domain + ":443"))
+				and ($link | contains("type=xhttp"))
+				and ($link | contains("alpn=" + $alpn));
 			links as $links
 			| ($cdnOptDomains | length) as $optCount
-			| ($links | length == (3 + $optCount))
+			| ($links | length == (4 + (2 * $optCount)))
 			and any($links[]; startswith("hysteria2://") and contains("@" + $directDomain + ":443") and (contains($hy2Remark) or contains(encoded_remark($hy2Remark))))
 			and any($links[]; startswith("vless://") and contains("@" + $directDomain + ":443") and contains("flow=xtls-rprx-vision") and (contains($realityRemark) or contains(encoded_remark($realityRemark))))
-			and any($links[]; startswith("vless://") and contains("@" + $cdnDomain + ":443"))
-			and all($cdnOptDomains[]; . as $domain | any($links[]; startswith("vless://") and contains("@" + $domain + ":443")))
+			and ([ $links[] | select(xhttp_link(.; $cdnDomain; "h2")) ] | length == 1)
+			and ([ $links[] | select(xhttp_link(.; $cdnDomain; "h3")) ] | length == 1)
+			and all($cdnOptDomains[]; . as $domain
+				| ([ $links[] | select(xhttp_link(.; $domain; "h2")) ] | length == 1)
+				and ([ $links[] | select(xhttp_link(.; $domain; "h3")) ] | length == 1))
 			and all($links[]; test("^(vless|hysteria2)://[^@]+@[^:/?#]+:443([/?#]|$)"))
 			and all($links[]; (contains(":" + $cdnPort) | not) and (contains(":" + $xhttpPort) | not))
 		' "$response_path" >/dev/null; then

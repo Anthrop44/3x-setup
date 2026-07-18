@@ -11,7 +11,7 @@ LOG_PATH="$LOG_DIR/cf-host-init.log"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 XHTTP_REMARK="Cloudflare"
-VANILLA_GROUP_ID="3xsetupxhttpcdn1"
+VANILLA_GROUP_ID_PREFIX="3xsetupxhttpcdn1"
 
 rm -f "$LOG_PATH"
 exec >"$LOG_PATH" 2>&1
@@ -135,6 +135,7 @@ build_host_payload() {
 	local hosts_json="$2"
 	local sort_order="$3"
 	local remark="$4"
+	local alpn="$5"
 
 	jq -n \
 		--arg groupId "$group_id" \
@@ -142,6 +143,7 @@ build_host_payload() {
 		--argjson hosts "$hosts_json" \
 		--argjson sortOrder "$sort_order" \
 		--arg remark "$remark" \
+		--arg alpn "$alpn" \
 		--arg cdnDomain "$CDN_DOMAIN" \
 		'{
 			groupId: $groupId,
@@ -154,6 +156,7 @@ build_host_payload() {
 			port: 443,
 			security: "tls",
 			sni: $cdnDomain,
+			alpn: [$alpn],
 			fingerprint: "chrome"
 		}' >"$HOST_PAYLOAD_PATH"
 }
@@ -173,6 +176,21 @@ upsert_host_group() {
 	fi
 	api_post_file "$endpoint" "$HOST_PAYLOAD_PATH" "$HOST_RESPONSE_PATH"
 	require_api_success "$HOST_RESPONSE_PATH" "同步Host组 $label 失败"
+}
+
+sync_host_pair() {
+	# 为同一地址同步独立的H2和H3 Host组
+	local group_id_prefix="$1"
+	local domain="$2"
+	local sort_order="$3"
+	local remark="$4"
+	local hosts_json
+
+	hosts_json="$(jq -cn --arg domain "$domain" '[$domain]')"
+	build_host_payload "${group_id_prefix}h2" "$hosts_json" "$sort_order" "$remark h2" "h2"
+	upsert_host_group "${group_id_prefix}h2" "$remark h2"
+	build_host_payload "${group_id_prefix}h3" "$hosts_json" "$((sort_order + 1))" "$remark h3" "h3"
+	upsert_host_group "${group_id_prefix}h3" "$remark h3"
 }
 
 delete_extra_host_groups() {
@@ -207,9 +225,9 @@ CDN_DOMAIN="$(jq -r '.cdnDomain' "$CONFIG_PATH")"
 CDN_OPT_DOMAINS="$(jq -c '.cdnOptDomains // []' "$CONFIG_PATH")"
 OPT_DOMAIN_COUNT="$(jq -r 'length' <<<"$CDN_OPT_DOMAINS")"
 EXPECTED_GROUP_IDS="$(jq -cn \
-	--arg vanillaGroupId "$VANILLA_GROUP_ID" \
+	--arg vanillaGroupIdPrefix "$VANILLA_GROUP_ID_PREFIX" \
 	--argjson domains "$CDN_OPT_DOMAINS" \
-	'[$vanillaGroupId] + ($domains | to_entries | map("3xsetupxhttpopt" + ((.key + 1) | tostring)))')"
+	'[($vanillaGroupIdPrefix + "h2"), ($vanillaGroupIdPrefix + "h3")] + ($domains | to_entries | map(("3xsetupxhttpopt" + ((.key + 1) | tostring)) as $prefix | [($prefix + "h2"), ($prefix + "h3")]) | flatten)')"
 PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
@@ -244,18 +262,16 @@ printf 'XHTTP入站ID: %s\n' "$XHTTP_INBOUND_ID"
 printf '\n== 读取XHTTP Host ==\n'
 api_get "/panel/api/hosts/byInbound/$XHTTP_INBOUND_ID" "$HOSTS_RESPONSE_PATH"
 require_api_success "$HOSTS_RESPONSE_PATH" "读取XHTTP Host失败"
-jq -r '(.obj // [])[] | [.groupId, .remark, (.hosts | join(",")), .port, .security, .sni] | @tsv' "$HOSTS_RESPONSE_PATH"
+jq -r '(.obj // [])[] | [.groupId, .remark, (.hosts | join(",")), .port, .security, .sni, ((.alpn // []) | join(","))] | @tsv' "$HOSTS_RESPONSE_PATH"
 
 printf '\n== 同步普通CDN Host ==\n'
-build_host_payload "$VANILLA_GROUP_ID" "$(jq -cn --arg domain "$CDN_DOMAIN" '[$domain]')" 0 "Cloudflare Vanilla"
-upsert_host_group "$VANILLA_GROUP_ID" "Cloudflare Vanilla"
+sync_host_pair "$VANILLA_GROUP_ID_PREFIX" "$CDN_DOMAIN" 0 "Cloudflare Vanilla"
 
 printf '\n== 同步优选CDN Host ==\n'
 while IFS=$'\t' read -r OPT_INDEX OPT_DOMAIN; do
-	OPT_GROUP_ID="3xsetupxhttpopt$OPT_INDEX"
+	OPT_GROUP_ID_PREFIX="3xsetupxhttpopt$OPT_INDEX"
 	OPT_REMARK="Cloudflare OPT $OPT_INDEX"
-	build_host_payload "$OPT_GROUP_ID" "$(jq -cn --arg domain "$OPT_DOMAIN" '[$domain]')" "$OPT_INDEX" "$OPT_REMARK"
-	upsert_host_group "$OPT_GROUP_ID" "$OPT_REMARK"
+	sync_host_pair "$OPT_GROUP_ID_PREFIX" "$OPT_DOMAIN" "$((OPT_INDEX * 2))" "$OPT_REMARK"
 done < <(jq -r 'to_entries[] | [(.key + 1), .value] | @tsv' <<<"$CDN_OPT_DOMAINS")
 
 printf '\n== 清理额外XHTTP Host ==\n'

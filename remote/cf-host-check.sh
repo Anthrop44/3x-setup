@@ -11,7 +11,7 @@ OUTPUT_FILE="$LOG_DIR/cf-host-check.log"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 XHTTP_REMARK="Cloudflare"
-VANILLA_GROUP_ID="3xsetupxhttpcdn1"
+VANILLA_GROUP_ID_PREFIX="3xsetupxhttpcdn1"
 
 rm -f "$OUTPUT_FILE"
 exec >"$OUTPUT_FILE" 2>&1
@@ -134,36 +134,39 @@ printf 'XHTTP入站ID: %s\n' "$XHTTP_INBOUND_ID"
 printf '\n== XHTTP Host列表 ==\n'
 api_get "/panel/api/hosts/byInbound/$XHTTP_INBOUND_ID" "$HOSTS_RESPONSE_PATH"
 require_api_success "$HOSTS_RESPONSE_PATH" "读取XHTTP Host失败"
-jq -r '(.obj // [])[] | [.groupId, .remark, (.hosts | join(",")), .port, .security, .sni, .fingerprint] | @tsv' "$HOSTS_RESPONSE_PATH"
+jq -r '(.obj // [])[] | [.groupId, .remark, (.hosts | join(",")), .port, .security, .sni, ((.alpn // []) | join(",")), .fingerprint] | @tsv' "$HOSTS_RESPONSE_PATH"
 
 if ! jq -e \
 	--arg cdnDomain "$CDN_DOMAIN" \
-	--arg vanillaGroupId "$VANILLA_GROUP_ID" \
+	--arg vanillaGroupIdPrefix "$VANILLA_GROUP_ID_PREFIX" \
 	--argjson cdnOptDomains "$CDN_OPT_DOMAINS" \
 	'
-		def common($group; $remark; $sortOrder):
+		def common($group; $remark; $sortOrder; $alpn):
 			$group.remark == $remark
 			and $group.sortOrder == $sortOrder
 			and $group.isDisabled == false
 			and $group.isHidden == false
-			and (($group.tags // []) | index("3X_SETUP") != null)
 			and $group.port == 443
 			and $group.security == "tls"
 			and $group.sni == $cdnDomain
+			and $group.alpn == [$alpn]
 			and $group.fingerprint == "chrome";
+		def matches($groups; $groupId; $remark; $sortOrder; $host; $alpn):
+			([ $groups[] | select(.groupId == $groupId) ] | length == 1)
+			and ([ $groups[] | select(.groupId == $groupId) ][0] as $group
+				| common($group; $remark; $sortOrder; $alpn)
+				and $group.hosts == [($host + ":443")]);
 		(.obj // []) as $groups
-		| ($groups | length) == (1 + ($cdnOptDomains | length))
-		and ([ $groups[] | select(.groupId == $vanillaGroupId) ] | length == 1)
-		and ([ $groups[] | select(.groupId == $vanillaGroupId) ][0] as $vanilla
-			| common($vanilla; "Cloudflare Vanilla"; 0)
-			and $vanilla.hosts == [($cdnDomain + ":443")])
+		| ($groups | length) == (2 * (1 + ($cdnOptDomains | length)))
+		and matches($groups; ($vanillaGroupIdPrefix + "h2"); "Cloudflare Vanilla h2"; 0; $cdnDomain; "h2")
+		and matches($groups; ($vanillaGroupIdPrefix + "h3"); "Cloudflare Vanilla h3"; 1; $cdnDomain; "h3")
 		and all($cdnOptDomains | to_entries[];
 			. as $entry
-			| ("3xsetupxhttpopt" + (($entry.key + 1) | tostring)) as $groupId
-			| ([ $groups[] | select(.groupId == $groupId) ] | length == 1)
-			and ([ $groups[] | select(.groupId == $groupId) ][0] as $opt
-				| common($opt; ("Cloudflare OPT " + (($entry.key + 1) | tostring)); ($entry.key + 1))
-				and $opt.hosts == [($entry.value + ":443")]))
+			| (($entry.key + 1) | tostring) as $index
+			| ("3xsetupxhttpopt" + $index) as $groupIdPrefix
+			| (($entry.key + 1) * 2) as $sortOrder
+			| matches($groups; ($groupIdPrefix + "h2"); ("Cloudflare OPT " + $index + " h2"); $sortOrder; $entry.value; "h2")
+			and matches($groups; ($groupIdPrefix + "h3"); ("Cloudflare OPT " + $index + " h3"); ($sortOrder + 1); $entry.value; "h3"))
 	' "$HOSTS_RESPONSE_PATH" >/dev/null; then
 	printf 'XHTTP Host配置不符合预期\n' >&2
 	cat "$HOSTS_RESPONSE_PATH" >&2

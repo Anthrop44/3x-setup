@@ -2,11 +2,10 @@
 
 最好用的基于3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
-本方案基于3X-UI API在同一台服务器上部署多个“偷自己”方案：
+本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
 - Hysteria2直连
 - VLESS+Reality+Vision直连
-- VLESS+XHTTP+Cloudflare CDN（优选ip）
-- VLESS+XHTTP+Cloudflare CDN（使用自己的Cloudflare域名）
+- VLESS+XHTTP+Cloudflare CDN
 
 本方案需要一台内存至少500MB、使用Debian 13或更高版本操作系统的专用代理服务器和本地Windows环境（虽然用AI稍改一下也能适配其它操作系统）
 
