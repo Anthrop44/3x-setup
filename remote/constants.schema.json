@@ -152,6 +152,18 @@
 			"minimum": 0,
 			"maximum": 23
 		},
+		"subUpdates": {
+			"description": "客户端应用中订阅URL的更新间隔（小时）",
+			"type": "integer",
+			"default": 1,
+			"minimum": 1
+		},
+		"fingerprint": {
+			"description": "Reality和XHTTP客户端使用的TLS指纹",
+			"type": "string",
+			"default": "chrome",
+			"minLength": 1
+		},
 		"proxyClientsFilenames": {
 			"description": "代理客户端固定下载文件名",
 			"type": "object",
@@ -225,6 +237,8 @@
 		"clashSuffix",
 		"proxyClientsSuffix",
 		"dailyTaskHour",
+		"subUpdates",
+		"fingerprint",
 		"proxyClientsFilenames",
 		"localSshPort",
 		"3xpanelPort",

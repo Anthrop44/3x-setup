@@ -145,6 +145,7 @@ build_host_payload() {
 		--arg remark "$remark" \
 		--arg alpn "$alpn" \
 		--arg cdnDomain "$CDN_DOMAIN" \
+		--arg fingerprint "$FINGERPRINT" \
 		'{
 			groupId: $groupId,
 			inboundIds: [($inboundId | tonumber)],
@@ -157,7 +158,7 @@ build_host_payload() {
 			security: "tls",
 			sni: $cdnDomain,
 			alpn: [$alpn],
-			fingerprint: "chrome"
+			fingerprint: $fingerprint
 		}' >"$HOST_PAYLOAD_PATH"
 }
 
@@ -232,6 +233,7 @@ PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
+FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
 PANEL_BASE_URL="http://127.0.0.1:$PANEL_PORT/$PANEL_URI_PATH"
 PANEL_ROOT_URL="$PANEL_BASE_URL/"
 

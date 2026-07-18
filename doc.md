@@ -80,7 +80,7 @@
 
 ---
 
-`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先为普通CDN地址创建或更新独立H2、H3 Host，再按`cdnOptDomains`数组顺序为每个优选地址创建或更新同样的Host对，最后删除该XHTTP入站中配置未定义的其它Host组。Host按`Cloudflare Vanilla h2`、`Cloudflare Vanilla h3`、`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`等顺序排列，ALPN分别为单项`h2`或单项`h3`。所有Host都使用443、TLS、`cdnDomain`作为SNI和Chrome指纹
+`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先为普通CDN地址创建或更新独立H2、H3 Host，再按`cdnOptDomains`数组顺序为每个优选地址创建或更新同样的Host对，最后删除该XHTTP入站中配置未定义的其它Host组
 
 Host组使用包含协议后缀的固定ID，重复同步会原地替换对应组；从旧版单Host配置首次同步时会创建新的H2/H3 Host并删除旧Host。优选域名数量减少或清空时，多余组会被删除。在3X-UI GUI中手工添加的XHTTP Host也会在下次同步时删除。检查脚本要求Host数量等于`2 * (1 + cdnOptDomains.length)`，并要求顺序、域名、备注、单项ALPN和其它TLS参数与`config.json`完全一致，成功后进入客户阶段
 
@@ -106,19 +106,15 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 
 ## 配置文件
 
-`remote/config.schema.json`描述用户必须准备的敏感配置；必填项包括`ip`、`cdnPort`、`directDomain`、`cdnDomain`和`clients`；`sshPort`由`init.ps1`在10001到65535范围内自动生成并写回，已有合法值会保留；`sshPort`、`realityTargetPort`、`fakeSitePort`、`xhttpPort`、`subscriptionPort`、`3xpanelPort`、`cdnPort`、80和443不得互相冲突；`directDomain`和`cdnDomain`必须是合法hostname
+`remote/config.schema.json`描述用户必须准备的敏感配置
 
-`subscriptionPath`和`clients[].path`是自动生成的16位字段，`distributionPath`是自动生成的15位小写字母数字字段，建议不要手动设置；客户分发URL为`https://cdnDomain/distributionPath/clientPath.html`。Clash订阅路径不属于`config.json`字段，而是由`subscriptionPath`追加非空的`clashSuffix`派生；`clients[].client`只能包含英文字母、数字和连字符，并排除Windows保留文件名；`clients[].traffic`为可选非负整数，单位GB
-
-`remote/constants.json`保存默认端口、账号、隐藏路径后缀、每日任务时间和代理客户端固定文件名；`clashSuffix`与`proxyClientsSuffix`必须是不同的非空字母数字字符串。`dailyTaskHour`是0到23的integer，默认4；两个每日timer都按VPS本地时区在该整点后独立随机延迟0到1小时。`proxyClientsFilenames`的10个值必须是互不重复的安全basename，修改它们会改变公开下载URL
-
-`remote/paths.json`不在仓库中，由远端`caddy-init.sh`生成，目前保存随机`xhttpPath`；后续Caddy、3X-UI入站、检查脚本都会读取它，所以不要在远端初始化中途删除
+`remote/constants.json`保存非敏感配置
 
 ## 服务器安全配置
 
 SSH部署后只允许`sshPort/tcp`，禁用密码登录，禁用root登录，使用`remote/id_ed25519.pub`对应私钥登录到`username`用户；该用户拥有免密码sudo，目的是让后续检查和服务配置可以非交互执行
 
-UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACMEHTTP-01和HTTP跳转，开放`443/tcp`给Reality直连和HTTPS伪装回退，开放`443/udp`给Hysteria2，开放`sshPort/tcp`给管理登录
+UFW策略默认拒绝入站、允许出站；固定开放`80/tcp`给ACMEHTTP-01和HTTP跳转，开放`443/tcp`给Reality直连和HTTPS伪装回退，开放`443/udp`给Hysteria2，开放`sshPort/tcp`给管理登录
 
 `cdnPort/tcp`只允许CloudflareIP段访问；脚本会安装systemd timer每天刷新Cloudflare ip列表，刷新时先拉取并校验格式，再删除旧的带`3x-cloudflare-cdn`注释的规则并写入新规则；若拉取失败或格式异常，会保留现有规则并失败退出
 
@@ -187,7 +183,7 @@ UFW策略是默认拒绝入站、默认允许出站；固定开放`80/tcp`给ACM
 
 订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/{subscriptionPath}{clashSuffix}/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/{subscriptionPath}{clashSuffix}/`
 
-订阅加密开启，显示流量信息，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”；Clash规则来自`remote/clash-rule.txt`
+订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”；Clash规则来自`remote/clash-rule.txt`
 
 Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写入Happy Eyeballs设置，减少双栈解析和连接时的异常延迟
 
@@ -230,6 +226,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 - 安全 > 安全：`Reality`
 	- 目标：`127.0.0.1:{realityTargetPort}`
 	- SNI：`{directDomain}`
+	- 指纹：`{fingerprint}`
 - 嗅探 > 启用：`Enabled`
 	- HTTP：`Enabled`
 	- TLS：`Enabled`
@@ -270,6 +267,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
 		- ALPN：H2 Host仅为`h2`，H3 Host仅为`h3`
+		- 指纹：`{fingerprint}`
 - 备注：`Cloudflare Vanilla h2`和`Cloudflare Vanilla h3`
 	- 基本
 		- 入站：`Cloudflare`
@@ -279,6 +277,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
 		- ALPN：分别仅为`h2`和`h3`
+		- 指纹：`{fingerprint}`
 
 ## Caddy配置
 

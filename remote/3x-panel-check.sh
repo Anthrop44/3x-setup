@@ -21,6 +21,7 @@ CDN_DOMAIN="$(jq -r '.cdnDomain // empty' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort // empty' "$CONFIG_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort // empty' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort // empty' "$CONSTANTS_PATH")"
+SUB_UPDATES="$(jq -r '.subUpdates // empty' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort" // empty' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath" // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
@@ -123,6 +124,7 @@ require_setting_value "subClashEnableRouting" "true"
 require_setting_value "subClashPath" "/$CLASH_SUBSCRIPTION_URI_PATH/"
 require_setting_value "subClashURI" "https://$CDN_DOMAIN/$CLASH_SUBSCRIPTION_URI_PATH/"
 require_setting_file_value "subClashRules" "$CLASH_RULES_PATH"
+require_setting_value "subUpdates" "$SUB_UPDATES"
 
 printf '\n== Xray配置检查 ==\n'
 sudo -n jq -e '

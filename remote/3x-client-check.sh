@@ -25,6 +25,7 @@ PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort' "$CONSTANTS_PATH")"
 CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
+FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
 CLIENT_COUNT="$(jq -r '.clients | length' "$CONFIG_PATH")"
 TEST_CLIENT_EMAIL="$(jq -r '.clients[0].client' "$CONFIG_PATH")"
 TEST_CLIENT_SUB_ID="$(jq -r '.clients[0].path' "$CONFIG_PATH")"
@@ -292,6 +293,7 @@ build_reality_client_config() {
 	jq -n \
 		--arg uuid "$CLIENT_UUID" \
 		--arg directDomain "$DIRECT_DOMAIN" \
+		--arg fingerprint "$FINGERPRINT" \
 		--arg publicKey "$REALITY_PUBLIC_KEY" \
 		--arg shortId "$REALITY_SHORT_ID" \
 		--arg socksPort "$REALITY_SOCKS_PORT" \
@@ -335,7 +337,7 @@ build_reality_client_config() {
 						security: "reality",
 						realitySettings: {
 							serverName: $directDomain,
-							fingerprint: "chrome",
+							fingerprint: $fingerprint,
 							publicKey: $publicKey,
 							shortId: $shortId,
 							spiderX: "/"

@@ -108,6 +108,7 @@ PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
+FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
 PANEL_BASE_URL="http://127.0.0.1:$PANEL_PORT/$PANEL_URI_PATH"
 PANEL_ROOT_URL="$PANEL_BASE_URL/"
 
@@ -138,6 +139,7 @@ jq -r '(.obj // [])[] | [.groupId, .remark, (.hosts | join(",")), .port, .securi
 
 if ! jq -e \
 	--arg cdnDomain "$CDN_DOMAIN" \
+	--arg fingerprint "$FINGERPRINT" \
 	--arg vanillaGroupIdPrefix "$VANILLA_GROUP_ID_PREFIX" \
 	--argjson cdnOptDomains "$CDN_OPT_DOMAINS" \
 	'
@@ -150,7 +152,7 @@ if ! jq -e \
 			and $group.security == "tls"
 			and $group.sni == $cdnDomain
 			and $group.alpn == [$alpn]
-			and $group.fingerprint == "chrome";
+			and $group.fingerprint == $fingerprint;
 		def matches($groups; $groupId; $remark; $sortOrder; $host; $alpn):
 			([ $groups[] | select(.groupId == $groupId) ] | length == 1)
 			and ([ $groups[] | select(.groupId == $groupId) ][0] as $group

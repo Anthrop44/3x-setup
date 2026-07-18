@@ -21,6 +21,7 @@ PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort' "$CONSTANTS_PATH")"
+SUB_UPDATES="$(jq -r '.subUpdates' "$CONSTANTS_PATH")"
 CLASH_SUFFIX="$(jq -r '.clashSuffix' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
 CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
@@ -125,6 +126,7 @@ jq \
 	--arg subURI "$REVERSE_PROXY_URI" \
 	--arg subClashURI "$CLASH_REVERSE_PROXY_URI" \
 	--arg subTitle "$CDN_DOMAIN" \
+	--arg subUpdates "$SUB_UPDATES" \
 	--arg remarkTemplate "{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}" \
 	--rawfile subClashRules "$CLASH_RULES_PATH" \
 	'.obj
@@ -147,7 +149,7 @@ jq \
 	| .subEmailInRemark = true
 	| .remarkTemplate = $remarkTemplate
 	| .remarkModel = (if (.remarkModel // "") == "" then "-ieo" else .remarkModel end)
-	| .subUpdates = 120
+	| .subUpdates = ($subUpdates | tonumber)
 	| .subTitle = "请勿分享！"
 	| .subSupportUrl = ""
 	| .subProfileUrl = ""
