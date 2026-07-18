@@ -25,6 +25,13 @@ $FakeSiteDir = Join-Path $RemoteDir "fake-site"
 $ClientsTsvPath = Join-Path $ProjectDir "clients.tsv"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
+if (-not (Test-Path -LiteralPath $ConfigPath))
+{
+	Set-Content -LiteralPath $ConfigPath -Value "{`"`$schema`": `"config.schema.json`"}" -NoNewline -Encoding utf8NoBOM
+	Write-Host "Created remote/config.json. Fill in the required fields and run init.ps1 again"
+	exit 0
+}
+
 # 自动准备部署所需的SSH密钥对
 & (Join-Path $ProjectDir "generate-ssh-key.ps1")
 
@@ -148,7 +155,6 @@ function Assert-RemoteFileFormat
 # 检查用户准备的远程文件格式
 Assert-RemoteFileFormat -RelativePath "cert.pem" -RequiredPrefix "-----BEGIN CERTIFICATE-----" -RequiredSuffix "-----END CERTIFICATE-----"
 Assert-RemoteFileFormat -RelativePath "key.pem" -RequiredPrefix "-----BEGIN PRIVATE KEY-----" -RequiredSuffix "-----END PRIVATE KEY-----"
-Assert-RemoteFileFormat -RelativePath "id_ed25519.pub" -RequiredPrefix "ssh-ed25519"
 Assert-RemoteFileFormat -RelativePath "fake-site/index.html" -RequiredPrefix "<!doctype html>"
 
 # 读取并解析 config.json 和 constants.json
