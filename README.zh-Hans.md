@@ -166,6 +166,6 @@ pwsh update-all.ps1
 - [Project X](https://github.com/XTLS/Xray-core)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
 
-## 需要技术支持？
+## TG群组（闲聊或技术支持）
 
 <https://t.me/+AJmzOqlwGt8xYjI0>

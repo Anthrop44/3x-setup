@@ -46,6 +46,7 @@ PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort' "$CONSTANTS_PATH")"
+FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
 XHTTP_PATH="$(jq -r '.xhttpPath' "$PATHS_PATH")"
 PANEL_BASE_URL="http://127.0.0.1:$PANEL_PORT/$PANEL_URI_PATH"
 PANEL_ROOT_URL="$PANEL_BASE_URL/"
@@ -119,7 +120,7 @@ require_jq() {
 	local message="$2"
 	local expression="$3"
 
-	if ! jq -e "$expression" "$response_path" >/dev/null; then
+	if ! jq -e --arg fingerprint "$FINGERPRINT" "$expression" "$response_path" >/dev/null; then
 		printf '%s\n' "$message" >&2
 		cat "$response_path" >&2
 		exit 1
@@ -203,6 +204,7 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" '
 		and ($stream.realitySettings.serverNames | index("'"$DIRECT_DOMAIN"'") != null)
 		and (($stream.realitySettings.privateKey // "") != "")
 		and (($stream.realitySettings.settings.publicKey // "") != "")
+		and $stream.realitySettings.settings.fingerprint == $fingerprint
 		and (($stream.realitySettings.shortIds // []) | length >= 1))
 '
 

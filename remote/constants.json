@@ -15,6 +15,8 @@
 	"clashSuffix": "c",
 	"proxyClientsSuffix": "p",
 	"dailyTaskHour": 4,
+	"subUpdates": 1,
+	"fingerprint": "chrome",
 	"proxyClientsFilenames": {
 		"v2rayNWindowsX64": "v2rayN-windows-64.zip",
 		"clashVergeRevWindowsX64": "Clash.Verge_latest_x64-setup.exe",

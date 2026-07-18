@@ -46,6 +46,7 @@ PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort' "$CONSTANTS_PATH")"
+FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
 XHTTP_PATH="$(jq -r '.xhttpPath' "$PATHS_PATH")"
 PANEL_BASE_URL="http://127.0.0.1:$PANEL_PORT/$PANEL_URI_PATH"
 PANEL_ROOT_URL="$PANEL_BASE_URL/"
@@ -310,6 +311,7 @@ jq -n \
 	--arg privateKey "$REALITY_PRIVATE_KEY" \
 	--arg publicKey "$REALITY_PUBLIC_KEY" \
 	--arg shortId "$REALITY_SHORT_ID" \
+	--arg fingerprint "$FINGERPRINT" \
 	'{
 		enable: true,
 		remark: $remark,
@@ -354,7 +356,7 @@ jq -n \
 				mldsa65Seed: "",
 				settings: {
 					publicKey: $publicKey,
-					fingerprint: "chrome",
+					fingerprint: $fingerprint,
 					serverName: $directDomain,
 					spiderX: "/",
 					mldsa65Verify: ""
