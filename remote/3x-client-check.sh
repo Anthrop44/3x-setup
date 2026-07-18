@@ -17,7 +17,7 @@ exec >"$OUTPUT_FILE" 2>&1
 
 DIRECT_DOMAIN="$(jq -r '.directDomain' "$CONFIG_PATH")"
 CDN_DOMAIN="$(jq -r '.cdnDomain' "$CONFIG_PATH")"
-CDN_OPT_DOMAIN="$(jq -r '.cdnOptDomain' "$CONSTANTS_PATH")"
+CDN_OPT_DOMAINS="$(jq -c '.cdnOptDomains // []' "$CONFIG_PATH")"
 PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
@@ -187,7 +187,7 @@ require_links_valid() {
 	if ! jq -e \
 		--arg directDomain "$DIRECT_DOMAIN" \
 		--arg cdnDomain "$CDN_DOMAIN" \
-		--arg cdnOptDomain "$CDN_OPT_DOMAIN" \
+		--argjson cdnOptDomains "$CDN_OPT_DOMAINS" \
 		--arg cdnPort "$CDN_PORT" \
 		--arg xhttpPort "$XHTTP_PORT" \
 		--arg hy2Remark "$HY2_REMARK" \
@@ -195,12 +195,21 @@ require_links_valid() {
 		'
 			def links: if (.obj | type) == "array" then .obj elif (.obj.externalLinks? | type) == "array" then .obj.externalLinks elif (.obj | type) == "string" then (.obj | split("\n") | map(select(length > 0))) else [] end;
 			def encoded_remark($remark): ($remark | @uri);
+			def xhttp_link($link; $domain; $alpn):
+				($link | startswith("vless://"))
+				and ($link | contains("@" + $domain + ":443"))
+				and ($link | contains("type=xhttp"))
+				and ($link | contains("alpn=" + $alpn));
 			links as $links
-			| ($links | length >= 4)
+			| ($cdnOptDomains | length) as $optCount
+			| ($links | length == (4 + (2 * $optCount)))
 			and any($links[]; startswith("hysteria2://") and contains("@" + $directDomain + ":443") and (contains($hy2Remark) or contains(encoded_remark($hy2Remark))))
 			and any($links[]; startswith("vless://") and contains("@" + $directDomain + ":443") and contains("flow=xtls-rprx-vision") and (contains($realityRemark) or contains(encoded_remark($realityRemark))))
-			and any($links[]; startswith("vless://") and contains("@" + $cdnDomain + ":443"))
-			and any($links[]; startswith("vless://") and contains("@" + $cdnOptDomain + ":443"))
+			and ([ $links[] | select(xhttp_link(.; $cdnDomain; "h2")) ] | length == 1)
+			and ([ $links[] | select(xhttp_link(.; $cdnDomain; "h3")) ] | length == 1)
+			and all($cdnOptDomains[]; . as $domain
+				| ([ $links[] | select(xhttp_link(.; $domain; "h2")) ] | length == 1)
+				and ([ $links[] | select(xhttp_link(.; $domain; "h3")) ] | length == 1))
 			and all($links[]; test("^(vless|hysteria2)://[^@]+@[^:/?#]+:443([/?#]|$)"))
 			and all($links[]; (contains(":" + $cdnPort) | not) and (contains(":" + $xhttpPort) | not))
 		' "$response_path" >/dev/null; then
@@ -269,7 +278,8 @@ check_client() {
 	printf '\n== 读取客户端 %s 分享链接 ==\n' "$client_email"
 	api_get "/panel/api/clients/links/$client_email" "$LINKS_RESPONSE_PATH"
 	require_api_success "$LINKS_RESPONSE_PATH" "读取客户端 $client_email 分享链接失败"
-	require_links_valid "$LINKS_RESPONSE_PATH" "客户端 $client_email 分享链接没有全部使用443"
+	jq -r 'def links: if (.obj | type) == "array" then .obj elif (.obj.externalLinks? | type) == "array" then .obj.externalLinks elif (.obj | type) == "string" then (.obj | split("\n") | map(select(length > 0))) else [] end; links[]' "$LINKS_RESPONSE_PATH"
+	printf '3X-UI客户端分享链接不应用Host，XHTTP会保留入站监听端口\n'
 
 	printf '\n== 读取客户端 %s 订阅链接 ==\n' "$client_email"
 	api_get "/panel/api/clients/subLinks/$client_sub_id" "$SUB_LINKS_RESPONSE_PATH"

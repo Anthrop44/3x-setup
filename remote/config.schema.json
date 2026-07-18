@@ -38,9 +38,26 @@
 			"minimum": 10001,
 			"maximum": 65535
 		},
+		"cdnOptDomains": {
+			"description": "（可选）Cloudflare优选域名列表。可以用schema中提供的默认值",
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"description": "Cloudflare优选域名。需要能解析到Cloudflare anycast ip",
+				"type": "string",
+				"format": "hostname",
+				"default": [
+					"www.shopify.com",
+					"time.is",
+					"www.visa.cn"
+				],
+				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+			}
+		},
 		"clients": {
 			"description": "客户端列表",
 			"type": "array",
+			"uniqueItems": true,
 			"items": {
 				"type": "object",
 				"properties": {

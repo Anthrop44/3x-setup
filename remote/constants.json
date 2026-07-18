@@ -8,7 +8,6 @@
 	"realityTargetPort": 8443,
 	"fakeSitePort": 8085,
 	"xhttpPort": 8087,
-	"cdnOptDomain": "saas.sin.fan",
 	"subscriptionPort": 2054,
 	"localSshPort": 2053,
 	"3xpanelPort": 2053,

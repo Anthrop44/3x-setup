@@ -4,21 +4,21 @@
 
 本方案默认安全，不需要任何额外加固，服务器只对公网暴露80、443和自定义SSH端口，对Cloudflare ip段暴露自定义高位cdn回源端口。3X-UI面板不暴露公网，通过SSH通道访问。普通HTTP(S)访问和GFW主动探测会回落到本机自托管的伪装站。XHTTP和订阅链接隐藏路径由脚本自动随机生成以确保无特征隐蔽性
 
-本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`。传入`-noAPP`时会跳过`fetch-apps-init.sh`和`fetch-apps-check.sh`，从`3x-client-check.sh`直接进入`direct-tls-init.sh`
+本项目的完整执行顺序：`init.ps1` > `generate-ssh-key.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`。传入`-noAPP`时会跳过`fetch-apps-init.sh`和`fetch-apps-check.sh`，从`3x-client-check.sh`直接进入`direct-tls-init.sh`
 
-`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不能视为可用，因为客户端需要信任`directDomain`的公信证书
+`init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不可用
 
-`init.ps1 -noAPP`会把`--noAPP`传给远端链路，`3x-client-check.sh`会跳过代理客户端静态分发阶段，直接执行`direct-tls-init.sh`；因此不会安装`3x-fetch-apps`、对应service和timer，也不会生成代理客户端固定下载文件
+`init.ps1 -noAPP`会把`--noAPP`传给远端链路，`3x-client-check.sh`会跳过`3x-fetch-apps`代理客户端静态分发，直接执行`direct-tls-init.sh`
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口；它开头先调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，检查必要文件是否存在，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
+`init.ps1`是首次部署入口；若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会调用`generate-ssh-key.ps1`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
 
 上传阶段使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
 
 ---
 
-`sync-clients.ps1`用于已有服务器的客户增删；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和完整的`remote/fake-site/{distributionPath}/`，执行`3x-client-init.sh --noTLS --noAPP`，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发页面先完整上传到用户工作目录，上传或客户同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免客户同步安装或更新代理客户端静态分发资源
+`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和完整的`remote/fake-site/{distributionPath}/`，执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发页面先完整上传到用户工作目录，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
 
 ---
 
@@ -74,15 +74,21 @@
 
 ---
 
-`remote/3x-inbound-init.sh`和`remote/3x-inbound-check.sh`负责创建三条空入站；初始化脚本登录3x-ui API，先确认`/etc/caddy/3x-direct-*.pem`存在，然后创建Hysteria2、Reality和XHTTP三个入站；Hysteria2使用TLS文件证书和随机salamander密码，Reality通过3X-UI API生成X25519密钥并随机生成shortId，XHTTP监听`127.0.0.1:xhttpPort`，配置外部代理/主机到`cdnDomain:443`和`cdnOptDomain:443`
+`remote/3x-inbound-init.sh`和`remote/3x-inbound-check.sh`负责创建三条空入站；初始化脚本登录3x-ui API，先确认`/etc/caddy/3x-direct-*.pem`存在，然后创建Hysteria2、Reality和XHTTP三个入站；Hysteria2使用TLS文件证书和随机salamander密码，Reality通过3X-UI API生成X25519密钥并随机生成shortId，XHTTP只配置`127.0.0.1:xhttpPort`监听和传输参数，不再向`streamSettings.externalProxy`写入订阅主机
 
-检查脚本读取入站列表，要求每个入站只有一条且关键字段符合预期，包括端口、协议、分享地址策略、排序、Reality目标、XHTTP路径、外部代理和sniffing设置；这个阶段不重启Xray，等待客户端创建后统一重启
+检查脚本读取入站列表，要求每个入站只有一条且关键字段符合预期，包括端口、协议、分享地址策略、排序、Reality目标、XHTTP路径和sniffing设置，并要求XHTTP的`externalProxy`缺失或为空；这个阶段不重启Xray，等待客户端创建后统一重启
+
+---
+
+`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先为普通CDN地址创建或更新独立H2、H3 Host，再按`cdnOptDomains`数组顺序为每个优选地址创建或更新同样的Host对，最后删除该XHTTP入站中配置未定义的其它Host组。Host按`Cloudflare Vanilla h2`、`Cloudflare Vanilla h3`、`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`等顺序排列，ALPN分别为单项`h2`或单项`h3`。所有Host都使用443、TLS、`cdnDomain`作为SNI和Chrome指纹
+
+Host组使用包含协议后缀的固定ID，重复同步会原地替换对应组；从旧版单Host配置首次同步时会创建新的H2/H3 Host并删除旧Host。优选域名数量减少或清空时，多余组会被删除。在3X-UI GUI中手工添加的XHTTP Host也会在下次同步时删除。检查脚本要求Host数量等于`2 * (1 + cdnOptDomains.length)`，并要求顺序、域名、备注、单项ALPN和其它TLS参数与`config.json`完全一致，成功后进入客户阶段
 
 ---
 
 `remote/3x-client-init.sh`和`remote/3x-client-check.sh`负责按`config.json`同步客户；初始化脚本要求`clients`非空、`client`和`path`存在且不重复、`traffic`为非负整数；随后找到三条入站ID，读取当前3X-UI客户端，删除不在配置中或订阅ID、流量、重置周期不匹配的客户端，再为缺失客户端创建关联三条入站的新客户端，最后重启Xray并等待运行
 
-客户端的`traffic`会换算成`totalGB=traffic*1073741824`，大于0时设置`reset=30`，否则`reset=0`；检查脚本逐个验证客户端配置、入站关联、分享链接和订阅链接都使用443，包含`cdnDomain`和`cdnOptDomain`两条XHTTP主机，且不暴露`cdnPort`或`xhttpPort`，再用本机临时Xray配置跑Reality和XHTTP的SOCKS代理端到端请求；HY2不在这个端到端代理测试中，因为生产可用性取决于后续公信TLS
+客户端的`traffic`会换算成`totalGB=traffic*1073741824`，大于0时设置`reset=30`，否则`reset=0`；检查脚本逐个验证客户端配置、入站关联和订阅链接。订阅链接包含`cdnDomain`普通地址和每个`cdnOptDomains[]`优选地址各自对应的1条H2和1条H3 XHTTP入口，链接总数必须为`4+2*cdnOptDomains.length`，且每个地址的两条链接分别携带`alpn=h2`和`alpn=h3`；全部链接使用443，不暴露`cdnPort`或`xhttpPort`。3X-UI v3.5的客户端分享链接API不应用Host，XHTTP分享链接会保留入站监听端口，因此客户应使用订阅URL。检查脚本再用本机临时Xray配置跑Reality和XHTTP的SOCKS代理端到端请求；HY2不在这个端到端代理测试中，因为生产可用性取决于后续公信TLS
 
 ---
 
@@ -254,15 +260,17 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 ## XHTTP主机
 
-- 备注：`Cloudflare OPT`
+- 对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
+	- 备注：`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`、`Cloudflare OPT 2 h2`、`Cloudflare OPT 2 h3`等
 	- 基本
 		- 入站：`Cloudflare`
-		- 地址：`{cdnOptDomain}`
+		- 地址：`{cdnOptDomains[i]}`
 		- 端口：`443`
 	- 安全
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
-- 备注：`Cloudflare Vanilla`
+		- ALPN：H2 Host仅为`h2`，H3 Host仅为`h3`
+- 备注：`Cloudflare Vanilla h2`和`Cloudflare Vanilla h3`
 	- 基本
 		- 入站：`Cloudflare`
 		- 地址：`{cdnDomain}`
@@ -270,6 +278,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 	- 安全
 		- 安全：`tls`
 		- SNI：`{cdnDomain}`
+		- ALPN：分别仅为`h2`和`h3`
 
 ## Caddy配置
 

@@ -208,6 +208,39 @@ function Assert-SetupClientConfigValid
 	}
 }
 
+function Assert-SetupCdnOptDomainsValid
+{
+	<#
+	.SYNOPSIS
+		检查Cloudflare优选域名配置不重复且不包含CDN域名
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Config
+	)
+
+	$CdnOptDomainsProperty = $Config.PSObject.Properties["cdnOptDomains"]
+	if ($null -eq $CdnOptDomainsProperty)
+	{
+		return
+	}
+
+	$SeenDomains = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+	foreach ($Domain in @($CdnOptDomainsProperty.Value))
+	{
+		$DomainString = [string]$Domain
+		if ([string]::Equals($DomainString, [string]$Config.cdnDomain, [System.StringComparison]::OrdinalIgnoreCase))
+		{
+			throw "remote/config.json cdnOptDomains must not contain cdnDomain: $DomainString"
+		}
+		if (-not $SeenDomains.Add($DomainString))
+		{
+			throw "remote/config.json has duplicate cdnOptDomains: $DomainString"
+		}
+	}
+}
+
 function Assert-SetupConstantsValid
 {
 	<#
@@ -252,4 +285,4 @@ function Save-SetupConfig
 	Set-Content -LiteralPath $ConfigPath -Value $Json -NoNewline -Encoding utf8NoBOM
 }
 
-Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Assert-SetupConstantsValid, Save-SetupConfig
+Export-ModuleMember -Function Read-SetupConfigFiles, Complete-SetupConfig, Assert-SetupClientConfigValid, Assert-SetupCdnOptDomainsValid, Assert-SetupConstantsValid, Save-SetupConfig
