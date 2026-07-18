@@ -40,8 +40,6 @@ parse_args() {
 parse_args "$@"
 
 DIRECT_DOMAIN="$(jq -r '.directDomain' "$CONFIG_PATH")"
-CDN_DOMAIN="$(jq -r '.cdnDomain' "$CONFIG_PATH")"
-CDN_OPT_DOMAIN="$(jq -r '.cdnOptDomain' "$CONSTANTS_PATH")"
 PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
@@ -145,7 +143,6 @@ printf '工作目录: %s\n' "$SCRIPT_DIR"
 printf 'Hysteria2入站: %s\n' "$HY2_REMARK"
 printf 'Reality入站: %s\n' "$REALITY_REMARK"
 printf 'XHTTP入站: %s\n' "$XHTTP_REMARK"
-printf 'XHTTP优选主机: %s\n' "$CDN_OPT_DOMAIN"
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 
 login_panel
@@ -227,22 +224,7 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" '
 		| $stream.network == "xhttp"
 		and $stream.security == "none"
 		and $stream.xhttpSettings.path == "/'"$XHTTP_PATH"'"
-		and (($stream.externalProxy // []) | any(
-			.forceTls == "tls"
-			and .dest == "'"$CDN_OPT_DOMAIN"'"
-			and .port == 443
-			and ((.remark // "") == "Cloudflare OPT")
-			and .sni == "'"$CDN_DOMAIN"'"
-			and .fingerprint == "chrome"
-		))
-		and (($stream.externalProxy // []) | any(
-			.forceTls == "tls"
-			and .dest == "'"$CDN_DOMAIN"'"
-			and .port == 443
-			and ((.remark // "") == "Cloudflare Vanilla")
-			and .sni == "'"$CDN_DOMAIN"'"
-			and .fingerprint == "chrome"
-		)))
+		and (($stream.externalProxy // []) | length == 0))
 '
 printf 'XHTTP入站OK\n'
 
@@ -255,6 +237,6 @@ ensure_no_failed_units
 
 printf '\n== 完成 ==\n'
 
-# 执行 3x-client-init.sh
-chmod +x "$SCRIPT_DIR/3x-client-init.sh"
-exec bash "$SCRIPT_DIR/3x-client-init.sh" "$@"
+# 执行 cf-host-init.sh
+chmod +x "$SCRIPT_DIR/cf-host-init.sh"
+exec bash "$SCRIPT_DIR/cf-host-init.sh" "$@"

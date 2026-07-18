@@ -38,9 +38,21 @@
 			"minimum": 10001,
 			"maximum": 65535
 		},
+		"cdnOptDomains": {
+			"description": "Cloudflare优选域名列表，用于额外生成XHTTP订阅主机",
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"description": "Cloudflare优选域名",
+				"type": "string",
+				"format": "hostname",
+				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+			}
+		},
 		"clients": {
 			"description": "客户端列表",
 			"type": "array",
+			"uniqueItems": true,
 			"items": {
 				"type": "object",
 				"properties": {

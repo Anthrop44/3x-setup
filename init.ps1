@@ -106,8 +106,6 @@ function Complete-SetupPorts
 	}
 }
 
-
-
 # 验证必需文件存在
 $RequiredFiles = @(
 	"fake-site/index.html",
@@ -129,6 +127,8 @@ $RequiredFiles = @(
 	"3x-panel-check.sh",
 	"3x-inbound-init.sh",
 	"3x-inbound-check.sh",
+	"cf-host-init.sh",
+	"cf-host-check.sh",
 	"3x-client-init.sh",
 	"3x-client-check.sh",
 	"fetch-apps-init.sh",
@@ -161,6 +161,7 @@ Complete-SetupPorts -Config $Config -Constants $Constants
 
 # 检查 config.json 中的客户端名和订阅路径不重复
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
+Assert-SetupCdnOptDomainsValid -Config $Config
 Assert-SetupConstantsValid -Constants $Constants
 
 # 写回自动生成字段并导出客户分发页面和URL清单

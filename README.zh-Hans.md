@@ -114,19 +114,19 @@ remote/
 pwsh init.ps1
 ```
 
-`init.ps1`会自动生成密钥对、订阅链接分发页，上传所有远端文件并启动初始化，若需要输入密码按终端提示操作即可。它生成的`clients.tsv`即为每位客户应收到的订阅分发页URL，直接将其发给客户即可。整个服务器初始化过程可能持续5~20分钟，具体时间取决于服务器配置，但在触发远端执行代码后断开SSH连接不会影响服务器继续初始化，所以不需要开着终端干等
+`init.ps1`会自动生成密钥对、订阅链接分发页，上传所有远端文件并启动初始化，若需要输入密码按终端提示操作即可。它生成的`clients.tsv`即为每位客户应收到的订阅分发页URL，直接将其发给客户即可。整个服务器初始化过程通常持续5~20分钟，具体时间取决于服务器配置，但在触发远端执行代码后断开SSH连接不会影响服务器继续初始化，所以不需要开着终端干等
 
-## 更新客户信息
+## 更新客户信息和Cloudflare优选域名
 
-若要增删客户或编辑客户信息等，请编辑`remote/config.json`中的`clients`后执行：
+若要更改客户信息或增删Cloudflare优选域名，请编辑`remote/config.json`中的`clients`和`cdnOptDomains`后执行：
 
 ```powershell
-pwsh sync-clients.ps1
+pwsh sync-config.ps1
 ```
 
-脚本会上传新的`remote/config.json`并同步客户端信息，重启Xray，并重新导出`clients.tsv`
+脚本会上传新的`remote/config.json`并同步客户端信息和Cloudflare优选域名，重启Xray，并重新导出`clients.tsv`
 
-**`init.ps1`和`sync-clients.ps1`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
+**`init.ps1`和`sync-config.ps1`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 
 代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.ps1`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
 
@@ -166,4 +166,3 @@ pwsh update-all.ps1
 
 - [Project X](https://github.com/XTLS/Xray-core)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
-- [saas.sin.fan](https://saas.sin.fan/)

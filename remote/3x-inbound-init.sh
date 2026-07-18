@@ -40,8 +40,6 @@ parse_args() {
 parse_args "$@"
 
 DIRECT_DOMAIN="$(jq -r '.directDomain' "$CONFIG_PATH")"
-CDN_DOMAIN="$(jq -r '.cdnDomain' "$CONFIG_PATH")"
-CDN_OPT_DOMAIN="$(jq -r '.cdnOptDomain' "$CONSTANTS_PATH")"
 PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
@@ -200,8 +198,6 @@ date -Is
 printf 'Hysteria2入站: %s -> %s:443/udp\n' "$HY2_REMARK" "$DIRECT_DOMAIN"
 printf 'Reality入站: %s -> %s:443/tcp\n' "$REALITY_REMARK" "$DIRECT_DOMAIN"
 printf 'XHTTP入站: %s\n' "$XHTTP_REMARK"
-printf 'XHTTP主机: %s:443/tcp\n' "$CDN_DOMAIN"
-printf 'XHTTP优选主机: %s:443/tcp (SNI %s)\n' "$CDN_OPT_DOMAIN" "$CDN_DOMAIN"
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 
 login_panel
@@ -384,8 +380,6 @@ require_api_success "$REALITY_RESPONSE_PATH" "创建Reality入站失败"
 printf '\n== 创建XHTTP入站 ==\n'
 jq -n \
 	--arg remark "$XHTTP_REMARK" \
-	--arg cdnDomain "$CDN_DOMAIN" \
-	--arg cdnOptDomain "$CDN_OPT_DOMAIN" \
 	--arg xhttpPort "$XHTTP_PORT" \
 	--arg xhttpPath "$XHTTP_PATH" \
 	'{
@@ -435,25 +429,7 @@ jq -n \
 				scMinPostsIntervalMs: "",
 				uplinkChunkSize: 0,
 				noGRPCHeader: false
-			},
-			externalProxy: [
-				{
-					forceTls: "tls",
-					dest: $cdnOptDomain,
-					port: 443,
-					remark: "Cloudflare OPT",
-					sni: $cdnDomain,
-					fingerprint: "chrome"
-				},
-				{
-					forceTls: "tls",
-					dest: $cdnDomain,
-					port: 443,
-					remark: "Cloudflare Vanilla",
-					sni: $cdnDomain,
-					fingerprint: "chrome"
-				}
-			]
+			}
 		},
 		sniffing: {
 			enabled: true,

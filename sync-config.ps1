@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-	同步远程3x-ui客户端
+	同步远程3X-UI客户端和Cloudflare优选域名
 .DESCRIPTION
-	上传 remote/config.json 和客户分发页面到已有VPS，远程同步客户并更新伪装站分发目录
+	上传 remote/config.json 和客户分发页面到已有VPS，远程同步客户、Cloudflare优选域名并更新伪装站分发目录
 #>
 
 [CmdletBinding()]
@@ -57,8 +57,9 @@ $Constants = $ConfigFiles.Constants
 # 补齐 config.json 自动生成字段
 Complete-SetupConfig -Config $Config
 
-# 检查 config.json 中的客户端名和订阅路径不重复
+# 检查config.json中的客户端和优选域名配置
 Assert-SetupClientConfigValid -Config $Config -RequireSubscriptionPath
+Assert-SetupCdnOptDomainsValid -Config $Config
 Assert-SetupConstantsValid -Constants $Constants
 
 # 写回自动生成字段并导出客户分发页面和URL清单
@@ -93,14 +94,14 @@ if ([string]::IsNullOrWhiteSpace($SftpPath))
 	throw "OpenSSH sftp is required"
 }
 
-$SftpBatchPath = Join-Path $ProjectDir "sync-clients-$([Guid]::NewGuid().ToString("N")).sftp"
+$SftpBatchPath = Join-Path $ProjectDir "sync-config-$([Guid]::NewGuid().ToString("N")).sftp"
 $RemoteFakeSiteDir = "3x-setup/fake-site"
 $RemoteDistributionDir = "$RemoteFakeSiteDir/$DistributionPath"
 $PrepareRemoteCommand = "set -eu; cd ~; rm -rf -- '$RemoteDistributionDir'; mkdir -p -- '$RemoteFakeSiteDir'"
 $RemoteCommand = @"
 set -eu
 cd ~/3x-setup
-(setsid bash -c 'exec bash ./3x-client-init.sh --noTLS --noAPP </dev/null' >/dev/null 2>&1 < /dev/null & RemotePid=`$!; echo 'Remote client sync has started in the background; waiting for it to complete'; wait `$RemotePid)
+(setsid bash -c 'exec bash ./cf-host-init.sh --noTLS --noAPP </dev/null' >/dev/null 2>&1 < /dev/null & RemotePid=`$!; echo 'Remote config sync has started in the background; waiting for it to complete'; wait `$RemotePid)
 SourceDir="./fake-site/$DistributionPath"
 TargetDir="/var/www/3x-fake-site/$DistributionPath"
 test -d "`$SourceDir"
@@ -121,21 +122,21 @@ try
 	)
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
-	Write-Host "Preparing remote client distribution directory"
+	Write-Host "Preparing remote config distribution directory"
 	& $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $PrepareRemoteCommand
-	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote client distribution directory"
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
-	Write-Host "Uploading remote/config.json and client distribution pages to $RemoteHost"
+	Write-Host "Uploading remote/config.json and distribution pages to $RemoteHost"
 	& $SftpPath @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
-	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote client files"
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
 } finally
 {
 	Remove-Item -LiteralPath $SftpBatchPath -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Starting remote client sync"
+Write-Host "Starting remote config sync"
 & $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $RemoteCommand
-Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote clients"
+Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote config"
 
 & (Join-Path $ProjectDir "get-log.ps1")
 
