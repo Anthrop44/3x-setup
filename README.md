@@ -167,3 +167,7 @@ This solution is configured for Mainland China by default. You can edit `remote/
 
 - [Project X](https://github.com/XTLS/Xray-core)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
+
+## Looking for Tech Support?
+
+<https://t.me/+AJmzOqlwGt8xYjI0>
