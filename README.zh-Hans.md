@@ -100,7 +100,7 @@ remote/
 ---
 
 准备静态伪装站：（若不会可让AI代写）
-- 必须存在`remote/fake-site/index.html`
+- `remote/fake-site/index.html`必须存在且以`<!doctype html>`开头
 - 伪装站应像一个正常静态网站，避免只放空白页或明显的测试文本
 - 部署时脚本会把整个`remote/fake-site/`复制到服务器，由Caddy在探测路径和fallback路径返回
 

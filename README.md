@@ -102,7 +102,7 @@ Then, based on `remote/config.schema.json`, use an IDE like VS Code with JSON LS
 ---
 
 Prepare the static masquerade site: (If you don't know how, you can let an AI generate it)
-- `remote/fake-site/index.html` must exist.
+- `remote/fake-site/index.html` must exist and start with `<!doctype html>`.
 - The masquerade site should look like a normal static website. Avoid blank pages or obvious placeholder/test text.
 - During deployment, the script will copy the entire `remote/fake-site/` folder to the server. Caddy will then serve it on the probe and fallback paths.
 

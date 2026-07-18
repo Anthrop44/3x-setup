@@ -106,45 +106,50 @@ function Complete-SetupPorts
 	}
 }
 
-# 验证必需文件存在
-$RequiredFiles = @(
-	"fake-site/index.html",
-	"cert.pem",
-	"key.pem",
-	"id_ed25519.pub",
-	"config.json",
-	"config.schema.json",
-	"constants.json",
-	"constants.schema.json",
-	"clash-rule.txt",
-	"Caddyfile.template",
-	"root-init.sh",
-	"user-init.sh",
-	"service-check.sh",
-	"caddy-init.sh",
-	"caddy-check.sh",
-	"3x-panel-init.sh",
-	"3x-panel-check.sh",
-	"3x-inbound-init.sh",
-	"3x-inbound-check.sh",
-	"cf-host-init.sh",
-	"cf-host-check.sh",
-	"3x-client-init.sh",
-	"3x-client-check.sh",
-	"fetch-apps-init.sh",
-	"fetch-apps-check.sh",
-	"direct-tls-init.sh",
-	"direct-tls-check.sh"
-)
-
-foreach ($RelativePath in $RequiredFiles)
+function Assert-RemoteFileFormat
 {
+	<#
+	.SYNOPSIS
+		检查远程文件存在且格式正确
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$RelativePath,
+
+		[Parameter(Mandatory = $true)]
+		[string]$RequiredPrefix,
+
+		[string]$RequiredSuffix
+	)
+
 	$FullPath = Join-Path $RemoteDir $RelativePath
 	if (-not (Test-Path -LiteralPath $FullPath -PathType Leaf))
 	{
 		throw "missing file: $RelativePath"
 	}
+
+	$Content = Get-Content -LiteralPath $FullPath -Raw
+	if (-not $Content.StartsWith($RequiredPrefix))
+	{
+		throw "$RelativePath must start with $RequiredPrefix"
+	}
+
+	if ($null -ne $RequiredSuffix)
+	{
+		$ContentWithoutTrailingLineEndings = $Content.TrimEnd([char[]]"`r`n")
+		if (-not $ContentWithoutTrailingLineEndings.EndsWith($RequiredSuffix))
+		{
+			throw "$RelativePath must end with $RequiredSuffix"
+		}
+	}
 }
+
+# 检查用户准备的远程文件格式
+Assert-RemoteFileFormat -RelativePath "cert.pem" -RequiredPrefix "-----BEGIN CERTIFICATE-----" -RequiredSuffix "-----END CERTIFICATE-----"
+Assert-RemoteFileFormat -RelativePath "key.pem" -RequiredPrefix "-----BEGIN PRIVATE KEY-----" -RequiredSuffix "-----END PRIVATE KEY-----"
+Assert-RemoteFileFormat -RelativePath "id_ed25519.pub" -RequiredPrefix "ssh-ed25519"
+Assert-RemoteFileFormat -RelativePath "fake-site/index.html" -RequiredPrefix "<!doctype html>"
 
 # 读取并解析 config.json 和 constants.json
 $ConfigFiles = Read-SetupConfigFiles `
