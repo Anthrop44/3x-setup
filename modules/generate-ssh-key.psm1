@@ -1,22 +1,6 @@
 Set-StrictMode -Version Latest
 
-function Assert-LastExitCode
-{
-	<#
-	.SYNOPSIS
-		检查上一条外部命令退出码
-	#>
-	[CmdletBinding()]
-	param(
-		[Parameter(Mandatory = $true)]
-		[string]$FailureMessage
-	)
-
-	if ($LASTEXITCODE -ne 0)
-	{
-		throw $FailureMessage
-	}
-}
+Import-Module (Join-Path $PSScriptRoot "assert-exit-code.psm1") -Force
 
 function Get-SshKeyFingerprint
 {
@@ -34,7 +18,7 @@ function Get-SshKeyFingerprint
 	)
 
 	$FingerprintLine = ssh-keygen -l -f $Path -E sha256
-	Assert-LastExitCode -FailureMessage $FailureMessage
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage $FailureMessage
 
 	$FingerprintLine = ($FingerprintLine -join "`n").Trim()
 	$Match = [regex]::Match($FingerprintLine, '^\d+\s+(SHA256:\S+)\s+.+\s+\((ED25519)\)$')
@@ -62,7 +46,7 @@ function Export-Ed25519PublicKey
 	)
 
 	$PublicKeyBody = ssh-keygen -y -f $Path
-	Assert-LastExitCode -FailureMessage "failed to export public key from $Path"
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "failed to export public key from $Path"
 
 	$PublicKeyBody = ($PublicKeyBody -join "`n").Trim()
 	$Match = [regex]::Match($PublicKeyBody, '^(ssh-ed25519)\s+(\S+)(?:\s+.*)?$')
@@ -166,7 +150,7 @@ function Initialize-DeploymentSshKey
 
 		Write-Host "Generating Ed25519 private key: $PrivateKeyPath"
 		ssh-keygen -q -t ed25519 -f $PrivateKeyPath -C $PublicKeyComment -N ""
-		Assert-LastExitCode -FailureMessage "failed to generate Ed25519 SSH key pair"
+		Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "failed to generate Ed25519 SSH key pair"
 	} else
 	{
 		Write-Host "Using existing Ed25519 private key: $PrivateKeyPath"

@@ -24,15 +24,23 @@
 
 ---
 
-`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到用户工作目录并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
-
----
-
 `get-log.ps1`负责日志下载；它让远端把`~/3x-setup/log/`打包到`/tmp`，用SFTP下载到本地，再解包到`log/`；如果本地`log/`非空，会先轮转为`log0/`、`log1/`等目录，避免覆盖上一次结果。如果失败，请检查并放通云服务器商的防火墙设置，因为本方案自带端口加固
 
 ---
 
+`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到用户工作目录并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
+
+---
+
 `ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，启动`ssh -N -L`把本地端口转发到远端`127.0.0.1:3xpanelPort`，等待端口可连接后输出面板URL和登录凭据，并通过`Start-Process`在默认浏览器中打开面板；进程退出时清理隧道
+
+---
+
+`update-all.ps1`用于维护已有服务器；它依次执行`sudo -n apt-get update`、`sudo -n apt-get dist-upgrade -y`和`sudo -n x-ui update`，随后用`sudo -n systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -noAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后失败
+
+---
+
+`modules/assert-exit-code.psm1`导出`Assert-ExitCode`，供本地脚本和其它模块统一检查外部命令退出码；退出码非0时抛出调用方提供的错误消息
 
 ---
 
@@ -45,10 +53,6 @@
 ---
 
 `modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
-
----
-
-`update-all.ps1`用于维护已有服务器；它依次执行`sudo -n apt-get update`、`sudo -n apt-get dist-upgrade -y`和`sudo -n x-ui update`，随后用`sudo -n systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -noAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后失败
 
 ## 远端初始化脚本
 

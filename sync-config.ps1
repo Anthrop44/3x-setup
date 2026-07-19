@@ -23,27 +23,7 @@ $ModuleDir = Join-Path $ProjectDir "modules"
 
 Import-Module (Join-Path $ModuleDir "setup-config.psm1") -Force
 Import-Module (Join-Path $ModuleDir "client-files.psm1") -Force
-
-function Assert-ExitCode
-{
-	<#
-	.SYNOPSIS
-		检查命令退出码
-	#>
-	[CmdletBinding()]
-	param(
-		[Parameter(Mandatory = $true)]
-		[int]$ExitCode,
-
-		[Parameter(Mandatory = $true)]
-		[string]$FailureMessage
-	)
-
-	if ($ExitCode -ne 0)
-	{
-		throw $FailureMessage
-	}
-}
+Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
 
 # 读取并解析 config.json 和 constants.json
 $ConfigFiles = Read-SetupConfigFiles `

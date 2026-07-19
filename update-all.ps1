@@ -15,6 +15,9 @@ $ProjectDir = $PSScriptRoot
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
+$ModuleDir = Join-Path $ProjectDir "modules"
+
+Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
 
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $Constants = Get-Content -LiteralPath $ConstantsPath -Raw | ConvertFrom-Json
@@ -45,10 +48,7 @@ sudo -n systemctl start 3x-fetch-apps.service
 
 Write-Host "Updating system, 3X-UI, and proxy client files on $RemoteHost"
 & $SshCommand.Source @SshHostKeyOptions -p $SshPort $SshTarget $RemoteCommand
-if ($LASTEXITCODE -ne 0)
-{
-	throw "Failed to update the remote server"
-}
+Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to update the remote server"
 
 Write-Host "Remote update completed"
 $global:LASTEXITCODE = 0
