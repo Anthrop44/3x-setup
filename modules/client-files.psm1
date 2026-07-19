@@ -22,8 +22,11 @@ function Export-ClientFiles
 	)
 
 	$TemplatePath = Join-Path $PSScriptRoot "template.xhtml"
+	$TemplateCssPath = Join-Path $PSScriptRoot "template.css"
 	$TemplateContent = Get-Content -LiteralPath $TemplatePath -Raw -Encoding utf8
 	$TemplateContent = $TemplateContent -replace "`r`n", "`n" -replace "`r", "`n"
+	$TemplateCssContent = Get-Content -LiteralPath $TemplateCssPath -Raw -Encoding utf8
+	$TemplateCssContent = $TemplateCssContent -replace "`r`n", "`n" -replace "`r", "`n"
 	$SubscriptionPath = "$($Config.cdnDomain)/$($Config.subscriptionPath)"
 	$ProxyClientsUrl = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)$($Constants.proxyClientsSuffix)"
 	$DistributionUrl = "https://$($Config.cdnDomain)/$($Config.distributionPath)"
@@ -35,6 +38,8 @@ function Export-ClientFiles
 		Remove-Item -LiteralPath $DistributionDir -Recurse -Force
 	}
 	New-Item -Path $DistributionDir -ItemType Directory -Force | Out-Null
+	$DistributionCssPath = Join-Path $DistributionDir "template.css"
+	Set-Content -LiteralPath $DistributionCssPath -Value $TemplateCssContent -NoNewline -Encoding utf8NoBOM
 
 	foreach ($Client in @($Config.clients))
 	{

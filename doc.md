@@ -14,7 +14,7 @@
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
+`init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`、同目录`template.css`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
 
 上传阶段使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
 
@@ -24,7 +24,7 @@
 
 ---
 
-`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和完整的`remote/fake-site/{distributionPath}/`，执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发页面先完整上传到用户工作目录，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
+`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到用户工作目录并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
 
 ---
 
@@ -44,7 +44,7 @@
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`，删除并重建`remote/fake-site/{distributionPath}/`，为每个`clients[]`生成`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`编辑内容模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
 
 ---
 

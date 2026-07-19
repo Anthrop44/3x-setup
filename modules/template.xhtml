@@ -4,33 +4,25 @@
 
 <head>
 	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Distribution</title>
-	<style type="text/css">
-		button[data-copy-subscription] {
-			padding: 0;
-			border: 0;
-			background: #dddddd;
-			color: #0000ee;
-			font: inherit;
-			font-weight: bold;
-			text-decoration: underline;
-			cursor: pointer;
-		}
-	</style>
+	<link rel="stylesheet" type="text/css" href="template.css" />
 </head>
 
 <body>
 	<p>Please use an updated secure browser like Firefox, Edge, or Chrome and enable JavaScript before continuing.</p>
-	<form onsubmit="return false;">
-		<label for="input">Enter <span id="four_digits"></span> to unlock</label>
-		<input id="input" type="text" />
-		<button type="submit">Unlock</button>
-	</form>
+	<dialog id="unlock-dialog">
+		<form id="unlock-form">
+			<label for="input">Enter <span id="four_digits"></span> to unlock</label>
+			<input id="input" type="text" />
+			<button type="submit">Unlock</button>
+		</form>
+	</dialog>
 	<main id="encrypted">
 		<h1>How-to-use</h1>
 
 		<p>Import your subscription URL to a supported proxy client.</p>
-		<p>Subscription URL: <b style="background: #dddddd;">(Click to copy)</b></p>
+		<p>Subscription URL: <b class="copy-hint">(Click to copy)</b></p>
 		<ul>
 			<li>v2rayN/Xray/Shadowrocket: <button type="button" data-copy-subscription="true"
 					data-copy-subscription-name="v2rayN/Xray/Shadowrocket">https://{subscriptionPath}/{clientPath}</button>
@@ -126,7 +118,8 @@
 
 	</main>
 	<script type="text/javascript">
-		const form = document.querySelector("form");
+		const dialog = document.getElementById("unlock-dialog");
+		const form = document.getElementById("unlock-form");
 		const input = document.getElementById("input");
 		const encrypted = document.getElementById("encrypted");
 
@@ -171,6 +164,7 @@
 				);
 				const plaintext = await crypto.subtle.decrypt({name: "AES-GCM", iv, tagLength: 128}, key, ciphertext);
 				encrypted.innerHTML = new TextDecoder().decode(plaintext);
+				dialog.close();
 			} catch {
 				input.setCustomValidity("Incorrect code");
 				input.reportValidity();
@@ -183,6 +177,15 @@
 		 */
 		function clearInputValidity() {
 			input.setCustomValidity("");
+		}
+
+		/**
+		 * 阻止解锁前关闭对话框
+		 * @param {Event} event 对话框取消事件
+		 * @returns {void}
+		 */
+		function preventDialogCancel(event) {
+			event.preventDefault();
 		}
 
 		/**
@@ -205,8 +208,10 @@
 		}
 
 		input.addEventListener("input", clearInputValidity);
+		dialog.addEventListener("cancel", preventDialogCancel);
 		form.addEventListener("submit", decrypt);
 		encrypted.addEventListener("click", copySubscription);
+		dialog.showModal();
 	</script>
 </body>
 

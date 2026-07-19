@@ -2,7 +2,7 @@
 .SYNOPSIS
 	同步远程3X-UI客户端和Cloudflare优选域名
 .DESCRIPTION
-	上传 remote/config.json 和客户分发页面到已有VPS，远程同步客户、Cloudflare优选域名并更新伪装站分发目录
+	上传 remote/config.json 和客户分发文件到已有VPS，远程同步客户、Cloudflare优选域名并更新伪装站分发目录
 #>
 
 [CmdletBinding()]
@@ -105,6 +105,7 @@ cd ~/3x-setup
 SourceDir="./fake-site/$DistributionPath"
 TargetDir="/var/www/3x-fake-site/$DistributionPath"
 test -d "`$SourceDir"
+test -f "`$SourceDir/template.css"
 sudo -n rm -rf -- "`$TargetDir"
 sudo -n install -d -m 755 -o caddy -g caddy "`$TargetDir"
 sudo -n cp -a -- "`$SourceDir"/. "`$TargetDir"/
@@ -126,7 +127,7 @@ try
 	& $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $PrepareRemoteCommand
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
-	Write-Host "Uploading remote/config.json and distribution pages to $RemoteHost"
+	Write-Host "Uploading remote/config.json and distribution files to $RemoteHost"
 	& $SftpPath @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
 } finally
