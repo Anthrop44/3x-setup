@@ -2,14 +2,14 @@
 
 # 3X-UI One-Click Deployment Script
 
-The best one-click proxy server deployment script based on 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
+The ultimate best one-click proxy server deployment script based on Xray-core and 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
 This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
 - Hysteria2 direct connection
 - VLESS+Reality+Vision direct connection
 - VLESS+XHTTP+Cloudflare CDN
 
-This solution requires a dedicated proxy server with at least 500MB of RAM running Debian 13 or higher, and a local Windows environment (though with some minor AI assistance, it can be adapted to other operating systems).
+This solution requires a dedicated proxy server with at least 1GB of RAM running Debian 13 or higher, and a local Windows environment.
 
 The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
@@ -163,11 +163,15 @@ Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteri
 
 This solution is configured for Mainland China by default. You can edit `remote/clash-rule.txt` to use it at other regions.
 
+Your private key `%USERPROFILE%\.ssh\id_ed25519` is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
+
 ## Acknowledgements
 
-- [Project X](https://github.com/XTLS/Xray-core)
+- [Project X](https://github.com/XTLS)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
 
-## Telegram Group (Chat or Tech Support)
+## Telegram Group (Chat & Tech Support)
 
 <https://t.me/+AJmzOqlwGt8xYjI0>
+
+Non-commercial group. All commercial activities are prohibited. Thank you for your understanding!

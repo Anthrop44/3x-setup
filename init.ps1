@@ -32,11 +32,12 @@ if (-not (Test-Path -LiteralPath $ConfigPath))
 	exit 0
 }
 
-# 自动准备部署所需的SSH密钥对
-& (Join-Path $ProjectDir "generate-ssh-key.ps1")
-
+Import-Module (Join-Path $ModuleDir "generate-ssh-key.psm1") -Force
 Import-Module (Join-Path $ModuleDir "setup-config.psm1") -Force
 Import-Module (Join-Path $ModuleDir "client-files.psm1") -Force
+
+# 自动准备部署所需的SSH密钥对
+Initialize-DeploymentSshKey -ProjectDir $ProjectDir
 
 function Assert-ExitCode
 {

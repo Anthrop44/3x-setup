@@ -1,13 +1,13 @@
 # 3X-UI一键部署脚本
 
-最好用的基于3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
+最好用的基于Xray-core和3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
 本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
 - Hysteria2直连
 - VLESS+Reality+Vision直连
 - VLESS+XHTTP+Cloudflare CDN
 
-本方案需要一台内存至少500MB、使用Debian 13或更高版本操作系统的专用代理服务器和本地Windows环境（虽然用AI稍改一下也能适配其它操作系统）
+本方案需要一台内存至少1GB、使用Debian 13或更高版本操作系统的专用代理服务器和本地Windows环境
 
 以下是使用教程，不详细介绍原理。有命令行基础的用户可以阅读开发文档`doc.md`
 
@@ -161,11 +161,15 @@ pwsh update-all.ps1
 
 本方案默认面向中国大陆。若您有在其它地区使用的需求，可以编辑`remote/clash-rule.txt`
 
+部署完成后，您的私钥`%USERPROFILE%\.ssh\id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
+
 ## 致谢
 
-- [Project X](https://github.com/XTLS/Xray-core)
+- [Project X](https://github.com/XTLS)
 - [3X-UI](https://github.com/MHSanaei/3x-ui)
 
-## TG群组（闲聊或技术支持）
+## TG群组（闲聊&技术支持）
 
 <https://t.me/+AJmzOqlwGt8xYjI0>
+
+非商业群组，禁止一切营利行为，谢谢理解！
