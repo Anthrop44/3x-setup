@@ -15,6 +15,9 @@ $ProjectDir = $PSScriptRoot
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
+$ModuleDir = Join-Path $ProjectDir "modules"
+
+Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
 
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $Constants = Get-Content -LiteralPath $ConstantsPath -Raw | ConvertFrom-Json
@@ -60,11 +63,7 @@ try
 	Write-Host "Creating remote tar archive from $RemoteLogDir/ ..."
 	$RemoteTarCommand = "tar -C $RemoteLogDir -cf $RemoteArchivePath . || { rm -f $RemoteArchivePath; exit 1; }"
 	ssh @SshHostKeyOptions -p $SshPort $SshTarget $RemoteTarCommand
-	if ($LASTEXITCODE -ne 0)
-	{
-		Write-Error "Failed to create remote log archive"
-		exit 1
-	}
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to create remote log archive"
 
 	$LocalArchiveSftpPath = $LocalArchivePath -replace "\\", "/"
 	$SftpCommands = @(
@@ -76,24 +75,15 @@ try
 
 	Write-Host "Downloading archive to $LocalArchivePath ..."
 	sftp @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
-	if ($LASTEXITCODE -ne 0)
-	{
-		Write-Error "Failed to download remote log archive"
-		exit 1
-	}
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to download remote log archive"
 
 	Write-Host "Extracting archive to $LocalLogDir/ ..."
 	tar -xf $LocalArchivePath -C $LocalLogDir
-	if ($LASTEXITCODE -ne 0)
-	{
-		Write-Error "Failed to extract log archive"
-		exit 1
-	} else
-	{
-		Write-Host "Successfully fetched:"
-		Get-ChildItem -LiteralPath $LocalLogDir -File | ForEach-Object {
-			Write-Host $_.Name
-		}
+	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to extract log archive"
+
+	Write-Host "Successfully fetched:"
+	Get-ChildItem -LiteralPath $LocalLogDir -File | ForEach-Object {
+		Write-Host $_.Name
 	}
 } finally
 {

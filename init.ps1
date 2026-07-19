@@ -35,30 +35,10 @@ if (-not (Test-Path -LiteralPath $ConfigPath))
 Import-Module (Join-Path $ModuleDir "generate-ssh-key.psm1") -Force
 Import-Module (Join-Path $ModuleDir "setup-config.psm1") -Force
 Import-Module (Join-Path $ModuleDir "client-files.psm1") -Force
+Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
 
 # 自动准备部署所需的SSH密钥对
 Initialize-DeploymentSshKey -ProjectDir $ProjectDir
-
-function Assert-ExitCode
-{
-	<#
-	.SYNOPSIS
-		检查命令退出码
-	#>
-	[CmdletBinding()]
-	param(
-		[Parameter(Mandatory = $true)]
-		[int]$ExitCode,
-
-		[Parameter(Mandatory = $true)]
-		[string]$FailureMessage
-	)
-
-	if ($ExitCode -ne 0)
-	{
-		throw $FailureMessage
-	}
-}
 
 function Complete-SetupPorts
 {
