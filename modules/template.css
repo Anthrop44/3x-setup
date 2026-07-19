@@ -1,1 +1,77 @@
-/* placeholder */
+:root {
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	color: #1f2328;
+	background: #fff;
+	line-height: 1.6;
+}
+
+body {
+	max-width: 56rem;
+	margin: 0 auto;
+	padding: 2rem 1.5rem 4rem;
+	font-size: clamp(1.125rem, 1vw + 0.875rem, 1.375rem);
+}
+
+h1,
+h2 {
+	line-height: 1.25;
+	margin: 2rem 0 0.75rem;
+}
+
+h1 {
+	font-size: 1.5em;
+}
+
+h2 {
+	font-size: 1.2em;
+}
+
+p,
+ul {
+	margin: 0 0 1rem;
+}
+
+li+li {
+	margin-top: 0.5rem;
+}
+
+a,
+button {
+	overflow-wrap: anywhere;
+}
+
+button,
+input {
+	font: inherit;
+}
+
+button {
+	padding: 0.15em 0.4em;
+	border: 1px solid currentColor;
+	border-radius: 0.25rem;
+	color: inherit;
+	background: transparent;
+	cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+	background: #f0f0f0;
+}
+
+dialog {
+	max-width: min(28rem, calc(100% - 2rem));
+	padding: 1.5rem;
+	border: 1px solid #888;
+	border-radius: 0.5rem;
+	box-shadow: 0 0.5rem 2rem #0004;
+}
+
+dialog::backdrop {
+	background: #0008;
+}
+
+#unlock-form {
+	display: grid;
+	gap: 0.75rem;
+}
