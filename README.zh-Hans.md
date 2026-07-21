@@ -159,8 +159,6 @@ pwsh update-all.ps1
 
 地区运营商可能会阻断部分ip的QUIC，这会导致Hysteria2入站不可用，属不可抗力
 
-本方案默认面向中国大陆。若您有在其它地区使用的需求，可以编辑`remote/clash-rule.txt`
-
 部署完成后，您的私钥`%USERPROFILE%\.ssh\id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
 
 ## 致谢

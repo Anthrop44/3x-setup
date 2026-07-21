@@ -10,7 +10,6 @@ mkdir -p "$LOG_DIR"
 LOG_PATH="$LOG_DIR/3x-panel-init.log"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
-CLASH_RULES_PATH="$SCRIPT_DIR/clash-rule.txt"
 
 exec >>"$LOG_PATH" 2>&1
 
@@ -22,11 +21,8 @@ PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort' "$CONSTANTS_PATH")"
 SUB_UPDATES="$(jq -r '.subUpdates' "$CONSTANTS_PATH")"
-CLASH_SUFFIX="$(jq -r '.clashSuffix' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 REVERSE_PROXY_URI="https://$CDN_DOMAIN/$SUBSCRIPTION_URI_PATH/"
-CLASH_REVERSE_PROXY_URI="https://$CDN_DOMAIN/$CLASH_SUBSCRIPTION_URI_PATH/"
 
 # 非交互式安装3x-ui
 if curl -fsSL --retry 3 --connect-timeout 20 --max-time 900 \
@@ -62,7 +58,6 @@ for PANEL_WAIT_INDEX in $(seq 1 30); do
 done
 
 SUBSCRIPTION_PATH="/$SUBSCRIPTION_URI_PATH/"
-CLASH_SUBSCRIPTION_PATH="/$CLASH_SUBSCRIPTION_URI_PATH/"
 COOKIE_JAR="$(mktemp)"
 LOGIN_PAGE_PATH="$(mktemp)"
 LOGIN_RESPONSE_PATH="$(mktemp)"
@@ -121,27 +116,19 @@ jq \
 	--arg subListen "127.0.0.1" \
 	--arg subPort "$SUBSCRIPTION_PORT" \
 	--arg subPath "$SUBSCRIPTION_PATH" \
-	--arg subClashPath "$CLASH_SUBSCRIPTION_PATH" \
 	--arg subDomain "$CDN_DOMAIN" \
 	--arg subURI "$REVERSE_PROXY_URI" \
-	--arg subClashURI "$CLASH_REVERSE_PROXY_URI" \
 	--arg subTitle "$CDN_DOMAIN" \
 	--arg subUpdates "$SUB_UPDATES" \
 	--arg remarkTemplate "{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}" \
-	--rawfile subClashRules "$CLASH_RULES_PATH" \
 	'.obj
 	| .subEnable = true
 	| .subJsonEnable = false
-	| .subClashEnable = true
-	| .subClashEnableRouting = true
 	| .subListen = $subListen
 	| .subPort = ($subPort | tonumber)
 	| .subPath = $subPath
-	| .subClashPath = $subClashPath
 	| .subDomain = $subDomain
 	| .subURI = $subURI
-	| .subClashURI = $subClashURI
-	| .subClashRules = $subClashRules
 	| .subCertFile = ""
 	| .subKeyFile = ""
 	| .subEncrypt = true

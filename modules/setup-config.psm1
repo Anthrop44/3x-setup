@@ -253,11 +253,6 @@ function Assert-SetupConstantsValid
 		[pscustomobject]$Constants
 	)
 
-	if ([string]::Equals([string]$Constants.clashSuffix, [string]$Constants.proxyClientsSuffix, [System.StringComparison]::OrdinalIgnoreCase))
-	{
-		throw "remote/constants.json clashSuffix and proxyClientsSuffix must be different"
-	}
-
 	$FilenameProperties = @($Constants.proxyClientsFilenames.PSObject.Properties)
 	$DuplicateFilenames = @($FilenameProperties | Group-Object -Property Value | Where-Object { $_.Count -gt 1 } | ForEach-Object { [string]$_.Name })
 	if ($DuplicateFilenames.Count -gt 0)

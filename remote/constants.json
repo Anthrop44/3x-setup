@@ -12,21 +12,15 @@
 	"localSshPort": 2053,
 	"3xpanelPort": 2053,
 	"3xpanelUriPath": "3xpanel",
-	"clashSuffix": "c",
 	"proxyClientsSuffix": "p",
 	"dailyTaskHour": 4,
 	"subUpdates": 1,
 	"fingerprint": "chrome",
 	"proxyClientsFilenames": {
 		"v2rayNWindowsX64": "v2rayN-windows-64.zip",
-		"clashVergeRevWindowsX64": "Clash.Verge_latest_x64-setup.exe",
 		"v2rayNGAndroidArm64": "v2rayNG_latest-fdroid_arm64-v8a.apk",
-		"clashMetaAndroidArm64": "cmfa-latest-meta-arm64-v8a-release.apk",
 		"v2rayNMacOSArm64": "v2rayN-macos-arm64.dmg",
-		"clashVergeRevMacOSArm64": "Clash.Verge_latest_aarch64.dmg",
 		"v2rayNLinuxX64Deb": "v2rayN-linux-64.deb",
-		"clashVergeRevLinuxX64Deb": "Clash.Verge_latest_amd64.deb",
-		"v2rayNLinuxX64Rpm": "v2rayN-linux-rhel-64.rpm",
-		"clashVergeRevLinuxX64Rpm": "Clash.Verge-latest.x86_64.rpm"
+		"v2rayNLinuxX64Rpm": "v2rayN-linux-rhel-64.rpm"
 	}
 }

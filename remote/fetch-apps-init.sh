@@ -401,30 +401,20 @@ install_task() {
 		--arg logPath "$LOG_DIR/fetch-apps-update.log" \
 		--arg targetDir "$target_dir" \
 		--arg v2rayNWindowsX64 "$(jq -r '.proxyClientsFilenames.v2rayNWindowsX64' "$CONSTANTS_PATH")" \
-		--arg clashVergeRevWindowsX64 "$(jq -r '.proxyClientsFilenames.clashVergeRevWindowsX64' "$CONSTANTS_PATH")" \
 		--arg v2rayNGAndroidArm64 "$(jq -r '.proxyClientsFilenames.v2rayNGAndroidArm64' "$CONSTANTS_PATH")" \
-		--arg clashMetaAndroidArm64 "$(jq -r '.proxyClientsFilenames.clashMetaAndroidArm64' "$CONSTANTS_PATH")" \
 		--arg v2rayNMacOSArm64 "$(jq -r '.proxyClientsFilenames.v2rayNMacOSArm64' "$CONSTANTS_PATH")" \
-		--arg clashVergeRevMacOSArm64 "$(jq -r '.proxyClientsFilenames.clashVergeRevMacOSArm64' "$CONSTANTS_PATH")" \
 		--arg v2rayNLinuxX64Deb "$(jq -r '.proxyClientsFilenames.v2rayNLinuxX64Deb' "$CONSTANTS_PATH")" \
-		--arg clashVergeRevLinuxX64Deb "$(jq -r '.proxyClientsFilenames.clashVergeRevLinuxX64Deb' "$CONSTANTS_PATH")" \
 		--arg v2rayNLinuxX64Rpm "$(jq -r '.proxyClientsFilenames.v2rayNLinuxX64Rpm' "$CONSTANTS_PATH")" \
-		--arg clashVergeRevLinuxX64Rpm "$(jq -r '.proxyClientsFilenames.clashVergeRevLinuxX64Rpm' "$CONSTANTS_PATH")" \
 		'{
 			workDir: $workDir,
 			logPath: $logPath,
 			targetDir: $targetDir,
 			resources: [
 				{id: "v2rayNWindowsX64", repo: "2dust/v2rayN", assetPattern: "^v2rayN-windows-64[.]zip$", filename: $v2rayNWindowsX64},
-				{id: "clashVergeRevWindowsX64", repo: "clash-verge-rev/clash-verge-rev", assetPattern: "^Clash[.]Verge_[^/]+_x64-setup[.]exe$", filename: $clashVergeRevWindowsX64},
 				{id: "v2rayNGAndroidArm64", repo: "2dust/v2rayNG", assetPattern: "^v2rayNG_[^/]+-fdroid_arm64-v8a[.]apk$", filename: $v2rayNGAndroidArm64},
-				{id: "clashMetaAndroidArm64", repo: "MetaCubeX/ClashMetaForAndroid", assetPattern: "^cmfa-[^/]+-meta-arm64-v8a-release[.]apk$", filename: $clashMetaAndroidArm64},
 				{id: "v2rayNMacOSArm64", repo: "2dust/v2rayN", assetPattern: "^v2rayN-macos-arm64[.]dmg$", filename: $v2rayNMacOSArm64},
-				{id: "clashVergeRevMacOSArm64", repo: "clash-verge-rev/clash-verge-rev", assetPattern: "^Clash[.]Verge_[^/]+_aarch64[.]dmg$", filename: $clashVergeRevMacOSArm64},
 				{id: "v2rayNLinuxX64Deb", repo: "2dust/v2rayN", assetPattern: "^v2rayN-linux-64[.]deb$", filename: $v2rayNLinuxX64Deb},
-				{id: "clashVergeRevLinuxX64Deb", repo: "clash-verge-rev/clash-verge-rev", assetPattern: "^Clash[.]Verge_[^/]+_amd64[.]deb$", filename: $clashVergeRevLinuxX64Deb},
-				{id: "v2rayNLinuxX64Rpm", repo: "2dust/v2rayN", assetPattern: "^v2rayN-linux-rhel-64[.]rpm$", filename: $v2rayNLinuxX64Rpm},
-				{id: "clashVergeRevLinuxX64Rpm", repo: "clash-verge-rev/clash-verge-rev", assetPattern: "^Clash[.]Verge-[^/]+-1[.]x86_64[.]rpm$", filename: $clashVergeRevLinuxX64Rpm}
+				{id: "v2rayNLinuxX64Rpm", repo: "2dust/v2rayN", assetPattern: "^v2rayN-linux-rhel-64[.]rpm$", filename: $v2rayNLinuxX64Rpm}
 			]
 		}' >"$runtime_config_temp"
 

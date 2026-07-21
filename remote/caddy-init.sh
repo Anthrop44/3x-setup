@@ -53,7 +53,6 @@ render_caddyfile() {
 		-e "s|{{CDN_DOMAIN}}|$CDN_DOMAIN|g" \
 		-e "s|{{CDN_PORT}}|$CDN_PORT|g" \
 		-e "s|{{SUBSCRIPTION_URI_PATH}}|$SUBSCRIPTION_URI_PATH|g" \
-		-e "s|{{CLASH_SUBSCRIPTION_URI_PATH}}|$CLASH_SUBSCRIPTION_URI_PATH|g" \
 		-e "s|{{SUBSCRIPTION_PORT}}|$SUBSCRIPTION_PORT|g" \
 		-e "s|{{XHTTP_PATH}}|$XHTTP_PATH|g" \
 		-e "s|{{XHTTP_PORT}}|$XHTTP_PORT|g" \
@@ -109,10 +108,8 @@ CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort' "$CONSTANTS_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 SUBSCRIPTION_PORT="$(jq -r '.subscriptionPort' "$CONSTANTS_PATH")"
-CLASH_SUFFIX="$(jq -r '.clashSuffix' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 

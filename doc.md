@@ -14,7 +14,7 @@
 
 ## 本地脚本和模块
 
-`init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`、同目录`template.css`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF。Clash订阅路径不单独保存，而是由`subscriptionPath`追加`constants.json`中的`clashSuffix`派生
+`init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`、同目录`template.css`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF
 
 上传阶段使用Windows OpenSSH的`scp`和`ssh`；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码，并用`StrictHostKeyChecking=no`和`UserKnownHostsFile=NUL`直接跳过OpenSSH主机指纹确认；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
 
@@ -48,11 +48,11 @@
 
 ---
 
-`modules/setup-config.psm1`封装配置处理；它用`Test-Json`校验schema，用加密随机数生成16位十六进制token，补齐空白字段，确保客户端数组非空、`client`非空、`path`非空、客户端名不重复、订阅ID不重复，并检查`clashSuffix`和`proxyClientsSuffix`不冲突、`proxyClientsFilenames`中的固定文件名不重复
+`modules/setup-config.psm1`封装配置处理；它用`Test-Json`校验schema，用加密随机数生成16位十六进制token，补齐空白字段，确保客户端数组非空、`client`非空、`path`非空、客户端名不重复、订阅ID不重复，并检查`proxyClientsFilenames`中的固定文件名不重复
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，把Clash/mihomo订阅链接写成`https://cdnDomain/{subscriptionPath}{clashSuffix}/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
 
 ## 远端初始化脚本
 
@@ -74,7 +74,7 @@
 
 ---
 
-`remote/3x-panel-init.sh`和`remote/3x-panel-check.sh`负责安装3X-UI并设置面板；初始化脚本通过官方安装脚本非交互安装3X-UI，设置SQLite、面板端口、面板路径、用户名、密码、无面板SSL，监听`127.0.0.1`；随后显式启用并启动`x-ui.service`，保证VPS重启后3X-UI/Xray-core自动恢复。接着登录本机面板API，开启普通订阅和Clash订阅，设置订阅监听为`127.0.0.1:subscriptionPort`，配置反代URI、Clash规则、加密订阅、流量信息显示、备注模板和Happy Eyeballs参数等并重启面板
+`remote/3x-panel-init.sh`和`remote/3x-panel-check.sh`负责安装3X-UI并设置面板；初始化脚本通过官方安装脚本非交互安装3X-UI，设置SQLite、面板端口、面板路径、用户名、密码、无面板SSL，监听`127.0.0.1`；随后显式启用并启动`x-ui.service`，保证VPS重启后3X-UI/Xray-core自动恢复。接着登录本机面板API，仅启用普通订阅，设置订阅监听、反代URI、加密订阅、流量信息显示、备注模板和Happy Eyeballs参数等并重启面板
 
 ---
 
@@ -98,9 +98,9 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 
 `remote/fetch-apps-init.sh`和`remote/fetch-apps-check.sh`负责代理客户端静态分发；初始化脚本把自身安装为`/usr/local/sbin/3x-fetch-apps`，在`/var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}`创建隐藏目录，并安装与Cloudflare任务使用相同`dailyTaskHour`和1小时随机延迟的`3x-fetch-apps.timer`
 
-更新器通过GitHub`releases/latest`API获取v2rayN、v2rayNG、Clash Verge Rev和Clash Meta for Android的最新稳定release，严格匹配目标assets；状态保存在`/var/lib/3x-fetch-apps/state.json`。asset发生变化或文件缺失、校验失败时才重新下载，临时文件通过大小和可用SHA-256 digest校验后才原子替换旧文件
+更新器通过GitHub`releases/latest`API获取v2rayN和v2rayNG的最新稳定release，严格匹配目标assets；状态保存在`/var/lib/3x-fetch-apps/state.json`。asset发生变化或文件缺失、校验失败时才重新下载，临时文件通过大小和可用SHA-256 digest校验后才原子替换旧文件
 
-连续3个更新任务任务失败后会禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、10项状态、文件权限和本机CDN固定URL后进入TLS阶段
+连续3个更新任务任务失败后会禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、全部资源状态、文件权限和本机CDN固定URL后进入TLS阶段
 
 ---
 
@@ -121,12 +121,6 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 	- vps -> 127.0.0.1:{CDN_PORT}
 	- Caddy -> 127.0.0.1:{subscriptionPort}
 	- 3X-UI subscription
-- client get Clash/Mihomo subscription
-	- client -> {cdnDomain}/{subscriptionPath}{clashSuffix}/{subscriptionID}:443
-	- Cloudflare cdn -> ip:{CDN_PORT}
-	- vps -> 127.0.0.1:{CDN_PORT}
-	- Caddy -> 127.0.0.1:{subscriptionPort}
-	- 3X-UI Clash/Mihomo subscription
 - client download proxy application
 	- client -> {cdnDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
@@ -167,9 +161,9 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 
 面板SSL模式为无，因为公网不直接访问面板；面板监听地址强制设置为`127.0.0.1`，需要通过`ssh-tunnel.ps1`访问
 
-订阅功能启用，json订阅关闭，Clash订阅启用，Clash路由启用；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，Clash路径为`/{subscriptionPath}{clashSuffix}/`，反向代理URI分别是`https://cdnDomain/subscriptionPath/`和`https://cdnDomain/{subscriptionPath}{clashSuffix}/`
+订阅功能启用，json订阅关闭；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，反向代理URI为`https://cdnDomain/subscriptionPath/`
 
-订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”；Clash规则来自`remote/clash-rule.txt`
+订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”
 
 Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写入Happy Eyeballs设置，减少双栈解析和连接时的异常延迟
 
@@ -277,7 +271,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 `directDomain:realityTargetPort`绑定`127.0.0.1`，提供Reality fallback要访问的HTTPS伪装站；初始阶段使用`/etc/caddy/3x-direct-*.pem`文件证书；公信TLS阶段临时改成ACME配置，签发成功后再把证书复制回稳定路径供Xray读取
 
-`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`和`/{subscriptionPath}{clashSuffix}/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
+`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
 
 ## Hints
 

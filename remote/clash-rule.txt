@@ -1,5 +1,0 @@
-GEOSITE,private,DIRECT
-GEOIP,private,DIRECT,no-resolve
-GEOSITE,cn,DIRECT
-GEOIP,CN,DIRECT,no-resolve
-GEOSITE,geolocation-!cn,PROXY
