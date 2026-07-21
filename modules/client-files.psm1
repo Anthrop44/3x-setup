@@ -27,8 +27,7 @@ function Export-ClientFiles
 	$TemplateContent = $TemplateContent -replace "`r`n", "`n" -replace "`r", "`n"
 	$TemplateCssContent = Get-Content -LiteralPath $TemplateCssPath -Raw -Encoding utf8
 	$TemplateCssContent = $TemplateCssContent -replace "`r`n", "`n" -replace "`r", "`n"
-	$SubscriptionPath = "$($Config.cdnDomain)/$($Config.subscriptionPath)"
-	$ProxyClientsUrl = "https://$($Config.cdnDomain)/$($Config.subscriptionPath)$($Constants.proxyClientsSuffix)"
+	$SubscriptionPath = [string]$Config.subscriptionPath
 	$DistributionUrl = "https://$($Config.cdnDomain)/$($Config.distributionPath)"
 	$TsvRows = [System.Collections.Generic.List[string]]::new()
 	[void]$TsvRows.Add("clients`tdistributionURL")
@@ -55,14 +54,15 @@ function Export-ClientFiles
 		[void]$TsvRows.Add("$ClientName`t$DistributionUrl/$ClientFilename")
 		$Content = $TemplateContent.Replace("{subscriptionPath}", $SubscriptionPath)
 		$Content = $Content.Replace("{proxyClientsSuffix}", [string]$Constants.proxyClientsSuffix)
-		$Content = $Content.Replace("{proxyClientsURL}", $ProxyClientsUrl)
+		$Content = $Content.Replace("{cdnDomain}", [string]$Config.cdnDomain)
+		$Content = $Content.Replace("{directDomain}", [string]$Config.directDomain)
 		$Content = $Content.Replace("{clientPath}", $ClientPath)
 		foreach ($FilenameProperty in $Constants.proxyClientsFilenames.PSObject.Properties)
 		{
 			$Placeholder = "{proxyClientsFilenames.$($FilenameProperty.Name)}"
 			$Content = $Content.Replace($Placeholder, [string]$FilenameProperty.Value)
 		}
-		if ($Content -match "\{(?:subscriptionPath|proxyClientsSuffix|proxyClientsURL|clientPath|proxyClientsFilenames\.)")
+		if ($Content -match "\{(?:cdnDomain|directDomain|subscriptionPath|proxyClientsSuffix|proxyClientsURL|clientPath|proxyClientsFilenames\.)")
 		{
 			throw "client template contains unresolved placeholder: $ClientName"
 		}

@@ -52,7 +52,7 @@
 
 ---
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，并把`proxyClientsFilenames`渲染为固定的代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
+`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，并把`proxyClientsFilenames`分别渲染为使用`cdnDomain`和`directDomain`的固定代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
 
 ## 远端初始化脚本
 
@@ -122,10 +122,15 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 	- Caddy -> 127.0.0.1:{subscriptionPort}
 	- 3X-UI subscription
 - client download proxy application
-	- client -> {cdnDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
-	- Cloudflare cdn -> ip:{CDN_PORT}
-	- vps -> 127.0.0.1:{CDN_PORT}
-	- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
+	- by cdn
+		- client -> {cdnDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
+		- Cloudflare cdn -> ip:{CDN_PORT}
+		- vps -> 127.0.0.1:{CDN_PORT}
+		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
+	- direct
+		- client -> {directDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
+		- Xray -> 127.0.0.1:{FAKE_SITE_PORT}
+		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
 - Hysteria2 Direct Connection
 	- client -> {directDomain}:443/udp
 	- vps -> 0.0.0.0:443/udp
