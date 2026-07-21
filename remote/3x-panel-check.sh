@@ -11,7 +11,6 @@ OUTPUT_FILE="$LOG_DIR/3x-panel-check.log"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 PATHS_PATH="$SCRIPT_DIR/paths.json"
-CLASH_RULES_PATH="$SCRIPT_DIR/clash-rule.txt"
 
 rm -f "$OUTPUT_FILE"
 exec >"$OUTPUT_FILE" 2>&1
@@ -26,9 +25,7 @@ PANEL_PORT="$(jq -r '."3xpanelPort" // empty' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath" // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
 PANEL_URL_PATH="/$PANEL_URI_PATH/"
-CLASH_SUFFIX="$(jq -r '.clashSuffix // empty' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath // empty' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath // empty' "$PATHS_PATH")"
 
 sqlite3_retry() {
@@ -65,29 +62,12 @@ require_setting_value() {
 	fi
 }
 
-require_setting_file_value() {
-	# 要求3x-ui设置值等于文件内容
-	local key="$1"
-	local expected_path="$2"
-	local actual
-	local expected
-
-	actual="$(sqlite3_retry "select value from settings where key = '$key';")"
-	expected="$(cat "$expected_path")"
-	if [ "$actual" != "$expected" ]; then
-		printf '3x-ui设置不符合文件内容: %s\n' "$key" >&2
-		printf '文件: %s\n' "$expected_path" >&2
-		exit 1
-	fi
-}
-
 printf '== 基本信息 ==\n'
 date -Is
 printf '工作目录: %s\n' "$SCRIPT_DIR"
 printf '面板端口: %s\n' "$PANEL_PORT"
 printf '面板路径: %s\n' "$PANEL_URI_PATH"
 printf '订阅路径: %s\n' "$SUBSCRIPTION_URI_PATH"
-printf 'Clash订阅路径: %s\n' "$CLASH_SUBSCRIPTION_URI_PATH"
 printf '面板本机URL: http://127.0.0.1:%s%s\n' "$PANEL_PORT" "$PANEL_URL_PATH"
 
 printf '\n== 3x-ui服务状态 ==\n'
@@ -119,11 +99,6 @@ sudo -n ls -l /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db-shm /etc/x-ui/x-ui.db-wal 2>&1
 sqlite3_retry '.tables'
 sqlite3_retry 'select key,value from settings order by key;'
 require_setting_value "remarkTemplate" "{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}"
-require_setting_value "subClashEnable" "true"
-require_setting_value "subClashEnableRouting" "true"
-require_setting_value "subClashPath" "/$CLASH_SUBSCRIPTION_URI_PATH/"
-require_setting_value "subClashURI" "https://$CDN_DOMAIN/$CLASH_SUBSCRIPTION_URI_PATH/"
-require_setting_file_value "subClashRules" "$CLASH_RULES_PATH"
 require_setting_value "subUpdates" "$SUB_UPDATES"
 
 printf '\n== Xray配置检查 ==\n'
@@ -147,7 +122,6 @@ curl -sS -I --max-time 10 "http://127.0.0.1:$PANEL_PORT${PANEL_URL_PATH}login" 2
 
 printf '\n== 订阅入口探测 ==\n'
 curl -k -sS -I --max-time 10 --resolve "$CDN_DOMAIN:$CDN_PORT:127.0.0.1" "https://$CDN_DOMAIN:$CDN_PORT/$SUBSCRIPTION_URI_PATH/__check__" 2>&1 || true
-curl -k -sS -I --max-time 10 --resolve "$CDN_DOMAIN:$CDN_PORT:127.0.0.1" "https://$CDN_DOMAIN:$CDN_PORT/$CLASH_SUBSCRIPTION_URI_PATH/__check__" 2>&1 || true
 
 printf '\n== CDN入口探测 ==\n'
 curl -k -sS -I --max-time 10 --resolve "$CDN_DOMAIN:$CDN_PORT:127.0.0.1" "https://$CDN_DOMAIN:$CDN_PORT/$XHTTP_PATH" 2>&1 || true

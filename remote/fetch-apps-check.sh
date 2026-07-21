@@ -57,7 +57,7 @@ sudo -n systemctl list-timers 3x-cloudflare-ufw.timer 3x-fetch-apps.timer --all 
 
 printf '\n== Resource state ==\n'
 sudo -n jq . "$STATE_PATH"
-test "$(sudo -n jq '.resources | length' "$STATE_PATH")" = 10
+test "$(sudo -n jq '.resources | length' "$STATE_PATH")" = "$(jq '.proxyClientsFilenames | length' "$CONSTANTS_PATH")"
 
 while IFS= read -r RESOURCE_ID; do
 	FILENAME="$(jq -r --arg id "$RESOURCE_ID" '.proxyClientsFilenames[$id]' "$CONSTANTS_PATH")"

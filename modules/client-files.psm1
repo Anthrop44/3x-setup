@@ -54,7 +54,6 @@ function Export-ClientFiles
 		$ClientFilePath = Join-Path $DistributionDir $ClientFilename
 		[void]$TsvRows.Add("$ClientName`t$DistributionUrl/$ClientFilename")
 		$Content = $TemplateContent.Replace("{subscriptionPath}", $SubscriptionPath)
-		$Content = $Content.Replace("{clashSuffix}", [string]$Constants.clashSuffix)
 		$Content = $Content.Replace("{proxyClientsSuffix}", [string]$Constants.proxyClientsSuffix)
 		$Content = $Content.Replace("{proxyClientsURL}", $ProxyClientsUrl)
 		$Content = $Content.Replace("{clientPath}", $ClientPath)
@@ -63,7 +62,7 @@ function Export-ClientFiles
 			$Placeholder = "{proxyClientsFilenames.$($FilenameProperty.Name)}"
 			$Content = $Content.Replace($Placeholder, [string]$FilenameProperty.Value)
 		}
-		if ($Content -match "\{(?:subscriptionPath|clashSuffix|proxyClientsSuffix|proxyClientsURL|clientPath|proxyClientsFilenames\.)")
+		if ($Content -match "\{(?:subscriptionPath|proxyClientsSuffix|proxyClientsURL|clientPath|proxyClientsFilenames\.)")
 		{
 			throw "client template contains unresolved placeholder: $ClientName"
 		}

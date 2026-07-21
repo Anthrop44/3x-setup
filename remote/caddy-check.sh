@@ -44,9 +44,7 @@ CDN_DOMAIN="$(jq -r '.cdnDomain // empty' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort // empty' "$CONFIG_PATH")"
 FAKE_SITE_PORT="$(jq -r '.fakeSitePort // empty' "$CONSTANTS_PATH")"
 REALITY_TARGET_PORT="$(jq -r '.realityTargetPort // empty' "$CONSTANTS_PATH")"
-CLASH_SUFFIX="$(jq -r '.clashSuffix // empty' "$CONSTANTS_PATH")"
 SUBSCRIPTION_URI_PATH="$(jq -r '.subscriptionPath // empty' "$CONFIG_PATH")"
-CLASH_SUBSCRIPTION_URI_PATH="${SUBSCRIPTION_URI_PATH}${CLASH_SUFFIX}"
 XHTTP_PATH="$(jq -r '.xhttpPath // empty' "$PATHS_PATH")"
 
 printf '== 基本信息 ==\n'
@@ -55,7 +53,6 @@ printf '工作目录: %s\n' "$SCRIPT_DIR"
 printf 'CDN域名: %s\n' "$CDN_DOMAIN"
 printf 'CDN端口: %s\n' "$CDN_PORT"
 printf '订阅路径: %s\n' "$SUBSCRIPTION_URI_PATH"
-printf 'Clash订阅路径: %s\n' "$CLASH_SUBSCRIPTION_URI_PATH"
 printf 'XHTTP路径: %s\n' "$XHTTP_PATH"
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 
