@@ -10,8 +10,7 @@
 </head>
 
 <body>
-	<p>Please use an updated secure browser like Firefox, Edge, or Chrome and enable JavaScript before continuing.</p>
-	<dialog id="unlock-dialog">
+	<dialog id="unlock-dialog"><p>Please use an updated secure browser like Firefox, Edge, or Chrome and enable JavaScript before continuing.</p>
 		<form id="unlock-form">
 			<label for="input">Enter <span id="four_digits"></span> to unlock</label>
 			<input id="input" type="text" />
@@ -23,18 +22,21 @@
 
 		<p>Import your subscription URL below to a proxy client powered by latest <a
 				href="https://github.com/XTLS/Xray-core">Xray-core</a>: <b class="copy-hint">(Click to copy)</b></p>
-		<button type="button" data-copy-subscription="true" data-copy-subscription-name="v2rayN/v2rayNG">https://{cdnDomain}/{subscriptionPath}/{clientPath}</button>
+		<button id="subscriptionURL" type="button" data-copy-subscription="true" data-copy-subscription-name="v2rayN/v2rayNG">https://{cdnDomain}/{subscriptionPath}/{clientPath}</button><br />
 
 		<p><strong>For your security, DO NOT share your subscription URL with anyone or paste these links
-				onto Chinese platforms such as WeChat or QQ.</strong></p>
+				onto censored platforms such as WeChat or QQ.</strong></p>
 
 		<p><strong>If your subscription stops working, please try updating your subscription and proxy clients.</strong>
 		</p>
-
+		<h1>Open Source</h1>
+		<p>This service is deployed via <a
+				href="https://github.com/Anthrop44/3x-setup">https://github.com/Anthrop44/3x-setup</a>. It is a free,
+			open-source, one-click VPN deployment script based on Xray-core and 3X-UI, with which you can deploy your
+			own VPN service in 30 minutes with maximum security. <strong>Click Star if you find it helpful,
+				thanks!</strong></p>
+		<p>Telegram group (chat &amp; tech support): <a href="https://t.me/+AJmzOqlwGt8xYjI0">https://t.me/+AJmzOqlwGt8xYjI0</a></p>
 		<h1>Download Supported Clients</h1>
-
-		<p>Please download the latest recommended proxy clients using the links below.</p>
-
 		<h2>Windows x64 (v2rayN)</h2>
 		<ul>
 			<li>from GitHub: <a href="https://github.com/2dust/v2rayN/releases/latest">https://github.com/2dust/v2rayN/releases/latest</a></li>
@@ -72,14 +74,7 @@
 			<li>from proxy server: <a href="https://{directDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientsFilenames.v2rayNLinuxX64Rpm}">https://{directDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientsFilenames.v2rayNLinuxX64Rpm}</a></li>
 		</ul>
 
-		<h1>Open Source</h1>
 
-		<p>This service is deployed via <a
-				href="https://github.com/Anthrop44/3x-setup">https://github.com/Anthrop44/3x-setup</a>. It is a free,
-			open-source, one-click VPN deployment script based on Xray-core and 3X-UI, with which you can deploy your
-			own VPN service in 30 minutes with maximum security. <strong>Click Star if you find it helpful,
-				thanks!</strong></p>
-		<p>Chat &amp; Tech Support: <a href="https://t.me/+AJmzOqlwGt8xYjI0">https://t.me/+AJmzOqlwGt8xYjI0</a></p>
 
 	</main>
 	<script type="text/javascript">

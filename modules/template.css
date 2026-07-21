@@ -1,5 +1,4 @@
 :root {
-	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 	color: #1f2328;
 	background: #fff;
 	line-height: 1.6;
@@ -74,4 +73,9 @@ dialog::backdrop {
 #unlock-form {
 	display: grid;
 	gap: 0.75rem;
+}
+
+#subscriptionURL {
+	display: block;
+	margin: 0 auto;
 }
