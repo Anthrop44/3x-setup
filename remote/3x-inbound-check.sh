@@ -60,83 +60,8 @@ LOGIN_RESPONSE_PATH="$(mktemp)"
 INBOUNDS_RESPONSE_PATH="$(mktemp)"
 STATUS_RESPONSE_PATH="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR" "$LOGIN_PAGE_PATH" "$LOGIN_RESPONSE_PATH" "$INBOUNDS_RESPONSE_PATH" "$STATUS_RESPONSE_PATH"' EXIT
-
-login_panel() {
-	# 登录3x-ui面板并设置会话Cookie和CSRF token
-	curl -fsS -c "$COOKIE_JAR" "$PANEL_ROOT_URL" >"$LOGIN_PAGE_PATH"
-	CSRF_TOKEN="$(sed -n 's/.*<meta name="csrf-token" content="\([^"]*\)".*/\1/p' "$LOGIN_PAGE_PATH")"
-	if [ -z "$CSRF_TOKEN" ]; then
-		printf '读取3x-ui CSRF token失败\n' >&2
-		exit 1
-	fi
-
-	jq -n \
-		--arg username "$PANEL_USERNAME" \
-		--arg password "$PANEL_PASSWORD" \
-		'{
-			username: $username,
-			password: $password,
-			twoFactorCode: ""
-		}' | curl -fsS \
-		-b "$COOKIE_JAR" \
-		-c "$COOKIE_JAR" \
-		-H 'Content-Type: application/json' \
-		-H "X-CSRF-Token: $CSRF_TOKEN" \
-		-d @- \
-		"$PANEL_BASE_URL/login" >"$LOGIN_RESPONSE_PATH"
-	if ! jq -e '.success == true' "$LOGIN_RESPONSE_PATH" >/dev/null; then
-		printf '3x-ui登录失败\n' >&2
-		cat "$LOGIN_RESPONSE_PATH" >&2
-		exit 1
-	fi
-}
-
-api_get() {
-	# 调用3x-ui GET API并保存响应
-	local endpoint="$1"
-	local output_path="$2"
-
-	curl -fsS \
-		-b "$COOKIE_JAR" \
-		-H "X-CSRF-Token: $CSRF_TOKEN" \
-		"$PANEL_BASE_URL$endpoint" >"$output_path"
-}
-
-require_api_success() {
-	# 要求3x-ui API响应success为true
-	local response_path="$1"
-	local message="$2"
-
-	if ! jq -e '.success == true' "$response_path" >/dev/null; then
-		printf '%s\n' "$message" >&2
-		cat "$response_path" >&2
-		exit 1
-	fi
-}
-
-require_jq() {
-	# 要求jq表达式验证通过
-	local response_path="$1"
-	local message="$2"
-	local expression="$3"
-
-	if ! jq -e --arg fingerprint "$FINGERPRINT" "$expression" "$response_path" >/dev/null; then
-		printf '%s\n' "$message" >&2
-		cat "$response_path" >&2
-		exit 1
-	fi
-}
-
-ensure_no_failed_units() {
-	# 确认systemd没有失败单元
-	local failed_units
-
-	failed_units="$(sudo -n systemctl --failed --no-legend --plain 2>/dev/null || true)"
-	if [ -n "$failed_units" ]; then
-		printf '%s\n' "$failed_units" >&2
-		exit 1
-	fi
-}
+source "$SCRIPT_DIR/3x-ui-api.sh"
+source "$SCRIPT_DIR/check-common.sh"
 
 printf '== 基本信息 ==\n'
 date -Is
@@ -154,7 +79,7 @@ require_api_success "$INBOUNDS_RESPONSE_PATH" "读取3x-ui入站列表失败"
 jq -r '.obj[] | [.id, .remark, .listen, .port, .protocol, .enable] | @tsv' "$INBOUNDS_RESPONSE_PATH"
 
 printf '\n== Hysteria2入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "Hysteria2入站配置不符合预期" '
+require_jq "$INBOUNDS_RESPONSE_PATH" "Hysteria2入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
 	def decoded: if type == "string" then fromjson else . end;
 	[.obj[] | select(.remark == "'"$HY2_REMARK"'")] as $items
 	| ($items | length == 1)
@@ -187,7 +112,7 @@ sudo -n test -s "$DIRECT_KEY_FILE"
 printf 'Hysteria2入站OK\n'
 
 printf '\n== Reality入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" '
+require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
 	def decoded: if type == "string" then fromjson else . end;
 	[.obj[] | select(.remark == "'"$REALITY_REMARK"'")] as $items
 	| ($items | length == 1)
@@ -211,7 +136,7 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" '
 printf 'Reality入站OK\n'
 
 printf '\n== XHTTP入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" '
+require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
 	def decoded: if type == "string" then fromjson else . end;
 	[.obj[] | select(.remark == "'"$XHTTP_REMARK"'")] as $items
 	| ($items | length == 1)

@@ -65,86 +65,7 @@ cleanup() {
 	rm -f "$COOKIE_JAR" "$LOGIN_PAGE_PATH" "$LOGIN_RESPONSE_PATH" "$INBOUNDS_RESPONSE_PATH" "$CLIENT_RESPONSE_PATH" "$LINKS_RESPONSE_PATH" "$SUB_LINKS_RESPONSE_PATH" "$STATUS_RESPONSE_PATH" "$REALITY_CONFIG_PATH" "$XHTTP_CONFIG_PATH" "$REALITY_LOG_PATH" "$XHTTP_LOG_PATH"
 }
 trap cleanup EXIT
-
-login_panel() {
-	# 登录3x-ui面板并设置会话Cookie和CSRF token
-	curl -fsS -c "$COOKIE_JAR" "$PANEL_ROOT_URL" >"$LOGIN_PAGE_PATH"
-	CSRF_TOKEN="$(sed -n 's/.*<meta name="csrf-token" content="\([^"]*\)".*/\1/p' "$LOGIN_PAGE_PATH")"
-	if [ -z "$CSRF_TOKEN" ]; then
-		printf '读取3x-ui CSRF token失败\n' >&2
-		exit 1
-	fi
-
-	jq -n \
-		--arg username "$PANEL_USERNAME" \
-		--arg password "$PANEL_PASSWORD" \
-		'{
-			username: $username,
-			password: $password,
-			twoFactorCode: ""
-		}' | curl -fsS \
-		-b "$COOKIE_JAR" \
-		-c "$COOKIE_JAR" \
-		-H 'Content-Type: application/json' \
-		-H "X-CSRF-Token: $CSRF_TOKEN" \
-		-d @- \
-		"$PANEL_BASE_URL/login" >"$LOGIN_RESPONSE_PATH"
-	if ! jq -e '.success == true' "$LOGIN_RESPONSE_PATH" >/dev/null; then
-		printf '3x-ui登录失败\n' >&2
-		cat "$LOGIN_RESPONSE_PATH" >&2
-		exit 1
-	fi
-}
-
-api_get() {
-	# 调用3x-ui GET API并保存响应
-	local endpoint="$1"
-	local output_path="$2"
-
-	curl -fsS \
-		-b "$COOKIE_JAR" \
-		-H "X-CSRF-Token: $CSRF_TOKEN" \
-		"$PANEL_BASE_URL$endpoint" >"$output_path"
-}
-
-require_api_success() {
-	# 要求3x-ui API响应success为true
-	local response_path="$1"
-	local message="$2"
-
-	if ! jq -e '.success == true' "$response_path" >/dev/null; then
-		printf '%s\n' "$message" >&2
-		cat "$response_path" >&2
-		exit 1
-	fi
-}
-
-require_jq() {
-	# 要求jq表达式验证通过
-	local response_path="$1"
-	local message="$2"
-	local expression="$3"
-
-	if ! jq -e "$expression" "$response_path" >/dev/null; then
-		printf '%s\n' "$message" >&2
-		cat "$response_path" >&2
-		exit 1
-	fi
-}
-
-get_unique_inbound_id() {
-	# 从入站列表按备注读取唯一入站ID
-	local remark="$1"
-	local count
-
-	count="$(jq --arg remark "$remark" '[.obj[] | select(.remark == $remark)] | length' "$INBOUNDS_RESPONSE_PATH")"
-	if [ "$count" != "1" ]; then
-		printf '入站%s数量不是1，实际为%s\n' "$remark" "$count" >&2
-		cat "$INBOUNDS_RESPONSE_PATH" >&2
-		exit 1
-	fi
-	jq -r --arg remark "$remark" '.obj[] | select(.remark == $remark) | .id' "$INBOUNDS_RESPONSE_PATH"
-}
+source "$SCRIPT_DIR/3x-ui-api.sh"
 
 find_xray_bin() {
 	# 查找3x-ui安装的Xray二进制
@@ -168,16 +89,7 @@ find_xray_bin() {
 	exit 1
 }
 
-ensure_no_failed_units() {
-	# 确认systemd没有失败单元
-	local failed_units
-
-	failed_units="$(sudo -n systemctl --failed --no-legend --plain 2>/dev/null || true)"
-	if [ -n "$failed_units" ]; then
-		printf '%s\n' "$failed_units" >&2
-		exit 1
-	fi
-}
+source "$SCRIPT_DIR/check-common.sh"
 
 require_links_valid() {
 	# 要求客户端分享或订阅链接符合预期

@@ -17,6 +17,7 @@ NO_TLS=0
 
 rm -f "$LOG_PATH"
 exec >"$LOG_PATH" 2>&1
+source "$SCRIPT_DIR/check-common.sh"
 
 parse_args() {
 	# 解析传入参数
@@ -116,17 +117,6 @@ require_public_direct_tls() {
 		exit 1
 	fi
 	rm -f "$cert_info_path"
-}
-
-ensure_no_failed_units() {
-	# 确认systemd没有失败单元
-	local failed_units
-
-	failed_units="$(sudo -n systemctl --failed --no-legend --plain 2>/dev/null || true)"
-	if [ -n "$failed_units" ]; then
-		printf '%s\n' "$failed_units" >&2
-		exit 1
-	fi
 }
 
 require_direct_tls_sync_task() {
