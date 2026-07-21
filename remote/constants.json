@@ -1,0 +1,26 @@
+{
+	"$schema": "constants.schema.json",
+	"username": "celestia",
+	"password": "Polaris",
+	"3xusername": "celestia",
+	"3xpassword": "Polaris",
+	"initialSshPort": 22,
+	"realityTargetPort": 8443,
+	"fakeSitePort": 8085,
+	"xhttpPort": 8087,
+	"subscriptionPort": 2054,
+	"localSshPort": 2053,
+	"3xpanelPort": 2053,
+	"3xpanelUriPath": "3xpanel",
+	"proxyClientsSuffix": "p",
+	"dailyTaskHour": 4,
+	"subUpdates": 1,
+	"fingerprint": "chrome",
+	"proxyClientsFilenames": {
+		"v2rayNWindowsX64": "v2rayN-windows-64.zip",
+		"v2rayNGAndroidArm64": "v2rayNG_latest-fdroid_arm64-v8a.apk",
+		"v2rayNMacOSArm64": "v2rayN-macos-arm64.dmg",
+		"v2rayNLinuxX64Deb": "v2rayN-linux-64.deb",
+		"v2rayNLinuxX64Rpm": "v2rayN-linux-rhel-64.rpm"
+	}
+}
