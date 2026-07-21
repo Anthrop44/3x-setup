@@ -13,17 +13,7 @@ STATE_PATH="/var/lib/3x-fetch-apps/state.json"
 
 rm -f "$OUTPUT_FILE"
 exec >"$OUTPUT_FILE" 2>&1
-
-ensure_no_failed_units() {
-	# 确认systemd没有失败单元
-	local failed_units
-
-	failed_units="$(sudo -n systemctl --failed --no-legend --plain 2>/dev/null || true)"
-	if [ -n "$failed_units" ]; then
-		printf '%s\n' "$failed_units" >&2
-		exit 1
-	fi
-}
+source "$SCRIPT_DIR/check-common.sh"
 
 CDN_DOMAIN="$(jq -r '.cdnDomain' "$CONFIG_PATH")"
 CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"

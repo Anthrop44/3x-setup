@@ -71,35 +71,8 @@ XRAY_UPDATE_RESPONSE_PATH="$(mktemp)"
 XRAY_RESTART_RESPONSE_PATH="$(mktemp)"
 RESTART_PANEL_RESPONSE_PATH="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR" "$LOGIN_PAGE_PATH" "$LOGIN_RESPONSE_PATH" "$SETTINGS_RESPONSE_PATH" "$SETTINGS_UPDATE_PATH" "$SETTINGS_UPDATE_RESPONSE_PATH" "$XRAY_RESPONSE_PATH" "$XRAY_OBJECT_PATH" "$XRAY_UPDATE_PATH" "$XRAY_UPDATE_RESPONSE_PATH" "$XRAY_RESTART_RESPONSE_PATH" "$RESTART_PANEL_RESPONSE_PATH"' EXIT
-
-curl -fsS \
-	-c "$COOKIE_JAR" \
-	"$PANEL_ROOT_URL" >"$LOGIN_PAGE_PATH"
-CSRF_TOKEN="$(sed -n 's/.*<meta name="csrf-token" content="\([^"]*\)".*/\1/p' "$LOGIN_PAGE_PATH")"
-if [ -z "$CSRF_TOKEN" ]; then
-	printf '读取3x-ui CSRF token失败\n' >&2
-	exit 1
-fi
-
-jq -n \
-	--arg username "$PANEL_USERNAME" \
-	--arg password "$PANEL_PASSWORD" \
-	'{
-		username: $username,
-		password: $password,
-		twoFactorCode: ""
-	}' | curl -fsS \
-	-b "$COOKIE_JAR" \
-	-c "$COOKIE_JAR" \
-	-H 'Content-Type: application/json' \
-	-H "X-CSRF-Token: $CSRF_TOKEN" \
-	-d @- \
-	"$PANEL_BASE_URL/login" >"$LOGIN_RESPONSE_PATH"
-if ! jq -e '.success == true' "$LOGIN_RESPONSE_PATH" >/dev/null; then
-	printf '3x-ui登录失败\n' >&2
-	cat "$LOGIN_RESPONSE_PATH" >&2
-	exit 1
-fi
+source "$SCRIPT_DIR/3x-ui-api.sh"
+login_panel
 
 curl -fsS \
 	-b "$COOKIE_JAR" \
