@@ -154,6 +154,8 @@ Please run this regularly or redeploy proxy server to stay up-to-date with upstr
 
 ## Warning
 
+This solution may not work on Windows 10 clients, as Windows 10 lacks full TLS 1.3 support.
+
 This solution was tested using 3X-UI version v3.5.0. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
 
 This project is not an idempotent deployer. It must be executed on a freshly rebuilt, clean server and should not be used on servers running existing production services.
