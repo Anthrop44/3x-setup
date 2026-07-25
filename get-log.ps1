@@ -33,7 +33,7 @@ $LocalArchivePath = $ArchiveName
 $SftpBatchPath = "$ArchiveName.sftp"
 $SshTarget = "${Username}@${RemoteHost}"
 $SshHostKeyOptions = @(
-	"-o", "StrictHostKeyChecking=no",
+	"-o", "StrictHostKeyChecking=accept-new",
 	"-o", "BatchMode=yes"
 )
 

@@ -56,8 +56,7 @@ $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
 $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
-$SshHostKeyOptions = @(
-	"-o", "StrictHostKeyChecking=no",
+$SshOptions = @(
 	"-o", "BatchMode=yes"
 )
 
@@ -102,11 +101,11 @@ try
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
 	Write-Host "Preparing remote config distribution directory"
-	& $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $PrepareRemoteCommand
+	& $SshPath @SshOptions -p $SshPort $SshTarget $PrepareRemoteCommand
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
 	Write-Host "Uploading remote/config.json and distribution files to $RemoteHost"
-	& $SftpPath @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
+	& $SftpPath @SshOptions -P $SshPort -b $SftpBatchPath $SshTarget
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
 } finally
 {
@@ -114,7 +113,7 @@ try
 }
 
 Write-Host "Starting remote config sync"
-& $SshPath @SshHostKeyOptions -p $SshPort $SshTarget $RemoteCommand
+& $SshPath @SshOptions -p $SshPort $SshTarget $RemoteCommand
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote config"
 
 & (Join-Path $ProjectDir "get-log.ps1")

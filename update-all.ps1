@@ -25,8 +25,7 @@ $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
 $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
-$SshHostKeyOptions = @(
-	"-o", "StrictHostKeyChecking=no",
+$SshOptions = @(
 	"-o", "BatchMode=yes"
 )
 
@@ -45,7 +44,7 @@ sudo -n systemctl start 3x-fetch-apps.service
 '@
 
 Write-Host "Updating system, 3X-UI, and proxy client files on $RemoteHost"
-& $SshCommand.Source @SshHostKeyOptions -p $SshPort $SshTarget $RemoteCommand
+& $SshCommand.Source @SshOptions -p $SshPort $SshTarget $RemoteCommand
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to update the remote server"
 
 Write-Host "Remote update completed"
