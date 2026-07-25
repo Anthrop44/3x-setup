@@ -26,13 +26,12 @@ $PanelUriPath = $Constants.'3xpanelUriPath'
 $PanelUsername = $Constants.'3xusername'
 $PanelPassword = $Constants.'3xpassword'
 $SshTarget = "${Username}@${RemoteHost}"
-$SshHostKeyOptions = @(
-	"-o", "StrictHostKeyChecking=no",
+$SshOptions = @(
 	"-o", "ExitOnForwardFailure=yes",
 	"-o", "BatchMode=yes"
 )
 $SshArguments = @(
-	$SshHostKeyOptions
+	$SshOptions
 	"-N"
 	"-L"
 	"${LocalSshPort}:127.0.0.1:${PanelPort}"

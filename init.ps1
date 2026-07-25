@@ -8,7 +8,10 @@
 [CmdletBinding()]
 param(
 	[switch]$NoTLS,
-	[switch]$NoAPP
+	[switch]$NoAPP,
+
+	[Alias("accept-new-host")]
+	[switch]$AcceptNewHost
 )
 
 Set-StrictMode -Version Latest
@@ -163,6 +166,11 @@ Export-ClientFiles -Config $Config -Constants $Constants -DistributionDir $Distr
 
 $RemoteHost = $Config.ip
 $InitialSshPort = $Constants.initialSshPort
+$ScpHostKeyOptions = @()
+if ($AcceptNewHost.IsPresent)
+{
+	$ScpHostKeyOptions = @("-o", "StrictHostKeyChecking=accept-new")
+}
 
 # 将 remote/ 中的文本文件转换成LF
 $TextExtensions = @(".html", ".json", ".pem", ".pub", ".sh", ".template", ".txt")
@@ -195,6 +203,30 @@ $RemoteInitArgs = if ($RemoteInitArgs.Count -gt 0)
 	""
 }
 
+# 清除初始和目标SSH端口主机指纹
+$KnownHostsPath = Join-Path $env:USERPROFILE ".ssh\known_hosts"
+if (Test-Path -LiteralPath $KnownHostsPath -PathType Leaf)
+{
+	$KnownHost = [string]$RemoteHost
+	if ($KnownHost.StartsWith("[") -and $KnownHost.EndsWith("]"))
+	{
+		$KnownHost = $KnownHost.Substring(1, $KnownHost.Length - 2)
+	}
+
+	$KnownHostEntries = @(
+		if ([int]$InitialSshPort -eq 22) { $KnownHost } else { "[${KnownHost}]:${InitialSshPort}" }
+		if ([int]$Config.sshPort -eq 22) { $KnownHost } else { "[${KnownHost}]:$($Config.sshPort)" }
+	) | Select-Object -Unique
+	$SshKeygenPath = (Get-Command "ssh-keygen" -ErrorAction Stop | Select-Object -First 1).Source
+	foreach ($KnownHostEntry in $KnownHostEntries)
+	{
+		Write-Host "Removing known host entry for $KnownHostEntry"
+		& $SshKeygenPath -R $KnownHostEntry -f $KnownHostsPath
+		Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to remove known host entry for $KnownHostEntry"
+	}
+}
+
+# 启动远程部署
 $RemoteCommand = @"
 mkdir -p /root/3x-setup && tar -xf /root/3x-setup.tar -C /root/3x-setup && (setsid bash -c 'exec bash /root/3x-setup/root-init.sh$RemoteInitArgs </dev/null' >/dev/null 2>&1 < /dev/null & RemotePid=`$!; echo 'Remote initialization has started in the background; waiting for it to complete'; wait `$RemotePid)
 "@
@@ -216,17 +248,15 @@ try
 	}
 	$ScpPath = $ScpCommand.Source
 	$SshPath = $SshCommand.Source
-	$SshHostKeyOptions = @(
-		"-o", "StrictHostKeyChecking=no"
-	)
 
-	& $ScpPath @SshHostKeyOptions -P $InitialSshPort $TarPath "root@${RemoteHost}:/root/3x-setup.tar"
+
+	& $ScpPath @ScpHostKeyOptions -P $InitialSshPort $TarPath "root@${RemoteHost}:/root/3x-setup.tar"
 	$UploadExitCode = $LASTEXITCODE
 	Assert-ExitCode -ExitCode $UploadExitCode -FailureMessage "Failed to upload 3x-setup.tar"
 
 	Write-Host "Starting remote initialization"
 	$RemoteInitializationStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-	& $SshPath @SshHostKeyOptions -p $InitialSshPort "root@$RemoteHost" $RemoteCommand
+	& $SshPath -p $InitialSshPort "root@$RemoteHost" $RemoteCommand
 	$InitExitCode = $LASTEXITCODE
 } finally
 {
