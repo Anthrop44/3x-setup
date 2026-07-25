@@ -217,9 +217,7 @@ try
 	$ScpPath = $ScpCommand.Source
 	$SshPath = $SshCommand.Source
 	$SshHostKeyOptions = @(
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=NUL",
-		"-o", "LogLevel=ERROR"
+		"-o", "StrictHostKeyChecking=no"
 	)
 
 	& $ScpPath @SshHostKeyOptions -P $InitialSshPort $TarPath "root@${RemoteHost}:/root/3x-setup.tar"

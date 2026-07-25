@@ -28,8 +28,6 @@ $PanelPassword = $Constants.'3xpassword'
 $SshTarget = "${Username}@${RemoteHost}"
 $SshHostKeyOptions = @(
 	"-o", "StrictHostKeyChecking=no",
-	"-o", "UserKnownHostsFile=NUL",
-	"-o", "LogLevel=ERROR",
 	"-o", "ExitOnForwardFailure=yes",
 	"-o", "BatchMode=yes"
 )

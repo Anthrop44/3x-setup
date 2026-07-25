@@ -34,8 +34,7 @@ $SftpBatchPath = "$ArchiveName.sftp"
 $SshTarget = "${Username}@${RemoteHost}"
 $SshHostKeyOptions = @(
 	"-o", "StrictHostKeyChecking=no",
-	"-o", "UserKnownHostsFile=NUL",
-	"-o", "LogLevel=ERROR"
+	"-o", "BatchMode=yes"
 )
 
 # 轮转本地非空 log 目录，空 log 目录直接复用

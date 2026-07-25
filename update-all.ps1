@@ -27,8 +27,6 @@ $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
 $SshHostKeyOptions = @(
 	"-o", "StrictHostKeyChecking=no",
-	"-o", "UserKnownHostsFile=NUL",
-	"-o", "LogLevel=ERROR",
 	"-o", "BatchMode=yes"
 )
 
