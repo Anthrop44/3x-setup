@@ -120,7 +120,7 @@ pwsh init.ps1
 
 `init.ps1` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The `clients.tsv` file it generates contains the subscription distribution page URL that each client should receive — just send the listed URL directly to your clients. The entire server initialization process usually takes 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
-If other scripts later show potential MITM or host authenticity warnings, you can run `pwsh get-log.ps1` once. If the log is retrieved successfully, you can consider the environment safe, and the other scripts should unlock automatically.
+If other scripts later show things like "potential MITM" or "Exit code: 255", you can run `pwsh get-log.ps1` once. If the log is retrieved successfully, you can consider the environment safe, and the other scripts should unlock automatically.
 
 ## Updating Client Information and Cloudflare Optimized Domains
 
