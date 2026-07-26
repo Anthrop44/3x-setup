@@ -11,8 +11,12 @@ $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
 $RemoteDir = Join-Path $ProjectDir "remote"
+$ModuleDir = Join-Path $ProjectDir "modules"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
+$LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
+
+Import-Module (Join-Path $ModuleDir "ssh-host-recovery.psm1") -Force
 
 # 读取并解析 config.json 和 constants.json
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -39,6 +43,7 @@ $SshArguments = @(
 	$SshPort
 	$SshTarget
 )
+$HostKeyRecoveryAttempted = $false
 
 # 建立SSH转发
 Write-Host "Establishing SSH forwarding..."
@@ -50,7 +55,22 @@ while ((Get-Date) -lt $Deadline)
 {
 	if ($SshProcess.HasExited)
 	{
-		throw "SSH tunnel failed. Exit code: $($SshProcess.ExitCode)"
+		$TunnelExitCode = $SshProcess.ExitCode
+		if ($TunnelExitCode -eq 255 -and -not $HostKeyRecoveryAttempted)
+		{
+			$RecoverySucceeded = $false
+			Invoke-HostKeyRecovery `
+				-LogScriptPath $LogScriptPath `
+				-Attempted ([ref]$HostKeyRecoveryAttempted) `
+				-Succeeded ([ref]$RecoverySucceeded)
+			if ($RecoverySucceeded)
+			{
+				$SshProcess = Start-Process -FilePath "ssh" -ArgumentList $SshArguments -NoNewWindow -PassThru
+				$Deadline = (Get-Date).AddSeconds(10)
+				continue
+			}
+		}
+		throw "SSH tunnel failed. Exit code: $TunnelExitCode"
 	}
 
 	$TcpClient = [System.Net.Sockets.TcpClient]::new()

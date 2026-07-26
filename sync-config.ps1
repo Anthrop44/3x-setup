@@ -24,6 +24,7 @@ $ModuleDir = Join-Path $ProjectDir "modules"
 Import-Module (Join-Path $ModuleDir "setup-config.psm1") -Force
 Import-Module (Join-Path $ModuleDir "client-files.psm1") -Force
 Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
+Import-Module (Join-Path $ModuleDir "ssh-host-recovery.psm1") -Force
 
 # 读取并解析 config.json 和 constants.json
 $ConfigFiles = Read-SetupConfigFiles `
@@ -56,6 +57,8 @@ $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
 $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
+$LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
+$HostKeyRecoveryAttempted = $false
 $SshOptions = @(
 	"-o", "BatchMode=yes"
 )
@@ -101,11 +104,17 @@ try
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
 	Write-Host "Preparing remote config distribution directory"
-	& $SshPath @SshOptions -p $SshPort $SshTarget $PrepareRemoteCommand
+	Invoke-CommandWithHostKeyRecovery `
+		-Command { & $SshPath @SshOptions -p $SshPort $SshTarget $PrepareRemoteCommand } `
+		-LogScriptPath $LogScriptPath `
+		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
 	Write-Host "Uploading remote/config.json and distribution files to $RemoteHost"
-	& $SftpPath @SshOptions -P $SshPort -b $SftpBatchPath $SshTarget
+	Invoke-CommandWithHostKeyRecovery `
+		-Command { & $SftpPath @SshOptions -P $SshPort -b $SftpBatchPath $SshTarget } `
+		-LogScriptPath $LogScriptPath `
+		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
 } finally
 {
@@ -113,9 +122,12 @@ try
 }
 
 Write-Host "Starting remote config sync"
-& $SshPath @SshOptions -p $SshPort $SshTarget $RemoteCommand
+Invoke-CommandWithHostKeyRecovery `
+	-Command { & $SshPath @SshOptions -p $SshPort $SshTarget $RemoteCommand } `
+	-LogScriptPath $LogScriptPath `
+	-Attempted ([ref]$HostKeyRecoveryAttempted)
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote config"
 
-& (Join-Path $ProjectDir "get-log.ps1")
+& $LogScriptPath
 
 $global:LASTEXITCODE = 0
