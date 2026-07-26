@@ -17,7 +17,7 @@ $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
-Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
+Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1")
 
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
 $Constants = Get-Content -LiteralPath $ConstantsPath -Raw | ConvertFrom-Json
