@@ -62,7 +62,7 @@
 				"type": "object",
 				"properties": {
 					"client": {
-						"description": "客户名（只能有英文字母、数字和连字符。Windows保留文件名也不能用）",
+						"description": "客户名（只能有英文字母、数字和连字符。操作系统保留文件名也不能用）",
 						"type": "string",
 						"minLength": 1,
 						"pattern": "^(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])$)[A-Za-z0-9-]+$"

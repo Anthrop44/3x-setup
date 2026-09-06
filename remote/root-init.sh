@@ -15,7 +15,7 @@ exec >>"$LOG_PATH" 2>&1
 source "$SCRIPT_DIR/script-timing.sh"
 
 normalize_workdir_permissions() {
-	# 归一化工作目录权限，避免Windows归档目录只读导致用户脚本无法写入
+	# 归一化工作目录权限，避免归档目录只读导致用户脚本无法写入
 	local workdir="$1"
 
 	find "$workdir" -type d -exec chmod 755 {} +

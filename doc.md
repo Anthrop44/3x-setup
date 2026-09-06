@@ -4,7 +4,7 @@
 
 本方案默认安全，不需要任何额外加固，服务器只对公网暴露80、443和自定义SSH端口，对Cloudflare ip段暴露自定义高位cdn回源端口。3X-UI面板不暴露公网，通过SSH通道访问。普通HTTP(S)访问和主动探测会回落到本机自托管的伪装站。XHTTP和订阅链接隐藏路径由脚本自动随机生成以确保无特征隐蔽性
 
-默认完整执行顺序：`init.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地Windows环境 > `get-log.ps1`
+默认完整执行顺序：`init.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地环境 > `get-log.ps1`
 
 ## 配置文件
 
@@ -16,7 +16,7 @@
 
 `init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`、同目录`template.css`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF
 
-上传阶段使用Windows OpenSSH的`scp`和`ssh`；连接前先用`ssh-keygen -R`清除目标IP在`initialSshPort`和部署后`sshPort`上的`known_hosts`记录，若接到`-accept-new-host`参数，则以`StrictHostKeyChecking=accept-new`自动接受并保存初始端口的新主机指纹；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
+上传阶段使用OpenSSH的`scp`和`ssh`；连接前先用`ssh-keygen -R`清除目标IP在`initialSshPort`和部署后`sshPort`上的`known_hosts`记录，若接到`-accept-new-host`参数，则以`StrictHostKeyChecking=accept-new`自动接受并保存初始端口的新主机指纹；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
 
 `pwsh init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不可用
 
@@ -44,7 +44,7 @@
 
 ---
 
-`modules/generate-ssh-key.psm1`导出`Initialize-DeploymentSshKey`，用于准备部署所需的`remote/id_ed25519.pub`；它先检查`$env:USERPROFILE\.ssh\id_ed25519`，如果`remote/id_ed25519.pub`已存在且对应该私钥，则打印成功信息后退出；如果已有公钥不对应该私钥，则拒绝覆盖并报错。私钥不存在时调用`ssh-keygen -t ed25519`生成Ed25519密钥放在本机`.ssh/`目录；私钥已存在时用`ssh-keygen -y`重新导出公钥
+`modules/generate-ssh-key.psm1`导出`Initialize-DeploymentSshKey`，用于准备部署所需的`remote/id_ed25519.pub`；它先检查`~/.ssh/id_ed25519`，如果`remote/id_ed25519.pub`已存在且对应该私钥，则打印成功信息后退出；如果已有公钥不对应该私钥，则拒绝覆盖并报错。私钥不存在时调用`ssh-keygen -t ed25519`生成Ed25519密钥放在本机`.ssh/`目录；私钥已存在时用`ssh-keygen -y`重新导出公钥
 
 ---
 

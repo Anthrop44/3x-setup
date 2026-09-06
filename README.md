@@ -9,7 +9,7 @@ This solution is based on the 3X-UI API to deploy multiple co-located masqueradi
 - VLESS+Reality+Vision direct connection
 - VLESS+XHTTP+Cloudflare CDN
 
-This solution requires a dedicated proxy server with at least 1GB of RAM running Debian 13 or higher, and a local Windows environment.
+This solution requires a dedicated proxy server with at least 1GB of RAM running Debian 13 or higher, and a local OS with OpenSSH support.
 
 The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
@@ -112,7 +112,7 @@ Prepare the static masquerade site: (If you don't know how, you can let an AI ge
 
 Once all the files above are ready, you can begin the deployment.
 
-Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local machine, ensure the built-in Windows OpenSSH is available, and then run:
+Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local machine, ensure OpenSSH is available, and then run:
 
 ```powershell
 pwsh init.ps1
@@ -166,7 +166,7 @@ If you want to test this script by rebuilding the server multiple times with the
 
 Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
 
-Your private key `%USERPROFILE%\.ssh\id_ed25519` is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
+Your private key `~/.ssh/id_ed25519` is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
 
 ## Acknowledgements
 

@@ -204,7 +204,7 @@ $RemoteInitArgs = if ($RemoteInitArgs.Count -gt 0)
 }
 
 # 清除初始和目标SSH端口主机指纹
-$KnownHostsPath = Join-Path $env:USERPROFILE ".ssh\known_hosts"
+$KnownHostsPath = Join-Path -Path $env:HOME -ChildPath ".ssh" -AdditionalChildPath "known_hosts"
 if (Test-Path -LiteralPath $KnownHostsPath -PathType Leaf)
 {
 	$KnownHost = [string]$RemoteHost

@@ -7,7 +7,7 @@
 - VLESS+Reality+Vision直连
 - VLESS+XHTTP+Cloudflare CDN
 
-本方案需要一台内存至少1GB、使用Debian 13或更高版本操作系统的专用代理服务器和本地Windows环境
+本方案需要一台内存至少1GB、使用Debian 13或更高版本操作系统的专用代理服务器和本地OpenSSH环境
 
 以下是使用教程，不详细介绍原理。有命令行基础的用户可以阅读开发文档`doc.md`
 
@@ -110,7 +110,7 @@ remote/
 
 在准备好以上所有文件后即可开始部署
 
-在本机安装[PowerShell 7](https://github.com/PowerShell/PowerShell)，确保Windows自带OpenSSH可用，然后执行：
+在本机安装[PowerShell 7](https://github.com/PowerShell/PowerShell)，确保OpenSSH可用，然后执行：
 
 ```powershell
 pwsh init.ps1
@@ -164,7 +164,7 @@ pwsh update-all.ps1
 
 地区运营商可能会阻断部分ip的QUIC，这会导致Hysteria2入站不可用，属不可抗力
 
-部署完成后，您的私钥`%USERPROFILE%\.ssh\id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
+部署完成后，您的私钥`~/.ssh/id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
 
 ## 致谢
 
