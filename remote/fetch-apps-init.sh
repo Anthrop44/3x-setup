@@ -377,7 +377,6 @@ reset_resource() {
 
 install_task() {
 	# 安装更新器配置和systemd任务
-	local username
 	local subscription_path
 	local proxy_clients_suffix
 	local daily_task_hour
@@ -388,7 +387,6 @@ install_task() {
 	mkdir -p "$LOG_DIR"
 	rm -f "$INIT_LOG_PATH"
 	exec >>"$INIT_LOG_PATH" 2>&1
-	username="$(jq -r '.username' "$CONSTANTS_PATH")"
 	subscription_path="$(jq -r '.subscriptionPath' "$CONFIG_PATH")"
 	proxy_clients_suffix="$(jq -r '.proxyClientsSuffix' "$CONSTANTS_PATH")"
 	daily_task_hour="$(jq -r '.dailyTaskHour' "$CONSTANTS_PATH")"

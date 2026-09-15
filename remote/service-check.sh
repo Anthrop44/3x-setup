@@ -48,7 +48,7 @@ sudo -n ufw status verbose | grep -Eq '^443/tcp[[:space:]]+ALLOW IN'
 sudo -n ufw status verbose | grep -Eq '^443/udp[[:space:]]+ALLOW IN'
 
 printf '\n== CDN端口防火墙规则 ==\n'
-sudo -n ufw status numbered 2>&1 | grep -E "($CDN_PORT/tcp|$CDN_PORT[[:space:]])"
+sudo -n ufw status numbered 2>&1 | grep -E "(${CDN_PORT}/tcp|${CDN_PORT}[[:space:]])"
 
 printf '\n== Cloudflare UFW定时器 ==\n'
 sudo -n systemctl --no-pager --full status 3x-cloudflare-ufw.timer 2>&1

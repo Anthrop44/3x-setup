@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
 LOG_PATH="$LOG_DIR/root-init.log"
-CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 PUBLIC_KEY_PATH="$SCRIPT_DIR/id_ed25519.pub"
 exec >>"$LOG_PATH" 2>&1

@@ -73,9 +73,8 @@ wait_any_listen_port() {
 	# 等待任意地址开始监听指定端口
 	local port="$1"
 	local label="$2"
-	local index
 
-	for index in $(seq 1 30); do
+	for _ in $(seq 1 30); do
 		if sudo -n ss -lntp 2>&1 | awk '{print $4}' | grep -E "[:.]$port$" >/dev/null; then
 			return 0
 		fi
@@ -89,9 +88,8 @@ wait_any_udp_listen_port() {
 	# 等待任意地址开始监听指定UDP端口
 	local port="$1"
 	local label="$2"
-	local index
 
-	for index in $(seq 1 30); do
+	for _ in $(seq 1 30); do
 		if sudo -n ss -lnup 2>&1 | awk '{print $5}' | grep -E "[:.]$port$" >/dev/null; then
 			return 0
 		fi
@@ -105,9 +103,8 @@ wait_local_listen_port() {
 	# 等待本机地址开始监听指定端口
 	local port="$1"
 	local label="$2"
-	local index
 
-	for index in $(seq 1 30); do
+	for _ in $(seq 1 30); do
 		if sudo -n ss -lntp 2>&1 | awk '{print $4}' | grep -E "^(127\\.0\\.0\\.1|\\[::1\\]):$port$" >/dev/null; then
 			return 0
 		fi

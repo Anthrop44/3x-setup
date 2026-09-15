@@ -80,29 +80,34 @@ require_api_success "$INBOUNDS_RESPONSE_PATH" "读取3x-ui入站列表失败"
 jq -r '.obj[] | [.id, .remark, .listen, .port, .protocol, .enable] | @tsv' "$INBOUNDS_RESPONSE_PATH"
 
 printf '\n== Hysteria2入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "Hysteria2入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
+# shellcheck disable=SC2016
+require_jq "$INBOUNDS_RESPONSE_PATH" "Hysteria2入站配置不符合预期" \
+	--arg hy2Remark "$HY2_REMARK" \
+	--arg directDomain "$DIRECT_DOMAIN" \
+	--arg directCertFile "$DIRECT_CERT_FILE" \
+	--arg directKeyFile "$DIRECT_KEY_FILE" '
 	def decoded: if type == "string" then fromjson else . end;
-	[.obj[] | select(.remark == "'"$HY2_REMARK"'")] as $items
+	[.obj[] | select(.remark == $hy2Remark)] as $items
 	| ($items | length == 1)
 	and ($items[0].enable == true)
 	and ($items[0].port == 443)
 	and ($items[0].protocol == "hysteria")
 	and ($items[0].shareAddrStrategy == "custom")
-	and ($items[0].shareAddr == "'"$DIRECT_DOMAIN"'")
+	and ($items[0].shareAddr == $directDomain)
 	and ($items[0].subSortIndex == 1)
 	and (($items[0].settings | decoded) as $settings
 		| $settings.version == 2
-		and $settings.address == "'"$DIRECT_DOMAIN"'"
+		and $settings.address == $directDomain
 		and $settings.port == 443)
 	and (($items[0].streamSettings | decoded) as $stream
 		| $stream.network == "hysteria"
 		and $stream.security == "tls"
 		and $stream.hysteriaSettings.version == 2
 		and $stream.hysteriaSettings.udpIdleTimeout == 60
-		and $stream.tlsSettings.serverName == "'"$DIRECT_DOMAIN"'"
+		and $stream.tlsSettings.serverName == $directDomain
 		and ($stream.tlsSettings.alpn | index("h3") != null)
-		and $stream.tlsSettings.certificates[0].certificateFile == "'"$DIRECT_CERT_FILE"'"
-		and $stream.tlsSettings.certificates[0].keyFile == "'"$DIRECT_KEY_FILE"'"
+		and $stream.tlsSettings.certificates[0].certificateFile == $directCertFile
+		and $stream.tlsSettings.certificates[0].keyFile == $directKeyFile
 		and $stream.tlsSettings.certificates[0].usage == "encipherment"
 		and $stream.finalmask.udp[0].type == "salamander"
 		and (($stream.finalmask.udp[0].settings.password // "") | length >= 16))
@@ -113,21 +118,26 @@ sudo -n test -s "$DIRECT_KEY_FILE"
 printf 'Hysteria2入站OK\n'
 
 printf '\n== Reality入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
+# shellcheck disable=SC2016
+require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" \
+	--arg fingerprint "$FINGERPRINT" \
+	--arg realityRemark "$REALITY_REMARK" \
+	--arg directDomain "$DIRECT_DOMAIN" \
+	--arg realityTargetPort "$REALITY_TARGET_PORT" '
 	def decoded: if type == "string" then fromjson else . end;
-	[.obj[] | select(.remark == "'"$REALITY_REMARK"'")] as $items
+	[.obj[] | select(.remark == $realityRemark)] as $items
 	| ($items | length == 1)
 	and ($items[0].enable == true)
 	and ($items[0].port == 443)
 	and ($items[0].protocol == "vless")
 	and ($items[0].shareAddrStrategy == "custom")
-	and ($items[0].shareAddr == "'"$DIRECT_DOMAIN"'")
+	and ($items[0].shareAddr == $directDomain)
 	and ($items[0].subSortIndex == 2)
 	and (($items[0].streamSettings | decoded) as $stream
 		| $stream.network == "tcp"
 		and $stream.security == "reality"
-		and (($stream.realitySettings.target // $stream.realitySettings.dest) == "127.0.0.1:'"$REALITY_TARGET_PORT"'")
-		and ($stream.realitySettings.serverNames | index("'"$DIRECT_DOMAIN"'") != null)
+		and (($stream.realitySettings.target // $stream.realitySettings.dest) == ("127.0.0.1:" + $realityTargetPort))
+		and ($stream.realitySettings.serverNames | index($directDomain) != null)
 		and (($stream.realitySettings.privateKey // "") != "")
 		and (($stream.realitySettings.settings.publicKey // "") != "")
 		and $stream.realitySettings.settings.fingerprint == $fingerprint
@@ -137,13 +147,17 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "Reality入站配置不符合预期" --arg 
 printf 'Reality入站OK\n'
 
 printf '\n== XHTTP入站检查 ==\n'
-require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" --arg fingerprint "$FINGERPRINT" '
+# shellcheck disable=SC2016
+require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" \
+	--arg xhttpRemark "$XHTTP_REMARK" \
+	--argjson xhttpPort "$XHTTP_PORT" \
+	--arg xhttpPath "$XHTTP_PATH" '
 	def decoded: if type == "string" then fromjson else . end;
-	[.obj[] | select(.remark == "'"$XHTTP_REMARK"'")] as $items
+	[.obj[] | select(.remark == $xhttpRemark)] as $items
 	| ($items | length == 1)
 	and ($items[0].enable == true)
 	and ($items[0].listen == "127.0.0.1")
-	and ($items[0].port == ('"$XHTTP_PORT"'))
+	and ($items[0].port == $xhttpPort)
 	and ($items[0].protocol == "vless")
 	and ($items[0].shareAddrStrategy == "listen")
 	and (($items[0].shareAddr // "") == "")
@@ -151,7 +165,7 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "XHTTP入站配置不符合预期" --arg fi
 	and (($items[0].streamSettings | decoded) as $stream
 		| $stream.network == "xhttp"
 		and $stream.security == "none"
-		and $stream.xhttpSettings.path == "/'"$XHTTP_PATH"'"
+		and $stream.xhttpSettings.path == ("/" + $xhttpPath)
 		and (($stream.externalProxy // []) | length == 0))
 '
 printf 'XHTTP入站OK\n'

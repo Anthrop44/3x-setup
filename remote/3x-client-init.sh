@@ -190,9 +190,7 @@ add_missing_clients() {
 
 wait_xray_running() {
 	# 等待3x-ui报告Xray运行中
-	local index
-
-	for index in $(seq 1 30); do
+	for _ in $(seq 1 30); do
 		api_get "/panel/api/server/status" "$STATUS_RESPONSE_PATH"
 		if jq -e '(.obj.xray.state // .obj.state // "") == "running"' "$STATUS_RESPONSE_PATH" >/dev/null; then
 			return 0

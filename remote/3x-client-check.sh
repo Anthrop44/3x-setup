@@ -23,7 +23,6 @@ PANEL_USERNAME="$(jq -r '."3xusername"' "$CONSTANTS_PATH")"
 PANEL_PASSWORD="$(jq -r '."3xpassword"' "$CONSTANTS_PATH")"
 PANEL_PORT="$(jq -r '."3xpanelPort"' "$CONSTANTS_PATH")"
 PANEL_URI_PATH="$(jq -r '."3xpanelUriPath"' "$CONSTANTS_PATH")"
-FAKE_SITE_PORT="$(jq -r '.fakeSitePort' "$CONSTANTS_PATH")"
 CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
 XHTTP_PORT="$(jq -r '.xhttpPort' "$CONSTANTS_PATH")"
 FINGERPRINT="$(jq -r '.fingerprint' "$CONSTANTS_PATH")"
@@ -401,8 +400,8 @@ printf '\n== 监听端口 ==\n'
 sudo -n ss -lntup 2>&1 | grep -E ":(443|$XHTTP_PORT)\\b"
 sudo -n ss -H -lnup 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
 sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
-sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](127\\.0\\.0\\.1|\\[::1\\]):$XHTTP_PORT[[:space:]]" >/dev/null
-if sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](0\\.0\\.0\\.0|\\*|\\[::\\]):$XHTTP_PORT[[:space:]]" >/dev/null; then
+sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](127\\.0\\.0\\.1|\\[::1\\]):${XHTTP_PORT}[[:space:]]" >/dev/null
+if sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](0\\.0\\.0\\.0|\\*|\\[::\\]):${XHTTP_PORT}[[:space:]]" >/dev/null; then
 	printf 'XHTTP入站正在公网监听\n' >&2
 	exit 1
 fi

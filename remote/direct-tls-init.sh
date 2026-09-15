@@ -76,9 +76,7 @@ direct_domain_has_public_tls() {
 
 wait_direct_domain_tls() {
 	# 等待Caddy为directDomain完成公信TLS握手
-	local index
-
-	for index in $(seq 1 60); do
+	for _ in $(seq 1 60); do
 		if curl -k -fsS --max-time 20 --resolve "$DIRECT_DOMAIN:$REALITY_TARGET_PORT:127.0.0.1" "https://$DIRECT_DOMAIN:$REALITY_TARGET_PORT/" >/dev/null && direct_domain_has_public_tls; then
 			return 0
 		fi
