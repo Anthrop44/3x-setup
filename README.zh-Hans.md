@@ -7,23 +7,24 @@
 - VLESS+Reality+Vision直连
 - VLESS+XHTTP+Cloudflare CDN
 
-本方案需要一台内存至少1GB、使用Debian 13或更高版本操作系统的专用代理服务器和本地OpenSSH环境
+本方案需要一台内存至少1GB、使用Debian 13或更高版本操作系统的，有独立ip的专用代理服务器和本地OpenSSH环境
 
 以下是使用教程，不详细介绍原理。有命令行基础的用户可以阅读开发文档`doc.md`
 
 ## Cloudflare设置
 
-- 在Cloudflare里创建两个A/AAAA记录，指向代理服务器真实ip
+- 去Cloudflare里买个域名，或把一个域名托管到Cloudflare
+- 在Cloudflare里找到这个域名的DNS设置，创建两个A记录（若机器有ipv6，也可以创建AAAA记录），指向代理服务器真实ip
 	- `cdnDomain`走Cloudflare CDN回源，开启小橙云
 	- `directDomain`关闭小橙云
 - 设置`cdnDomain`高位回源端口，记为`cdnPort`
 	- 进入`规则` -> `概述` -> `Origin Rules` -> `创建规则`
-	- `如果传入请求匹配` -> `自定义筛选表达示` -> 编辑表达式：`http.host in {"cdnDomain"}`（把`cdnDomain`改成你真正的域名）
+	- `如果传入请求匹配` -> `自定义筛选表达式` -> 编辑表达式：`http.host in {"cdnDomain"}`（把`cdnDomain`改成你真正的域名）
 	- `目标端口`：重写到`cdnPort`
 - SSL/TLS加密模式选择`完全（严格）`
 - 启用始终使用HTTPS
 - 启用TLS1.3
-- 最低TLS版本1.3
+- 最低TLS版本1.3（若要使用Windows 10或macOS，可以降为1.2。但不太推荐）
 - 启用gRPC
 - 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
 	- 进入`SSL/TLS`->`源站服务器`

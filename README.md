@@ -9,13 +9,14 @@ This solution is based on the 3X-UI API to deploy multiple co-located masqueradi
 - VLESS+Reality+Vision direct connection
 - VLESS+XHTTP+Cloudflare CDN
 
-This solution requires a dedicated proxy server with at least 1GB of RAM running Debian 13 or higher, and a local OS with OpenSSH support.
+This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13 or higher, as well as a local OS with OpenSSH support.
 
 The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
 ## Cloudflare Settings
 
-- Create two A/AAAA records in Cloudflare pointing to the real IP of your proxy server:
+- Purchase a domain through Cloudflare, or add an existing domain to Cloudflare.
+- In the domain's DNS settings, create two A records pointing to your proxy server's real IP. If the server has IPv6, you can also create AAAA records:
 	- `cdnDomain`: Proxied through Cloudflare CDN (enable the orange cloud).
 	- `directDomain`: DNS only (disable the orange cloud).
 - Set a high-numbered origin pull port for `cdnDomain`, and note it down as `cdnPort`:
@@ -25,7 +26,7 @@ The following is a usage tutorial and does not explain the underlying principles
 - Select **Full (strict)** for the SSL/TLS encryption mode.
 - Enable **Always Use HTTPS**.
 - Enable **TLS 1.3**.
-- Set **Minimum TLS Version** to 1.3.
+- Set **Minimum TLS Version** to 1.3. If you need to support Windows 10 or macOS clients, you can lower it to 1.2, though this is not recommended.
 - Enable **gRPC**.
 - Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
 	- Go to **SSL/TLS** -> **Origin Server**.
