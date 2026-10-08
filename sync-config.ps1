@@ -59,9 +59,6 @@ $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
 $LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
 $HostKeyRecoveryAttempted = $false
-$SshOptions = @(
-	"-o", "BatchMode=yes"
-)
 
 $SshPath = (Get-Command "ssh" -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 $SftpPath = (Get-Command "sftp" -ErrorAction SilentlyContinue | Select-Object -First 1).Source
@@ -105,14 +102,14 @@ try
 
 	Write-Host "Preparing remote config distribution directory"
 	Invoke-CommandWithHostKeyRecovery `
-		-Command { & $SshPath @SshOptions -p $SshPort $SshTarget $PrepareRemoteCommand } `
+		-Command { & $SshPath -p $SshPort $SshTarget $PrepareRemoteCommand } `
 		-LogScriptPath $LogScriptPath `
 		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
 	Write-Host "Uploading remote/config.json and distribution files to $RemoteHost"
 	Invoke-CommandWithHostKeyRecovery `
-		-Command { & $SftpPath @SshOptions -P $SshPort -b $SftpBatchPath $SshTarget } `
+		-Command { & $SftpPath -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget } `
 		-LogScriptPath $LogScriptPath `
 		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
@@ -123,7 +120,7 @@ try
 
 Write-Host "Starting remote config sync"
 Invoke-CommandWithHostKeyRecovery `
-	-Command { & $SshPath @SshOptions -p $SshPort $SshTarget $RemoteCommand } `
+	-Command { & $SshPath -p $SshPort $SshTarget $RemoteCommand } `
 	-LogScriptPath $LogScriptPath `
 	-Attempted ([ref]$HostKeyRecoveryAttempted)
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote config"

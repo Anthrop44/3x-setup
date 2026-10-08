@@ -33,8 +33,7 @@ $LocalArchivePath = $ArchiveName
 $SftpBatchPath = "$ArchiveName.sftp"
 $SshTarget = "${Username}@${RemoteHost}"
 $SshHostKeyOptions = @(
-	"-o", "StrictHostKeyChecking=accept-new",
-	"-o", "BatchMode=yes"
+	"-o", "StrictHostKeyChecking=accept-new"
 )
 
 # 轮转本地非空 log 目录，空 log 目录直接复用
@@ -73,7 +72,7 @@ try
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
 	Write-Host "Downloading archive to $LocalArchivePath ..."
-	sftp @SshHostKeyOptions -P $SshPort -b $SftpBatchPath $SshTarget
+	sftp @SshHostKeyOptions -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to download remote log archive"
 
 	Write-Host "Extracting archive to $LocalLogDir/ ..."

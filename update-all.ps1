@@ -28,9 +28,6 @@ $Username = $Constants.username
 $SshTarget = "${Username}@${RemoteHost}"
 $LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
 $HostKeyRecoveryAttempted = $false
-$SshOptions = @(
-	"-o", "BatchMode=yes"
-)
 
 $SshCommand = Get-Command "ssh" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($null -eq $SshCommand)
@@ -48,7 +45,7 @@ sudo -n systemctl start 3x-fetch-apps.service
 
 Write-Host "Updating system, 3X-UI, and proxy client files on $RemoteHost"
 Invoke-CommandWithHostKeyRecovery `
-	-Command { & $SshCommand.Source @SshOptions -p $SshPort $SshTarget $RemoteCommand } `
+	-Command { & $SshCommand.Source -p $SshPort $SshTarget $RemoteCommand } `
 	-LogScriptPath $LogScriptPath `
 	-Attempted ([ref]$HostKeyRecoveryAttempted)
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to update the remote server"

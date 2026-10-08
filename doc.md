@@ -32,7 +32,7 @@
 
 ---
 
-`ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，以OpenSSH默认主机指纹检查行为启动`ssh -N -L`，把本地端口转发到远端`127.0.0.1:3xpanelPort`，等待端口可连接后输出面板URL和登录凭据，并通过`Start-Process`在默认浏览器中打开面板；进程退出时清理隧道
+`ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，以OpenSSH默认主机指纹检查行为启动`ssh -N -L`，把本地端口转发到远端`127.0.0.1:3xpanelPort`，保留当前终端的交互认证，支持FIDO2物理密钥的PIN输入和触摸确认；默认等待10秒，可用`-StartupTimeoutSeconds`调整，认证期间端口未监听时继续重试；等待端口可连接后输出面板URL和登录凭据，并通过`Start-Process`在默认浏览器中打开面板；正常退出、启动超时、异常或Ctrl+C时清理隧道
 
 ---
 

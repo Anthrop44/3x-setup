@@ -4,7 +4,10 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+	[ValidateRange(1, 3600)]
+	[int]$StartupTimeoutSeconds = 10
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -32,7 +35,7 @@ $PanelPassword = $Constants.'3xpassword'
 $SshTarget = "${Username}@${RemoteHost}"
 $SshOptions = @(
 	"-o", "ExitOnForwardFailure=yes",
-	"-o", "BatchMode=yes"
+	"-o", "BatchMode=no"
 )
 $SshArguments = @(
 	$SshOptions
@@ -45,72 +48,83 @@ $SshArguments = @(
 )
 $HostKeyRecoveryAttempted = $false
 
-# 建立SSH转发
-Write-Host "Establishing SSH forwarding..."
-$SshProcess = Start-Process -FilePath "ssh" -ArgumentList $SshArguments -NoNewWindow -PassThru
-$TunnelReady = $false
-$Deadline = (Get-Date).AddSeconds(10)
-
-while ((Get-Date) -lt $Deadline)
-{
-	if ($SshProcess.HasExited)
-	{
-		$TunnelExitCode = $SshProcess.ExitCode
-		if ($TunnelExitCode -eq 255 -and -not $HostKeyRecoveryAttempted)
-		{
-			$RecoverySucceeded = $false
-			Invoke-HostKeyRecovery `
-				-LogScriptPath $LogScriptPath `
-				-Attempted ([ref]$HostKeyRecoveryAttempted) `
-				-Succeeded ([ref]$RecoverySucceeded)
-			if ($RecoverySucceeded)
-			{
-				$SshProcess = Start-Process -FilePath "ssh" -ArgumentList $SshArguments -NoNewWindow -PassThru
-				$Deadline = (Get-Date).AddSeconds(10)
-				continue
-			}
-		}
-		throw "SSH tunnel failed. Exit code: $TunnelExitCode"
-	}
-
-	$TcpClient = [System.Net.Sockets.TcpClient]::new()
-	try
-	{
-		$ConnectTask = $TcpClient.ConnectAsync("127.0.0.1", [int]$LocalSshPort)
-		if ($ConnectTask.Wait(500))
-		{
-			$TunnelReady = $true
-			break
-		}
-	} finally
-	{
-		$TcpClient.Dispose()
-	}
-
-	Start-Sleep -Milliseconds 500
-}
-
-if (-not $TunnelReady)
-{
-	Stop-Process -Id $SshProcess.Id -Force
-	throw "Timed out waiting for SSH tunnel on local port $LocalSshPort"
-}
-
-$PanelUrl = "http://127.0.0.1:$LocalSshPort/$PanelUriPath"
-Write-Host "SSH tunnel established."
-Write-Host "3X-UI panel: $PanelUrl"
-Write-Host "username: $PanelUsername"
-Write-Host "password: $PanelPassword"
-Start-Process $PanelUrl
-Write-Host "Press Ctrl+C to disconnect."
-
+# 保留当前终端供OpenSSH读取PIN、密钥口令和主机指纹确认
+$SshProcess = $null
 try
 {
+	Write-Host "Establishing SSH forwarding (enter your key PIN/passphrase and touch the security key if prompted)..."
+	$SshProcess = Start-Process -FilePath "ssh" -ArgumentList $SshArguments -NoNewWindow -PassThru
+	$TunnelReady = $false
+	$Deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
+
+	while ((Get-Date) -lt $Deadline)
+	{
+		if ($SshProcess.HasExited)
+		{
+			$TunnelExitCode = $SshProcess.ExitCode
+			if ($TunnelExitCode -eq 255 -and -not $HostKeyRecoveryAttempted)
+			{
+				$RecoverySucceeded = $false
+				Invoke-HostKeyRecovery `
+					-LogScriptPath $LogScriptPath `
+					-Attempted ([ref]$HostKeyRecoveryAttempted) `
+					-Succeeded ([ref]$RecoverySucceeded)
+				if ($RecoverySucceeded)
+				{
+					$SshProcess.Dispose()
+					$SshProcess = Start-Process -FilePath "ssh" -ArgumentList $SshArguments -NoNewWindow -PassThru
+					$Deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
+					continue
+				}
+			}
+			throw "SSH tunnel failed. Exit code: $TunnelExitCode"
+		}
+
+		$TcpClient = [System.Net.Sockets.TcpClient]::new()
+		try
+		{
+			$ConnectTask = $TcpClient.ConnectAsync("127.0.0.1", [int]$LocalSshPort)
+			if ($ConnectTask.Wait(500))
+			{
+				$TunnelReady = $true
+				break
+			}
+		} catch
+		{
+			# 认证期间端口尚未监听，连接被拒绝时继续等待
+			if ($_.Exception.GetBaseException() -isnot [System.Net.Sockets.SocketException])
+			{
+				throw
+			}
+		} finally
+		{
+			$TcpClient.Dispose()
+		}
+
+		Start-Sleep -Milliseconds 500
+	}
+
+	if (-not $TunnelReady)
+	{
+		throw "Timed out waiting for SSH tunnel on local port $LocalSshPort; allow more time for security-key authentication with -StartupTimeoutSeconds"
+	}
+
+	$PanelUrl = "http://127.0.0.1:$LocalSshPort/$PanelUriPath"
+	Write-Host "SSH tunnel established."
+	Write-Host "3X-UI panel: $PanelUrl"
+	Write-Host "username: $PanelUsername"
+	Write-Host "password: $PanelPassword"
+	Start-Process $PanelUrl
+	Write-Host "Press Ctrl+C to disconnect."
 	Wait-Process -Id $SshProcess.Id
 } finally
 {
-	if (-not $SshProcess.HasExited)
+	if ($null -ne $SshProcess)
 	{
-		Stop-Process -Id $SshProcess.Id -Force
+		if (-not $SshProcess.HasExited)
+		{
+			Stop-Process -Id $SshProcess.Id -Force -ErrorAction SilentlyContinue
+		}
+		$SshProcess.Dispose()
 	}
 }
