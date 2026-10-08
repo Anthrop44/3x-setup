@@ -21,7 +21,7 @@ function Get-SshKeyFingerprint
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage $FailureMessage
 
 	$FingerprintLine = ($FingerprintLine -join "`n").Trim()
-	$Match = [regex]::Match($FingerprintLine, '^\d+\s+(SHA256:\S+)\s+.+\s+\((ED25519)\)$')
+	$Match = [regex]::Match($FingerprintLine, '^\d+\s+(SHA256:\S+)\s+.+\s+\((ED25519|ED25519-SK)\)$')
 	if (-not $Match.Success)
 	{
 		throw $FailureMessage
@@ -49,7 +49,7 @@ function Export-Ed25519PublicKey
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "failed to export public key from $Path"
 
 	$PublicKeyBody = ($PublicKeyBody -join "`n").Trim()
-	$Match = [regex]::Match($PublicKeyBody, '^(ssh-ed25519)\s+(\S+)(?:\s+.*)?$')
+	$Match = [regex]::Match($PublicKeyBody, '^(ssh-ed25519|sk-ssh-ed25519@openssh\.com)\s+(\S+)(?:\s+.*)?$')
 	if (-not $Match.Success)
 	{
 		throw "private key is not a valid Ed25519 key: $Path"
