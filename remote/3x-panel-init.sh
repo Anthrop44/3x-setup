@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -27,7 +32,7 @@ REVERSE_PROXY_URI="https://$CDN_DOMAIN/$SUBSCRIPTION_URI_PATH/"
 
 # 非交互式安装3x-ui
 if curl -fsSL --retry 3 --connect-timeout 20 --max-time 900 \
-	https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | sudo env \
+	https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh | env \
 	XUI_NONINTERACTIVE=1 \
 	XUI_USERNAME="$PANEL_USERNAME" \
 	XUI_PASSWORD="$PANEL_PASSWORD" \
@@ -36,9 +41,9 @@ if curl -fsSL --retry 3 --connect-timeout 20 --max-time 900 \
 	XUI_SSL_MODE=none \
 	XUI_DB_TYPE=sqlite \
 	bash; then
-	sudo /usr/local/x-ui/x-ui setting -port "$PANEL_PORT" -username "$PANEL_USERNAME" -password "$PANEL_PASSWORD" -webBasePath "$PANEL_URI_PATH"
-	sudo /usr/local/x-ui/x-ui setting -listenIP 127.0.0.1
-	sudo systemctl enable --now x-ui
+	/usr/local/x-ui/x-ui setting -port "$PANEL_PORT" -username "$PANEL_USERNAME" -password "$PANEL_PASSWORD" -webBasePath "$PANEL_URI_PATH"
+	/usr/local/x-ui/x-ui setting -listenIP 127.0.0.1
+	systemctl enable --now x-ui
 else
 	echo "3x-ui安装失败" >&2
 	exit 1

@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -75,7 +80,7 @@ wait_any_listen_port() {
 	local label="$2"
 
 	for _ in $(seq 1 30); do
-		if sudo -n ss -lntp 2>&1 | awk '{print $4}' | grep -E "[:.]$port$" >/dev/null; then
+		if ss -lntp 2>&1 | awk '{print $4}' | grep -E "[:.]$port$" >/dev/null; then
 			return 0
 		fi
 		sleep 1
@@ -90,7 +95,7 @@ wait_any_udp_listen_port() {
 	local label="$2"
 
 	for _ in $(seq 1 30); do
-		if sudo -n ss -lnup 2>&1 | awk '{print $5}' | grep -E "[:.]$port$" >/dev/null; then
+		if ss -lnup 2>&1 | awk '{print $5}' | grep -E "[:.]$port$" >/dev/null; then
 			return 0
 		fi
 		sleep 1
@@ -105,7 +110,7 @@ wait_local_listen_port() {
 	local label="$2"
 
 	for _ in $(seq 1 30); do
-		if sudo -n ss -lntp 2>&1 | awk '{print $4}' | grep -E "^(127\\.0\\.0\\.1|\\[::1\\]):$port$" >/dev/null; then
+		if ss -lntp 2>&1 | awk '{print $4}' | grep -E "^(127\\.0\\.0\\.1|\\[::1\\]):$port$" >/dev/null; then
 			return 0
 		fi
 		sleep 1
@@ -124,9 +129,9 @@ printf '跳过公信TLS: %s\n' "$NO_TLS"
 login_panel
 
 printf '\n== 检查directDomain入站证书 ==\n'
-sudo -n test -s "$DIRECT_CERT_FILE"
-sudo -n test -s "$DIRECT_KEY_FILE"
-sudo -n openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
+test -s "$DIRECT_CERT_FILE"
+test -s "$DIRECT_KEY_FILE"
+openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
 
 printf '\n== 创建Hysteria2入站 ==\n'
 HY2_OBFS_PASSWORD="$(openssl rand -hex 8)"

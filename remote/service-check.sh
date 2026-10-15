@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -27,51 +32,55 @@ id
 printf '工作目录: %s\n' "$SCRIPT_DIR"
 timedatectl 2>&1 || true
 
-if sudo -n systemctl is-active --quiet ssh; then
+if systemctl is-active --quiet ssh; then
 	SSH_SERVICE="ssh"
-elif sudo -n systemctl is-active --quiet sshd; then
+elif systemctl is-active --quiet sshd; then
 	SSH_SERVICE="sshd"
 else
 	printf '\n== SSH服务状态 ==\n'
-	sudo -n systemctl --no-pager --full status ssh 2>&1 || true
-	sudo -n systemctl --no-pager --full status sshd 2>&1 || true
+	systemctl --no-pager --full status ssh 2>&1 || true
+	systemctl --no-pager --full status sshd 2>&1 || true
 	exit 1
 fi
 
 printf '\n== SSH服务状态 ==\n'
-sudo -n systemctl --no-pager --full status "$SSH_SERVICE" 2>&1
+systemctl --no-pager --full status "$SSH_SERVICE" 2>&1
+
+printf '\n== root SSH公钥认证策略 ==\n'
+source "$SCRIPT_DIR/check-common.sh"
+assert_root_ssh_publickey_only
 
 printf '\n== UFW状态 ==\n'
-sudo -n ufw status verbose 2>&1
-sudo -n ufw status verbose | grep -q '^Status: active'
-sudo -n ufw status verbose | grep -Eq '^443/tcp[[:space:]]+ALLOW IN'
-sudo -n ufw status verbose | grep -Eq '^443/udp[[:space:]]+ALLOW IN'
+ufw status verbose 2>&1
+ufw status verbose | grep -q '^Status: active'
+ufw status verbose | grep -Eq '^443/tcp[[:space:]]+ALLOW IN'
+ufw status verbose | grep -Eq '^443/udp[[:space:]]+ALLOW IN'
 
 printf '\n== CDN端口防火墙规则 ==\n'
-sudo -n ufw status numbered 2>&1 | grep -E "(${CDN_PORT}/tcp|${CDN_PORT}[[:space:]])"
+ufw status numbered 2>&1 | grep -E "(${CDN_PORT}/tcp|${CDN_PORT}[[:space:]])"
 
 printf '\n== Cloudflare UFW定时器 ==\n'
-sudo -n systemctl --no-pager --full status 3x-cloudflare-ufw.timer 2>&1
-sudo -n systemctl is-enabled --quiet 3x-cloudflare-ufw.timer
-sudo -n systemctl is-active --quiet 3x-cloudflare-ufw.timer
-sudo -n systemctl cat 3x-cloudflare-ufw.timer 2>&1
-sudo -n systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
-sudo -n systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx 'RandomizedDelaySec=1h'
+systemctl --no-pager --full status 3x-cloudflare-ufw.timer 2>&1
+systemctl is-enabled --quiet 3x-cloudflare-ufw.timer
+systemctl is-active --quiet 3x-cloudflare-ufw.timer
+systemctl cat 3x-cloudflare-ufw.timer 2>&1
+systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
+systemctl cat 3x-cloudflare-ufw.timer | grep -Fqx 'RandomizedDelaySec=1h'
 
 printf '\n== BBR状态 ==\n'
 sysctl net.ipv4.tcp_available_congestion_control 2>&1
 sysctl net.ipv4.tcp_congestion_control 2>&1
 sysctl net.core.default_qdisc 2>&1
-sudo -n sed -n '1,20p' /etc/sysctl.d/99-3x-bbr.conf 2>&1
+sed -n '1,20p' /etc/sysctl.d/99-3x-bbr.conf 2>&1
 sysctl -n net.ipv4.tcp_congestion_control | grep -qx bbr
 sysctl -n net.core.default_qdisc | grep -qx fq
 
 printf '\n== 监听端口 ==\n'
 PORT_PATTERN=":(80|443|$SSH_PORT|$CDN_PORT)\\b"
-sudo -n ss -lntup 2>&1 | grep -E "$PORT_PATTERN"
+ss -lntup 2>&1 | grep -E "$PORT_PATTERN"
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 
 printf '\n== 完成 ==\n'
 

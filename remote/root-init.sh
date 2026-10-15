@@ -4,17 +4,21 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
 LOG_PATH="$LOG_DIR/root-init.log"
-CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 PUBLIC_KEY_PATH="$SCRIPT_DIR/id_ed25519.pub"
 exec >>"$LOG_PATH" 2>&1
 source "$SCRIPT_DIR/script-timing.sh"
 
 normalize_workdir_permissions() {
-	# 归一化工作目录权限，避免归档目录只读导致用户脚本无法写入
+	# 归一化工作目录权限，避免归档目录只读导致后续脚本无法写入
 	local workdir="$1"
 
 	find "$workdir" -type d -exec chmod 755 {} +
@@ -28,45 +32,18 @@ normalize_workdir_permissions() {
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get dist-upgrade -y
-apt-get install -y jq openssl openssh-server sudo curl ca-certificates ufw procps sqlite3
+apt-get install -y jq openssl openssh-server curl ca-certificates ufw procps sqlite3
 
-# 读取 config.json 和 constants.json
-USERNAME="$(jq -r '.username' "$CONSTANTS_PATH")"
-PASSWORD="$(jq -r '.password' "$CONSTANTS_PATH")"
-USER_HOME="/home/$USERNAME"
-USER_WORKDIR="$USER_HOME/3x-setup"
+# 直接使用上传到/root/3x-setup的工作目录
+chown -R root:root "$SCRIPT_DIR"
+normalize_workdir_permissions "$SCRIPT_DIR"
 
-# 创建sudo用户
-if ! id "$USERNAME" >/dev/null 2>&1; then
-	useradd -m -s /bin/bash "$USERNAME"
-fi
-printf '%s:%s\n' "$USERNAME" "$PASSWORD" | chpasswd
-usermod -aG sudo "$USERNAME"
-printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$USERNAME" >"/etc/sudoers.d/$USERNAME"
-chmod 440 "/etc/sudoers.d/$USERNAME"
+# 在关闭密码认证前，校验并安装root的部署公钥
+ssh-keygen -l -f "$PUBLIC_KEY_PATH" >/dev/null
+install -d -m 700 -o root -g root /root/.ssh
+install -m 600 -o root -g root "$PUBLIC_KEY_PATH" /root/.ssh/authorized_keys
 
-# 为sudo用户创建用户目录下的工作目录
-install -d -o "$USERNAME" -g "$USERNAME" "$USER_WORKDIR"
-
-# 将当前上传目录复制到用户目录下的工作目录
-cp -a "$SCRIPT_DIR"/. "$USER_WORKDIR"/
-
-# 将用户目录下工作目录的所有权交给sudo用户
-chown -R "$USERNAME:$USERNAME" "$USER_WORKDIR"
-normalize_workdir_permissions "$USER_WORKDIR"
-
-# 为sudo用户写入SSH公钥
-install -d -m 700 -o "$USERNAME" -g "$USERNAME" "$USER_HOME/.ssh"
-install -m 600 -o "$USERNAME" -g "$USERNAME" "$PUBLIC_KEY_PATH" "$USER_HOME/.ssh/authorized_keys"
-
-# 验证sudo用户可以免交互使用sudo
-sudo -n -u "$USERNAME" sudo -n true
-
-# 切换到sudo用户身份并进入用户目录下的工作目录
-mkdir -p "$USER_WORKDIR/log"
+# 以root继续系统初始化
+cd "$SCRIPT_DIR"
 script_timer_finish 0
-cp "$LOG_PATH" "$USER_WORKDIR/log/root-init.log"
-chown "$USERNAME:$USERNAME" "$USER_WORKDIR/log/root-init.log"
-
-# 执行 user-init.sh
-exec sudo -Hu "$USERNAME" bash -c 'cd "$1" && shift && exec bash ./user-init.sh "$@"' bash "$USER_WORKDIR" "$@"
+exec bash "$SCRIPT_DIR/system-init.sh" "$@"

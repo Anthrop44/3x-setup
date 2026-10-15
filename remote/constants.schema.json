@@ -9,18 +9,6 @@
 			"type": "string",
 			"default": "constants.schema.json"
 		},
-		"username": {
-			"description": "服务器sudo用户名。没必要改，用新版OpenSSH不会产生特征",
-			"type": "string",
-			"default": "celestia",
-			"minLength": 1
-		},
-		"password": {
-			"description": "服务器sudo用户密码。没必要改，服务器没法通过这个密码登陆",
-			"type": "string",
-			"default": "Polaris",
-			"minLength": 1
-		},
 		"3xusername": {
 			"description": "3X-UI面板用户名。没必要改，3X-UI面板不会暴露于公网",
 			"type": "string",
@@ -193,8 +181,6 @@
 		}
 	},
 	"required": [
-		"username",
-		"password",
 		"3xusername",
 		"3xpassword",
 		"initialSshPort",

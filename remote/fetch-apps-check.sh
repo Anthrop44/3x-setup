@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 OUTPUT_FILE="$LOG_DIR/fetch-apps-check.log"
@@ -32,28 +37,28 @@ printf 'Daily task time: %s\n' "$DAILY_TASK_TIME"
 printf 'Proxy clients path: %s\n' "$PROXY_CLIENTS_PATH"
 
 printf '\n== Proxy client service ==\n'
-sudo -n systemctl --no-pager --full status 3x-fetch-apps.service 2>&1 || true
-test "$(sudo -n systemctl show 3x-fetch-apps.service --property=Result --value)" = success
+systemctl --no-pager --full status 3x-fetch-apps.service 2>&1 || true
+test "$(systemctl show 3x-fetch-apps.service --property=Result --value)" = success
 
 printf '\n== Daily timers ==\n'
 for TIMER_NAME in 3x-cloudflare-ufw.timer 3x-fetch-apps.timer; do
-	sudo -n systemctl --no-pager --full status "$TIMER_NAME" 2>&1
-	sudo -n systemctl is-enabled --quiet "$TIMER_NAME"
-	sudo -n systemctl is-active --quiet "$TIMER_NAME"
-	sudo -n systemctl cat "$TIMER_NAME" 2>&1
-	sudo -n systemctl cat "$TIMER_NAME" | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
-	sudo -n systemctl cat "$TIMER_NAME" | grep -Fqx 'RandomizedDelaySec=1h'
+	systemctl --no-pager --full status "$TIMER_NAME" 2>&1
+	systemctl is-enabled --quiet "$TIMER_NAME"
+	systemctl is-active --quiet "$TIMER_NAME"
+	systemctl cat "$TIMER_NAME" 2>&1
+	systemctl cat "$TIMER_NAME" | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
+	systemctl cat "$TIMER_NAME" | grep -Fqx 'RandomizedDelaySec=1h'
 done
-sudo -n systemctl list-timers 3x-cloudflare-ufw.timer 3x-fetch-apps.timer --all --no-pager 2>&1
+systemctl list-timers 3x-cloudflare-ufw.timer 3x-fetch-apps.timer --all --no-pager 2>&1
 
 printf '\n== Resource state ==\n'
-sudo -n jq . "$STATE_PATH"
-test "$(sudo -n jq '.resources | length' "$STATE_PATH")" = "$(jq '.proxyClientsFilenames | length' "$CONSTANTS_PATH")"
+jq . "$STATE_PATH"
+test "$(jq '.resources | length' "$STATE_PATH")" = "$(jq '.proxyClientsFilenames | length' "$CONSTANTS_PATH")"
 
 while IFS= read -r RESOURCE_ID; do
 	FILENAME="$(jq -r --arg id "$RESOURCE_ID" '.proxyClientsFilenames[$id]' "$CONSTANTS_PATH")"
 	FILE_PATH="$TARGET_DIR/$FILENAME"
-	sudo -n jq -e \
+	jq -e \
 		--arg id "$RESOURCE_ID" \
 		--arg filename "$FILENAME" \
 		'.resources[$id].disabled == false
@@ -61,9 +66,9 @@ while IFS= read -r RESOURCE_ID; do
 		and .resources[$id].destinationName == $filename
 		and (.resources[$id].assetId | type == "string")
 		and (.resources[$id].tag | type == "string")' "$STATE_PATH" >/dev/null
-	sudo -n test -s "$FILE_PATH"
-	test "$(sudo -n stat -c '%U:%G' "$FILE_PATH")" = caddy:caddy
-	test "$(sudo -n stat -c '%a' "$FILE_PATH")" = 644
+	test -s "$FILE_PATH"
+	test "$(stat -c '%U:%G' "$FILE_PATH")" = caddy:caddy
+	test "$(stat -c '%a' "$FILE_PATH")" = 644
 	curl \
 		-kfsSI \
 		--max-time 30 \
@@ -73,7 +78,7 @@ while IFS= read -r RESOURCE_ID; do
 done < <(jq -r '.proxyClientsFilenames | keys[]' "$CONSTANTS_PATH")
 
 printf '\n== Failed units ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 ensure_no_failed_units
 
 printf '\n== Complete ==\n'
