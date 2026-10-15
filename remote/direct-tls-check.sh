@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -122,11 +127,11 @@ require_public_direct_tls() {
 
 require_direct_tls_sync_task() {
 	# 要求Caddy证书同步任务可用
-	sudo -n systemctl is-enabled --quiet 3x-direct-tls-sync.timer
-	sudo -n systemctl is-active --quiet 3x-direct-tls-sync.timer
-	sudo -n systemctl cat 3x-direct-tls-sync.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
-	sudo -n systemctl cat 3x-direct-tls-sync.timer | grep -Fqx 'RandomizedDelaySec=1h'
-	sudo -n /usr/local/sbin/3x-sync-direct-tls --check
+	systemctl is-enabled --quiet 3x-direct-tls-sync.timer
+	systemctl is-active --quiet 3x-direct-tls-sync.timer
+	systemctl cat 3x-direct-tls-sync.timer | grep -Fqx "OnCalendar=*-*-* $DAILY_TASK_TIME"
+	systemctl cat 3x-direct-tls-sync.timer | grep -Fqx 'RandomizedDelaySec=1h'
+	/usr/local/sbin/3x-sync-direct-tls --check
 }
 
 printf '== 基本信息 ==\n'
@@ -142,35 +147,35 @@ printf 'Reality目标端口: %s\n' "$REALITY_TARGET_PORT"
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 
 printf '\n== Caddy服务状态 ==\n'
-sudo -n systemctl --no-pager --full status caddy 2>&1
-sudo -n systemctl is-active --quiet caddy
+systemctl --no-pager --full status caddy 2>&1
+systemctl is-active --quiet caddy
 
 printf '\n== x-ui服务状态 ==\n'
-sudo -n systemctl --no-pager --full status x-ui 2>&1
-sudo -n systemctl is-active --quiet x-ui
+systemctl --no-pager --full status x-ui 2>&1
+systemctl is-active --quiet x-ui
 
 printf '\n== Caddyfile ==\n'
-sudo -n sed -n '1,260p' /etc/caddy/Caddyfile 2>&1
+sed -n '1,260p' /etc/caddy/Caddyfile 2>&1
 
 printf '\n== Caddy校验 ==\n'
-sudo -n caddy validate --config /etc/caddy/Caddyfile 2>&1
+caddy validate --config /etc/caddy/Caddyfile 2>&1
 
 printf '\n== directDomain 证书 ==\n'
-sudo -n find /var/lib/caddy/.local/share/caddy/certificates -type f -path "*$DIRECT_DOMAIN*" -printf '%p %s bytes\n' 2>&1 | sort || true
-sudo -n find /var/lib/caddy/.local/share/caddy/certificates -type f -name "$DIRECT_DOMAIN.crt" -exec openssl x509 -in '{}' -noout -subject -issuer -dates -ext subjectAltName ';' 2>&1 || true
-sudo -n ls -l "$DIRECT_CERT_FILE" "$DIRECT_KEY_FILE" 2>&1
-sudo -n openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
+find /var/lib/caddy/.local/share/caddy/certificates -type f -path "*$DIRECT_DOMAIN*" -printf '%p %s bytes\n' 2>&1 | sort || true
+find /var/lib/caddy/.local/share/caddy/certificates -type f -name "$DIRECT_DOMAIN.crt" -exec openssl x509 -in '{}' -noout -subject -issuer -dates -ext subjectAltName ';' 2>&1 || true
+ls -l "$DIRECT_CERT_FILE" "$DIRECT_KEY_FILE" 2>&1
+openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
 if [ "$NO_TLS" = "1" ]; then
 	printf '收到--noTLS，跳过生产公信证书检查\n'
 else
 	require_public_direct_tls
 	printf '\n== Caddy证书同步任务 ==\n'
-	sudo -n systemctl --no-pager --full status 3x-direct-tls-sync.timer 2>&1
+	systemctl --no-pager --full status 3x-direct-tls-sync.timer 2>&1
 	require_direct_tls_sync_task
 fi
 
 printf '\n== 监听端口 ==\n'
-sudo -n ss -lntp 2>&1 | grep -E ":(80|443|$CDN_PORT|$FAKE_SITE_PORT|$REALITY_TARGET_PORT)\\b"
+ss -lntp 2>&1 | grep -E ":(80|443|$CDN_PORT|$FAKE_SITE_PORT|$REALITY_TARGET_PORT)\\b"
 
 printf '\n== 响应头探测 ==\n'
 curl -k -fsS -I --max-time 20 --resolve "$DIRECT_DOMAIN:80:127.0.0.1" "http://$DIRECT_DOMAIN/" 2>&1
@@ -189,13 +194,13 @@ require_fake_site "CDN回源默认入口" "https://probe.invalid:$CDN_PORT/" --r
 require_fake_site "CDN域名回源入口" "https://$CDN_DOMAIN:$CDN_PORT/" --resolve "$CDN_DOMAIN:$CDN_PORT:127.0.0.1"
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 ensure_no_failed_units
 
 printf '\n== Caddy日志 ==\n'
-sudo -n journalctl -u caddy --no-pager -n 160 2>&1 || true
+journalctl -u caddy --no-pager -n 160 2>&1 || true
 
 printf '\n== x-ui日志 ==\n'
-sudo -n journalctl -u x-ui --no-pager -n 120 2>&1 || true
+journalctl -u x-ui --no-pager -n 120 2>&1 || true
 
 printf '\n== 完成 ==\n'

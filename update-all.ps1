@@ -14,18 +14,15 @@ $ErrorActionPreference = "Stop"
 $ProjectDir = $PSScriptRoot
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
-$ConstantsPath = Join-Path $RemoteDir "constants.json"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
 Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1") -Force
 Import-Module (Join-Path $ModuleDir "ssh-host-recovery.psm1") -Force
 
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-$Constants = Get-Content -LiteralPath $ConstantsPath -Raw | ConvertFrom-Json
 $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
-$Username = $Constants.username
-$SshTarget = "${Username}@${RemoteHost}"
+$SshTarget = "root@${RemoteHost}"
 $LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
 $HostKeyRecoveryAttempted = $false
 
@@ -37,10 +34,10 @@ if ($null -eq $SshCommand)
 
 $RemoteCommand = @'
 set -eu
-sudo -n apt-get update
-sudo -n apt-get dist-upgrade -y
-sudo -n x-ui update
-sudo -n systemctl start 3x-fetch-apps.service
+apt-get update
+apt-get dist-upgrade -y
+x-ui update
+systemctl start 3x-fetch-apps.service
 '@
 
 Write-Host "Updating system, 3X-UI, and proxy client files on $RemoteHost"

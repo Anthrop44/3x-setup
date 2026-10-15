@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -113,8 +118,8 @@ require_jq "$INBOUNDS_RESPONSE_PATH" "Hysteria2入站配置不符合预期" \
 		and (($stream.finalmask.udp[0].settings.password // "") | length >= 16))
 	and (($items[0].sniffing | decoded).enabled == false)
 '
-sudo -n test -s "$DIRECT_CERT_FILE"
-sudo -n test -s "$DIRECT_KEY_FILE"
+test -s "$DIRECT_CERT_FILE"
+test -s "$DIRECT_KEY_FILE"
 printf 'Hysteria2入站OK\n'
 
 printf '\n== Reality入站检查 ==\n'
@@ -174,7 +179,7 @@ printf '\n== Xray重启说明 ==\n'
 printf '客户端创建后统一重启Xray并检查监听端口\n'
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 ensure_no_failed_units
 
 printf '\n== 完成 ==\n'

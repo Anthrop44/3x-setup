@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -58,25 +63,25 @@ printf 'XHTTP路径: %s\n' "$XHTTP_PATH"
 printf '跳过公信TLS: %s\n' "$NO_TLS"
 
 printf '\n== Caddy服务状态 ==\n'
-sudo -n systemctl --no-pager --full status caddy 2>&1
-sudo -n systemctl is-active --quiet caddy
+systemctl --no-pager --full status caddy 2>&1
+systemctl is-active --quiet caddy
 
 printf '\n== Caddyfile ==\n'
-sudo -n sed -n '1,220p' /etc/caddy/Caddyfile 2>&1
+sed -n '1,220p' /etc/caddy/Caddyfile 2>&1
 
 printf '\n== Caddy校验 ==\n'
-sudo -n caddy validate --config /etc/caddy/Caddyfile 2>&1
+caddy validate --config /etc/caddy/Caddyfile 2>&1
 
 printf '\n== Cloudflare源站证书 ==\n'
-sudo -n ls -l /etc/caddy/3x-origin-cert.pem /etc/caddy/3x-origin-key.pem 2>&1
-sudo -n openssl x509 -in /etc/caddy/3x-origin-cert.pem -noout -subject -issuer -dates -ext subjectAltName 2>&1
+ls -l /etc/caddy/3x-origin-cert.pem /etc/caddy/3x-origin-key.pem 2>&1
+openssl x509 -in /etc/caddy/3x-origin-cert.pem -noout -subject -issuer -dates -ext subjectAltName 2>&1
 
 printf '\n== directDomain当前证书 ==\n'
-sudo -n ls -l "$DIRECT_CERT_FILE" "$DIRECT_KEY_FILE" 2>&1
-sudo -n openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
+ls -l "$DIRECT_CERT_FILE" "$DIRECT_KEY_FILE" 2>&1
+openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName 2>&1
 
 printf '\n== 伪装站文件 ==\n'
-sudo -n find /var/www/3x-fake-site -maxdepth 2 -type f -printf '%p %s bytes\n' 2>&1 | sort
+find /var/www/3x-fake-site -maxdepth 2 -type f -printf '%p %s bytes\n' 2>&1 | sort
 
 printf '\n== 本机HTTP探测 ==\n'
 curl -fsS -I --max-time 10 "http://127.0.0.1:$FAKE_SITE_PORT/" 2>&1
@@ -85,10 +90,10 @@ printf '\n== directDomain证书入口探测 ==\n'
 curl -k -sS -I --max-time 10 --resolve "$DIRECT_DOMAIN:$REALITY_TARGET_PORT:127.0.0.1" "https://$DIRECT_DOMAIN:$REALITY_TARGET_PORT/" 2>&1 || true
 
 printf '\n== Caddy日志 ==\n'
-sudo -n journalctl -u caddy --no-pager -n 120 2>&1 || true
+journalctl -u caddy --no-pager -n 120 2>&1 || true
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 
 printf '\n== 完成 ==\n'
 

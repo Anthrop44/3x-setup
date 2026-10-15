@@ -4,6 +4,11 @@
 
 set -Eeuo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
@@ -417,15 +422,15 @@ install_task() {
 			]
 		}' >"$runtime_config_temp"
 
-	sudo install -m 755 -o root -g root "$SCRIPT_DIR/fetch-apps-init.sh" "$INSTALL_PATH"
-	sudo install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" "$(dirname "$INSTALL_PATH")/script-timing.sh"
-	sudo install -m 600 -o root -g root "$runtime_config_temp" "$RUNTIME_CONFIG_PATH"
+	install -m 755 -o root -g root "$SCRIPT_DIR/fetch-apps-init.sh" "$INSTALL_PATH"
+	install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" "$(dirname "$INSTALL_PATH")/script-timing.sh"
+	install -m 600 -o root -g root "$runtime_config_temp" "$RUNTIME_CONFIG_PATH"
 	rm -f "$runtime_config_temp"
 	script_timer_install_exit_trap
-	sudo install -d -m 755 -o caddy -g caddy "$target_dir"
+	install -d -m 755 -o caddy -g caddy "$target_dir"
 	touch "$LOG_DIR/fetch-apps-update.log"
 
-	sudo tee /etc/systemd/system/3x-fetch-apps.service >/dev/null <<'EOF'
+	tee /etc/systemd/system/3x-fetch-apps.service >/dev/null <<'EOF'
 [Unit]
 Description=Update proxy client release assets for 3x fake site
 Wants=network-online.target
@@ -436,7 +441,7 @@ Type=oneshot
 ExecStart=/usr/local/sbin/3x-fetch-apps --update
 EOF
 
-	sed "s|{{DAILY_TASK_TIME}}|$daily_task_time|g" <<'EOF' | sudo tee /etc/systemd/system/3x-fetch-apps.timer >/dev/null
+	sed "s|{{DAILY_TASK_TIME}}|$daily_task_time|g" <<'EOF' | tee /etc/systemd/system/3x-fetch-apps.timer >/dev/null
 [Unit]
 Description=Update proxy client release assets daily
 
@@ -450,9 +455,9 @@ Unit=3x-fetch-apps.service
 WantedBy=timers.target
 EOF
 
-	sudo systemctl daemon-reload
-	sudo systemctl enable --now 3x-fetch-apps.timer
-	sudo systemctl start 3x-fetch-apps.service
+	systemctl daemon-reload
+	systemctl enable --now 3x-fetch-apps.timer
+	systemctl start 3x-fetch-apps.service
 
 	chmod +x "$SCRIPT_DIR/fetch-apps-check.sh"
 	script_timer_finish 0

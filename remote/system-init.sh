@@ -1,13 +1,18 @@
 #!/bin/bash
 
-# 以sudo用户身份执行初始化
+# 以root身份执行系统初始化
 
 set -euo pipefail
+
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
-LOG_PATH="$LOG_DIR/user-init.log"
+LOG_PATH="$LOG_DIR/system-init.log"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 CONSTANTS_PATH="$SCRIPT_DIR/constants.json"
 
@@ -20,27 +25,47 @@ CDN_PORT="$(jq -r '.cdnPort' "$CONFIG_PATH")"
 DAILY_TASK_HOUR="$(jq -r '.dailyTaskHour' "$CONSTANTS_PATH")"
 printf -v DAILY_TASK_TIME '%02d:00:00' "$DAILY_TASK_HOUR"
 
-# 配置SSH高位端口、禁止SSH密码登录、禁止SSH直接使用root登录
-sudo install -d /etc/ssh/sshd_config.d
-printf 'Port %s\nPubkeyAuthentication yes\nPasswordAuthentication no\nPermitRootLogin no\n' "$SSH_PORT" | sudo tee /etc/ssh/sshd_config.d/99-3x-setup.conf >/dev/null
-if ! sudo grep -Eq '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config; then
-	printf '\nInclude /etc/ssh/sshd_config.d/*.conf\n' | sudo tee -a /etc/ssh/sshd_config >/dev/null
+# 确认root公钥已就位，再禁用密码认证
+test -s /root/.ssh/authorized_keys
+ssh-keygen -l -f /root/.ssh/authorized_keys >/dev/null
+
+# 优先加载部署配置，避免云镜像的密码认证配置抢先生效
+install -d /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-3x-setup.conf <<EOF
+Port $SSH_PORT
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PermitRootLogin prohibit-password
+AuthorizedKeysFile .ssh/authorized_keys
+EOF
+chmod 644 /etc/ssh/sshd_config.d/00-3x-setup.conf
+sed -i '\|^[[:space:]]*Include[[:space:]]\+/etc/ssh/sshd_config.d/00-3x-setup.conf[[:space:]]*$|d' /etc/ssh/sshd_config
+sed -i '1i Include /etc/ssh/sshd_config.d/00-3x-setup.conf' /etc/ssh/sshd_config
+
+source "$SCRIPT_DIR/check-common.sh"
+sshd -t
+assert_root_ssh_publickey_only
+if [ -n "${SSH_CONNECTION:-}" ]; then
+	read -r CLIENT_ADDR _ SERVER_ADDR _ <<<"$SSH_CONNECTION"
+	assert_root_ssh_publickey_only /etc/ssh/sshd_config "user=root,host=$CLIENT_ADDR,addr=$CLIENT_ADDR,laddr=$SERVER_ADDR,lport=$SSH_PORT"
 fi
 
 # 重启SSH服务
-sudo sshd -t
-sudo systemctl restart ssh || sudo systemctl restart sshd
+systemctl restart ssh || systemctl restart sshd
 
 # 收紧防火墙，只开放80、443/tcp、443/udp、{sshPort}
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw allow 443/udp
-sudo ufw allow "${SSH_PORT}/tcp"
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 443/udp
+ufw allow "${SSH_PORT}/tcp"
 
 # {cdnPort}只允许CloudflareIP段访问，并通过systemdtimer定时刷新
-sed "s|{{CDN_PORT}}|$CDN_PORT|g" <<'EOF' | sudo tee /usr/local/sbin/3x-update-cloudflare-ufw.sh >/dev/null
+sed "s|{{CDN_PORT}}|$CDN_PORT|g" <<'EOF' | tee /usr/local/sbin/3x-update-cloudflare-ufw.sh >/dev/null
 #!/bin/bash
 
 set -euo pipefail
@@ -76,24 +101,24 @@ if grep -Evq '^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$|^[0-9A-Fa-f:]+/[0-9]{1,3}
 	exit 1
 fi
 
-CDN_UFW_RULES="$(sudo ufw status numbered | sed -n "/${RULE_COMMENT}/ s/^\[[[:space:]]*\([0-9][0-9]*\)\].*${CDN_PORT}\/tcp.*/\1/p" | sort -rn)"
+CDN_UFW_RULES="$(ufw status numbered | sed -n "/${RULE_COMMENT}/ s/^\[[[:space:]]*\([0-9][0-9]*\)\].*${CDN_PORT}\/tcp.*/\1/p" | sort -rn)"
 if [ -n "$CDN_UFW_RULES" ]; then
 	printf '%s\n' "$CDN_UFW_RULES" | while IFS= read -r CDN_UFW_RULE; do
-		sudo ufw --force delete "$CDN_UFW_RULE" >/dev/null
+		ufw --force delete "$CDN_UFW_RULE" >/dev/null
 	done
 fi
 
 while IFS= read -r CLOUDFLARE_IP; do
-	sudo ufw allow proto tcp from "$CLOUDFLARE_IP" to any port "$CDN_PORT" comment "$RULE_COMMENT" >/dev/null
+	ufw allow proto tcp from "$CLOUDFLARE_IP" to any port "$CDN_PORT" comment "$RULE_COMMENT" >/dev/null
 done <"$CLOUDFLARE_IPS_CLEAN_FILE"
 
-sudo ufw --force enable
+ufw --force enable
 EOF
 
-sudo chmod 755 /usr/local/sbin/3x-update-cloudflare-ufw.sh
-sudo install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" /usr/local/sbin/script-timing.sh
+chmod 755 /usr/local/sbin/3x-update-cloudflare-ufw.sh
+install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" /usr/local/sbin/script-timing.sh
 
-sudo tee /etc/systemd/system/3x-cloudflare-ufw.service >/dev/null <<'EOF'
+tee /etc/systemd/system/3x-cloudflare-ufw.service >/dev/null <<'EOF'
 [Unit]
 Description=Update Cloudflare UFW rules for 3x CDN port
 Wants=network-online.target
@@ -104,7 +129,7 @@ Type=oneshot
 ExecStart=/usr/local/sbin/3x-update-cloudflare-ufw.sh
 EOF
 
-sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | sudo tee /etc/systemd/system/3x-cloudflare-ufw.timer >/dev/null
+sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | tee /etc/systemd/system/3x-cloudflare-ufw.timer >/dev/null
 [Unit]
 Description=Update Cloudflare UFW rules for 3x CDN port daily
 
@@ -118,19 +143,19 @@ Unit=3x-cloudflare-ufw.service
 WantedBy=timers.target
 EOF
 
-sudo systemctl daemon-reload
-sudo systemctl start 3x-cloudflare-ufw.service
-sudo systemctl enable --now 3x-cloudflare-ufw.timer
+systemctl daemon-reload
+systemctl start 3x-cloudflare-ufw.service
+systemctl enable --now 3x-cloudflare-ufw.timer
 
 # 开启BBR拥塞控制
-sudo modprobe tcp_bbr 2>/dev/null || true
+modprobe tcp_bbr 2>/dev/null || true
 if ! sysctl net.ipv4.tcp_available_congestion_control | grep -qw bbr; then
 	printf '当前内核不支持BBR\n' >&2
 	exit 1
 fi
-printf 'net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n' | sudo tee /etc/sysctl.d/99-3x-bbr.conf >/dev/null
-sudo sysctl -w net.core.default_qdisc=fq >/dev/null
-sudo sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null
+printf 'net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n' | tee /etc/sysctl.d/99-3x-bbr.conf >/dev/null
+sysctl -w net.core.default_qdisc=fq >/dev/null
+sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null
 
 # 执行 service-check.sh
 chmod +x "$SCRIPT_DIR/service-check.sh"

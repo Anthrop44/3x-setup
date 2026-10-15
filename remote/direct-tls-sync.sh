@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_PATH="/etc/3x-setup/direct-tls-sync.conf"
 TARGET_CERT_FILE="/etc/caddy/3x-direct-cert.pem"

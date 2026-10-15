@@ -55,8 +55,7 @@ if ($DistributionPath -notmatch "^[a-zA-Z0-9]{15}$")
 
 $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
-$Username = $Constants.username
-$SshTarget = "${Username}@${RemoteHost}"
+$SshTarget = "root@${RemoteHost}"
 $LogScriptPath = Join-Path $ProjectDir "get-log.ps1"
 $HostKeyRecoveryAttempted = $false
 
@@ -83,10 +82,10 @@ SourceDir="./fake-site/$DistributionPath"
 TargetDir="/var/www/3x-fake-site/$DistributionPath"
 test -d "`$SourceDir"
 test -f "`$SourceDir/template.css"
-sudo -n rm -rf -- "`$TargetDir"
-sudo -n install -d -m 755 -o caddy -g caddy "`$TargetDir"
-sudo -n cp -a -- "`$SourceDir"/. "`$TargetDir"/
-sudo -n chown -R caddy:caddy "`$TargetDir"
+rm -rf -- "`$TargetDir"
+install -d -m 755 -o caddy -g caddy "`$TargetDir"
+cp -a -- "`$SourceDir"/. "`$TargetDir"/
+chown -R caddy:caddy "`$TargetDir"
 "@
 
 try

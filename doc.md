@@ -4,11 +4,13 @@
 
 本方案默认安全，不需要任何额外加固，服务器只对公网暴露80、443和自定义SSH端口，对Cloudflare ip段暴露自定义高位cdn回源端口。3X-UI面板不暴露公网，通过SSH通道访问。普通HTTP(S)访问和主动探测会回落到本机自托管的伪装站。XHTTP和订阅链接隐藏路径由脚本自动随机生成以确保无特征隐蔽性
 
-默认完整执行顺序：`init.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地环境 > `get-log.ps1`
+默认完整执行顺序：`init.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `system-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地环境 > `get-log.ps1`
 
 ## 配置文件
 
 `remote/config.json`保存用户私有敏感配置。`{"$schema": "config.schema.json"}`
+
+远端部署、日志下载、配置同步、面板隧道和更新均使用root，工作目录为`/root/3x-setup`，不再需要服务器普通用户的`username`和`password`配置；`3xusername`和`3xpassword`仍为面板凭据
 
 `remote/constants.json`保存非敏感配置。`{"$schema": "constants.schema.json"}`
 
@@ -28,7 +30,7 @@
 
 ---
 
-`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，主机指纹检查采用OpenSSH默认行为；执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到用户工作目录并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
+`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，主机指纹检查采用OpenSSH默认行为；执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到root工作目录`/root/3x-setup`并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
 
 ---
 
@@ -36,7 +38,7 @@
 
 ---
 
-`update-all.ps1`用于维护已有服务器；它采用OpenSSH默认主机指纹检查行为，依次执行`sudo -n apt-get update`、`sudo -n apt-get dist-upgrade -y`和`sudo -n x-ui update`，随后用`sudo -n systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -noAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后失败
+`update-all.ps1`用于维护已有服务器；它采用OpenSSH默认主机指纹检查行为，依次执行`apt-get update`、`apt-get dist-upgrade -y`和`x-ui update`，随后用`systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -noAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后失败
 
 ---
 
@@ -56,15 +58,15 @@
 
 ## 远端初始化脚本
 
-`remote/root-init.sh`以root执行，是远端链路的入口；它安装基础依赖，创建并配置免密码sudo用户，把上传目录复制到`/home/username/3x-setup`，修正权限，并把`id_ed25519.pub`安装到该用户的`authorized_keys`，然后`sudo -Hu`切换身份执行`user-init.sh`
+`remote/root-init.sh`以root执行，是远端链路的入口；它安装基础依赖，直接使用上传目录`/root/3x-setup`，修正权限，校验`id_ed25519.pub`后安装到`/root/.ssh/authorized_keys`，继续以root执行`system-init.sh`；所有远端部署、检查和维护入口均要求root身份
 
 ---
 
-`remote/user-init.sh`修改SSH端口，启用公钥认证，禁用密码登录和root登录，重启`ssh`或`sshd`；配置UFW默认拒绝入站、允许出站，只开放`80/tcp`、`443/tcp`、`443/udp`和`sshPort/tcp`；`cdnPort`只对Cloudflare IP段开放；生成`/usr/local/sbin/3x-update-cloudflare-ufw.sh`，从Cloudflare官方IP列表刷新`cdnPort`白名单规则，并安装`3x-cloudflare-ufw.service`和每日运行的`3x-cloudflare-ufw.timer`；启用BBR；进入`service-check.sh`
+`remote/system-init.sh`修改SSH端口，在主配置首行优先加载`00-3x-setup.conf`，设置`PermitRootLogin prohibit-password`和`AuthenticationMethods publickey`，启用公钥认证，禁用密码、交互式和空密码认证；重启`ssh`或`sshd`前执行语法检查，并验证root连接实际生效的认证配置，发现冲突则中断；配置UFW默认拒绝入站、允许出站，只开放`80/tcp`、`443/tcp`、`443/udp`和`sshPort/tcp`；`cdnPort`只对Cloudflare IP段开放；生成`/usr/local/sbin/3x-update-cloudflare-ufw.sh`，从Cloudflare官方IP列表刷新`cdnPort`白名单规则，并安装`3x-cloudflare-ufw.service`和每日运行的`3x-cloudflare-ufw.timer`；启用BBR；进入`service-check.sh`
 
 ---
 
-`remote/service-check.sh`检查通用服务状态；它记录系统信息、SSH服务状态、UFW状态、`cdnPort`Cloudflare规则、Cloudflare UFW定时器、BBR内核参数、监听端口和失败systemd单元；关键检查失败会中断链路，成功后进入Caddy阶段
+`remote/service-check.sh`检查通用服务状态及root公钥认证策略；它记录系统信息、SSH服务状态、UFW状态、`cdnPort`Cloudflare规则、Cloudflare UFW定时器、BBR内核参数、监听端口和失败systemd单元；关键检查失败会中断链路，成功后进入Caddy阶段
 
 ---
 
@@ -100,11 +102,11 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 
 更新器通过GitHub`releases/latest`API获取v2rayN和v2rayNG的最新稳定release，严格匹配目标assets；状态保存在`/var/lib/3x-fetch-apps/state.json`。asset发生变化或文件缺失、校验失败时才重新下载，临时文件通过大小和可用SHA-256 digest校验后才原子替换旧文件
 
-连续3个更新任务任务失败后会禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、全部资源状态、文件权限和本机CDN固定URL后进入TLS阶段
+连续3个更新任务任务失败后会禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、全部资源状态、文件权限和本机CDN固定URL后进入TLS阶段
 
 ---
 
-`remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书。随后它会安装root拥有的`/usr/local/sbin/3x-sync-direct-tls`、`3x-direct-tls-sync.service`和每日timer；timer按`dailyTaskHour`及0到1小时随机延迟运行，仅当Caddy管理的证书和私钥均有效、匹配`directDomain`且与稳定路径不同，才原子替换两份文件并重启`x-ui`。`sudo /usr/local/sbin/3x-sync-direct-tls --check`只校验证书同步状态而不修改文件或重启服务
+`remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书。随后它会安装root拥有的`/usr/local/sbin/3x-sync-direct-tls`、`3x-direct-tls-sync.service`和每日timer；timer按`dailyTaskHour`及0到1小时随机延迟运行，仅当Caddy管理的证书和私钥均有效、匹配`directDomain`且与稳定路径不同，才原子替换两份文件并重启`x-ui`。`/usr/local/sbin/3x-sync-direct-tls --check`只校验证书同步状态而不修改文件或重启服务
 
 `--noTLS`模式下，脚本只记录跳过公信TLS，不渲染ACME配置、不触发CA也不安装证书同步任务；检查脚本会验证Caddy和x-ui状态、Caddyfile、证书文件、端口监听、HTTP到HTTPS跳转、伪装站正文和失败单元。非`--noTLS`模式验证公信`directDomain`证书、Cloudflare Origin、Staging或FakeLE证书，并验证证书同步timer等
 
@@ -285,3 +287,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 若其它本地脚本显示potential MITM或主机真实性提示，这些脚本会先自动尝试一次`get-log.ps1`；它在不忽略已有记录的前提下接受并写入此前未知的新host，只有成功下载日志后才重试原命令。若日志获取也报告已知host key变化，则不会覆盖冲突记录，应立即停止并重新核验服务器指纹
 
 本方案并不需要ECH，加了也没用
+
+## 本地验证
+
+执行`python3 -B -m unittest discover -s tests -v`，使用临时目录、临时主机密钥和本机`sshd`解析器验证SSH配置优先级、公钥认证策略及冲突检测，不修改系统SSH配置，也不连接VPS；需要Python 3、Bash、OpenSSH的`sshd`和`ssh-keygen`

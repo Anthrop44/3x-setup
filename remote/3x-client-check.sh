@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -80,7 +85,7 @@ find_xray_bin() {
 			return 0
 		fi
 	done
-	candidate="$(sudo -n find /usr/local/x-ui/bin -maxdepth 1 -type f -name 'xray*' -perm -111 2>/dev/null | head -n 1)"
+	candidate="$(find /usr/local/x-ui/bin -maxdepth 1 -type f -name 'xray*' -perm -111 2>/dev/null | head -n 1)"
 	if [ -n "$candidate" ]; then
 		printf '%s\n' "$candidate"
 		return 0
@@ -397,16 +402,16 @@ cat "$STATUS_RESPONSE_PATH"
 require_jq "$STATUS_RESPONSE_PATH" "Xray没有运行" '(.obj.xray.state // .obj.state // "") == "running"'
 
 printf '\n== 监听端口 ==\n'
-sudo -n ss -lntup 2>&1 | grep -E ":(443|$XHTTP_PORT)\\b"
-sudo -n ss -H -lnup 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
-sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
-sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](127\\.0\\.0\\.1|\\[::1\\]):${XHTTP_PORT}[[:space:]]" >/dev/null
-if sudo -n ss -H -lntp 2>&1 | grep -E "[[:space:]](0\\.0\\.0\\.0|\\*|\\[::\\]):${XHTTP_PORT}[[:space:]]" >/dev/null; then
+ss -lntup 2>&1 | grep -E ":(443|$XHTTP_PORT)\\b"
+ss -H -lnup 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
+ss -H -lntp 2>&1 | grep -E "[[:space:]]([^[:space:]]+:)?443[[:space:]]" >/dev/null
+ss -H -lntp 2>&1 | grep -E "[[:space:]](127\\.0\\.0\\.1|\\[::1\\]):${XHTTP_PORT}[[:space:]]" >/dev/null
+if ss -H -lntp 2>&1 | grep -E "[[:space:]](0\\.0\\.0\\.0|\\*|\\[::\\]):${XHTTP_PORT}[[:space:]]" >/dev/null; then
 	printf 'XHTTP入站正在公网监听\n' >&2
 	exit 1
 fi
-sudo -n ufw status verbose | grep -Eq '^443/tcp[[:space:]]+ALLOW IN'
-sudo -n ufw status verbose | grep -Eq '^443/udp[[:space:]]+ALLOW IN'
+ufw status verbose | grep -Eq '^443/tcp[[:space:]]+ALLOW IN'
+ufw status verbose | grep -Eq '^443/udp[[:space:]]+ALLOW IN'
 
 printf '\n== 准备端到端测试 ==\n'
 XRAY_BIN="$(find_xray_bin)"
@@ -429,7 +434,7 @@ printf '\n== XHTTP代理测试 ==\n'
 run_xray_proxy_test "XHTTP" "$XHTTP_CONFIG_PATH" "$XHTTP_SOCKS_PORT" "$XHTTP_LOG_PATH"
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 ensure_no_failed_units
 
 printf '\n== 完成 ==\n'

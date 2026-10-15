@@ -1,7 +1,5 @@
 {
 	"$schema": "constants.schema.json",
-	"username": "celestia",
-	"password": "Polaris",
 	"3xusername": "celestia",
 	"3xpassword": "Polaris",
 	"initialSshPort": 22,

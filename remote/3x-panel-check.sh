@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -36,7 +41,7 @@ sqlite3_retry() {
 	local output
 
 	for ((i = 1; i <= max_retries; i++)); do
-		output="$(sudo -n sqlite3 -cmd '.timeout 5000' /etc/x-ui/x-ui.db "$query" 2>&1)" && {
+		output="$(sqlite3 -cmd '.timeout 5000' /etc/x-ui/x-ui.db "$query" 2>&1)" && {
 			printf '%s\n' "$output"
 			return 0
 		}
@@ -72,38 +77,38 @@ printf '订阅路径: %s\n' "$SUBSCRIPTION_URI_PATH"
 printf '面板本机URL: http://127.0.0.1:%s%s\n' "$PANEL_PORT" "$PANEL_URL_PATH"
 
 printf '\n== 3x-ui服务状态 ==\n'
-sudo -n systemctl --no-pager --full status x-ui 2>&1
-sudo -n systemctl is-active --quiet x-ui
-sudo -n systemctl is-enabled --quiet x-ui
+systemctl --no-pager --full status x-ui 2>&1
+systemctl is-active --quiet x-ui
+systemctl is-enabled --quiet x-ui
 
 printf '\n== 3x-ui配置 ==\n'
-sudo -n /usr/local/x-ui/x-ui setting -show true 2>&1
+/usr/local/x-ui/x-ui setting -show true 2>&1
 
 printf '\n== 3x-ui安装文件 ==\n'
-sudo -n ls -l /usr/local/x-ui/x-ui /etc/systemd/system/x-ui.service 2>&1
-sudo -n find /etc/x-ui /usr/local/x-ui -maxdepth 2 -type f -printf '%p %s bytes\n' 2>&1 | sort
+ls -l /usr/local/x-ui/x-ui /etc/systemd/system/x-ui.service 2>&1
+find /etc/x-ui /usr/local/x-ui -maxdepth 2 -type f -printf '%p %s bytes\n' 2>&1 | sort
 
 printf '\n== 监听端口 ==\n'
 PORT_PATTERN=":($CDN_PORT|$XHTTP_PORT|$SUBSCRIPTION_PORT|$PANEL_PORT)\\b"
-sudo -n ss -lntp 2>&1 | grep -E "$PORT_PATTERN"
+ss -lntp 2>&1 | grep -E "$PORT_PATTERN"
 
 printf '\n== 3x-ui监听检查 ==\n'
-sudo -n ss -lntp 2>&1 | grep -E "127\\.0\\.0\\.1:$PANEL_PORT\\b|\\[::1\\]:$PANEL_PORT\\b"
-if sudo -n ss -lntp 2>&1 | grep -E "(0\\.0\\.0\\.0:$PANEL_PORT\\b|\\*:$PANEL_PORT\\b|\\[::\\]:$PANEL_PORT\\b)"; then
+ss -lntp 2>&1 | grep -E "127\\.0\\.0\\.1:$PANEL_PORT\\b|\\[::1\\]:$PANEL_PORT\\b"
+if ss -lntp 2>&1 | grep -E "(0\\.0\\.0\\.0:$PANEL_PORT\\b|\\*:$PANEL_PORT\\b|\\[::\\]:$PANEL_PORT\\b)"; then
 	printf '3x-ui面板正在公网监听\n' >&2
 	exit 1
 fi
-sudo -n ss -lntp 2>&1 | grep -E "127\\.0\\.0\\.1:$SUBSCRIPTION_PORT\\b|\\[::1\\]:$SUBSCRIPTION_PORT\\b"
+ss -lntp 2>&1 | grep -E "127\\.0\\.0\\.1:$SUBSCRIPTION_PORT\\b|\\[::1\\]:$SUBSCRIPTION_PORT\\b"
 
 printf '\n== 3x-ui数据库 ==\n'
-sudo -n ls -l /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db-shm /etc/x-ui/x-ui.db-wal 2>&1 || true
+ls -l /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db-shm /etc/x-ui/x-ui.db-wal 2>&1 || true
 sqlite3_retry '.tables'
 sqlite3_retry 'select key,value from settings order by key;'
 require_setting_value "remarkTemplate" "{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}"
 require_setting_value "subUpdates" "$SUB_UPDATES"
 
 printf '\n== Xray配置检查 ==\n'
-sudo -n jq -e '
+jq -e '
 	any(
 		.outbounds[]?;
 		.protocol == "freedom"
@@ -132,11 +137,11 @@ printf '\n== directDomain证书入口探测 ==\n'
 curl -k -sS -I --max-time 10 --resolve "$DIRECT_DOMAIN:$REALITY_TARGET_PORT:127.0.0.1" "https://$DIRECT_DOMAIN:$REALITY_TARGET_PORT/" 2>&1 || true
 
 printf '\n== 3x-ui日志 ==\n'
-sudo -n journalctl -u x-ui --no-pager -n 160 2>&1 || true
-sudo -n tail -n 160 /var/log/x-ui/*.log 2>&1 || true
+journalctl -u x-ui --no-pager -n 160 2>&1 || true
+tail -n 160 /var/log/x-ui/*.log 2>&1 || true
 
 printf '\n== 失败单元 ==\n'
-sudo -n systemctl --failed --no-pager 2>&1 || true
+systemctl --failed --no-pager 2>&1 || true
 
 printf '\n== 完成 ==\n'
 

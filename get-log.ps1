@@ -2,7 +2,7 @@
 .SYNOPSIS
 	下载远程初始化日志
 .DESCRIPTION
-	从 remote/config.json 和 remote/constants.json 读取连接信息，让远端先打包 log/ ，再下载并解包到本地
+	从 remote/config.json 读取连接信息，以root连接，让远端先打包 log/ ，再下载并解包到本地
 #>
 
 [CmdletBinding()]
@@ -14,16 +14,13 @@ $ErrorActionPreference = "Stop"
 $ProjectDir = $PSScriptRoot
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
-$ConstantsPath = Join-Path $RemoteDir "constants.json"
 $ModuleDir = Join-Path $ProjectDir "modules"
 
 Import-Module (Join-Path $ModuleDir "assert-exit-code.psm1")
 
 $Config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
-$Constants = Get-Content -LiteralPath $ConstantsPath -Raw | ConvertFrom-Json
 $RemoteHost = $Config.ip
 $SshPort = $Config.sshPort
-$Username = $Constants.username
 $RemoteLogDir = "~/3x-setup/log"
 $LocalLogDir = Join-Path $ProjectDir "log"
 
@@ -31,7 +28,7 @@ $ArchiveName = "3x-setup-log-$([Guid]::NewGuid().ToString("N")).tar"
 $RemoteArchivePath = "/tmp/$ArchiveName"
 $LocalArchivePath = $ArchiveName
 $SftpBatchPath = "$ArchiveName.sftp"
-$SshTarget = "${Username}@${RemoteHost}"
+$SshTarget = "root@${RemoteHost}"
 $SshHostKeyOptions = @(
 	"-o", "StrictHostKeyChecking=accept-new"
 )

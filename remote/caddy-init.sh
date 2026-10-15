@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -56,8 +61,8 @@ install_self_signed_direct_cert() {
 		-out "$cert_path" \
 		-subj "/CN=$DIRECT_DOMAIN" \
 		-addext "subjectAltName=DNS:$DIRECT_DOMAIN"
-	sudo install -m 644 -o caddy -g caddy "$cert_path" "$DIRECT_CERT_FILE"
-	sudo install -m 640 -o caddy -g caddy "$key_path" "$DIRECT_KEY_FILE"
+	install -m 644 -o caddy -g caddy "$cert_path" "$DIRECT_CERT_FILE"
+	install -m 640 -o caddy -g caddy "$key_path" "$DIRECT_KEY_FILE"
 	rm -f "$cert_path" "$key_path"
 }
 
@@ -88,42 +93,42 @@ jq -n \
 
 # 安装Caddy
 export DEBIAN_FRONTEND=noninteractive
-sudo apt-get -o DPkg::Lock::Timeout=600 update
-sudo apt-get \
+apt-get -o DPkg::Lock::Timeout=600 update
+apt-get \
 	-o DPkg::Lock::Timeout=600 \
 	-o Dpkg::Options::=--force-confdef \
 	-o Dpkg::Options::=--force-confold \
 	install -y debian-keyring debian-archive-keyring apt-transport-https ca-certificates curl gnupg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
-sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
-sudo apt-get -o DPkg::Lock::Timeout=600 update
-sudo apt-get \
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+chmod o+r /etc/apt/sources.list.d/caddy-stable.list
+apt-get -o DPkg::Lock::Timeout=600 update
+apt-get \
 	-o DPkg::Lock::Timeout=600 \
 	-o Dpkg::Options::=--force-confdef \
 	-o Dpkg::Options::=--force-confold \
 	install -y caddy
 
 # 安装伪装站
-sudo install -d -m 755 -o caddy -g caddy /var/www/3x-fake-site
-sudo cp -a "$SCRIPT_DIR/fake-site"/. /var/www/3x-fake-site/
-sudo chown -R caddy:caddy /var/www/3x-fake-site
+install -d -m 755 -o caddy -g caddy /var/www/3x-fake-site
+cp -a "$SCRIPT_DIR/fake-site"/. /var/www/3x-fake-site/
+chown -R caddy:caddy /var/www/3x-fake-site
 
 # 安装Cloudflare源站证书
-sudo install -m 644 -o caddy -g caddy "$SCRIPT_DIR/cert.pem" /etc/caddy/3x-origin-cert.pem
-sudo install -m 640 -o caddy -g caddy "$SCRIPT_DIR/key.pem" /etc/caddy/3x-origin-key.pem
+install -m 644 -o caddy -g caddy "$SCRIPT_DIR/cert.pem" /etc/caddy/3x-origin-cert.pem
+install -m 640 -o caddy -g caddy "$SCRIPT_DIR/key.pem" /etc/caddy/3x-origin-key.pem
 
 # 安装directDomain测试自签证书
 install_self_signed_direct_cert
 write_file_tls_config "$DIRECT_DOMAIN_TLS_CONFIG_PATH"
 
 # 渲染并安装Caddyfile
-render_caddyfile | sed '1s/.*/# Caddyfile正则替换成功产物/' | sudo tee /etc/caddy/Caddyfile >/dev/null
-sudo caddy fmt --overwrite /etc/caddy/Caddyfile
-sudo caddy validate --config /etc/caddy/Caddyfile
-sudo systemctl enable caddy
-sudo systemctl reload caddy || sudo systemctl restart caddy
+render_caddyfile | sed '1s/.*/# Caddyfile正则替换成功产物/' | tee /etc/caddy/Caddyfile >/dev/null
+caddy fmt --overwrite /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile
+systemctl enable caddy
+systemctl reload caddy || systemctl restart caddy
 
 # 执行 caddy-check.sh
 chmod +x "$SCRIPT_DIR/caddy-check.sh"

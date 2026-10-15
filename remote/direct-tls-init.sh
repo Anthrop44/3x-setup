@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "$EUID" -ne 0 ]; then
+	printf 'This script must be run as root\n' >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/log"
 mkdir -p "$LOG_DIR"
@@ -92,11 +97,11 @@ install_public_direct_cert() {
 	local public_cert_file="$PUBLIC_DIRECT_CERT_DIR/$DIRECT_DOMAIN.crt"
 	local public_key_file="$PUBLIC_DIRECT_CERT_DIR/$DIRECT_DOMAIN.key"
 
-	sudo -n test -s "$public_cert_file"
-	sudo -n test -s "$public_key_file"
-	sudo install -m 644 -o caddy -g caddy "$public_cert_file" "$DIRECT_CERT_FILE"
-	sudo install -m 640 -o caddy -g caddy "$public_key_file" "$DIRECT_KEY_FILE"
-	sudo -n openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName
+	test -s "$public_cert_file"
+	test -s "$public_key_file"
+	install -m 644 -o caddy -g caddy "$public_cert_file" "$DIRECT_CERT_FILE"
+	install -m 640 -o caddy -g caddy "$public_key_file" "$DIRECT_KEY_FILE"
+	openssl x509 -in "$DIRECT_CERT_FILE" -noout -subject -issuer -dates -ext subjectAltName
 }
 
 install_direct_tls_sync_task() {
@@ -107,14 +112,14 @@ install_direct_tls_sync_task() {
 	sync_config_temp_path="$(mktemp)"
 	trap 'rm -f "$sync_config_temp_path"' RETURN
 	printf 'DIRECT_DOMAIN=%s\n' "$DIRECT_DOMAIN" >"$sync_config_temp_path"
-	sudo -n install -d -m 755 -o root -g root /etc/3x-setup
-	sudo -n install -m 644 -o root -g root "$sync_config_temp_path" "$sync_config_path"
-	sudo -n install -m 755 -o root -g root "$SCRIPT_DIR/direct-tls-sync.sh" /usr/local/sbin/3x-sync-direct-tls
-	sudo -n install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" /usr/local/sbin/script-timing.sh
+	install -d -m 755 -o root -g root /etc/3x-setup
+	install -m 644 -o root -g root "$sync_config_temp_path" "$sync_config_path"
+	install -m 755 -o root -g root "$SCRIPT_DIR/direct-tls-sync.sh" /usr/local/sbin/3x-sync-direct-tls
+	install -m 644 -o root -g root "$SCRIPT_DIR/script-timing.sh" /usr/local/sbin/script-timing.sh
 	trap - RETURN
 	rm -f "$sync_config_temp_path"
 
-	sudo tee /etc/systemd/system/3x-direct-tls-sync.service >/dev/null <<'EOF'
+	tee /etc/systemd/system/3x-direct-tls-sync.service >/dev/null <<'EOF'
 [Unit]
 Description=Synchronize Caddy managed certificate to 3x-ui Xray
 Wants=network-online.target
@@ -125,7 +130,7 @@ Type=oneshot
 ExecStart=/usr/local/sbin/3x-sync-direct-tls --sync
 EOF
 
-	sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | sudo tee /etc/systemd/system/3x-direct-tls-sync.timer >/dev/null
+	sed "s|{{DAILY_TASK_TIME}}|$DAILY_TASK_TIME|g" <<'EOF' | tee /etc/systemd/system/3x-direct-tls-sync.timer >/dev/null
 [Unit]
 Description=Synchronize Caddy managed certificate to 3x-ui Xray daily
 
@@ -139,9 +144,9 @@ Unit=3x-direct-tls-sync.service
 WantedBy=timers.target
 EOF
 
-	sudo -n systemctl daemon-reload
-	sudo -n systemctl enable --now 3x-direct-tls-sync.timer
-	sudo -n systemctl start 3x-direct-tls-sync.service
+	systemctl daemon-reload
+	systemctl enable --now 3x-direct-tls-sync.timer
+	systemctl start 3x-direct-tls-sync.service
 }
 
 parse_args "$@"
@@ -172,20 +177,20 @@ if [ "$NO_TLS" = "1" ]; then
 else
 	printf '\n== 渲染ACME Caddyfile ==\n'
 	write_acme_tls_config "$DIRECT_DOMAIN_TLS_CONFIG_PATH"
-	render_caddyfile | sed '1s/.*/# Caddyfile正则替换成功产物/' | sudo tee /etc/caddy/Caddyfile >/dev/null
-	sudo caddy fmt --overwrite /etc/caddy/Caddyfile
-	sudo caddy validate --config /etc/caddy/Caddyfile
+	render_caddyfile | sed '1s/.*/# Caddyfile正则替换成功产物/' | tee /etc/caddy/Caddyfile >/dev/null
+	caddy fmt --overwrite /etc/caddy/Caddyfile
+	caddy validate --config /etc/caddy/Caddyfile
 
 	printf '\n== 重载Caddy并触发directDomain公信证书 ==\n'
-	sudo -n systemctl reload caddy || sudo -n systemctl restart caddy
+	systemctl reload caddy || systemctl restart caddy
 	wait_direct_domain_tls
 
 	printf '\n== 安装公信证书到稳定路径 ==\n'
 	install_public_direct_cert
-	sudo -n systemctl reload caddy || sudo -n systemctl restart caddy
+	systemctl reload caddy || systemctl restart caddy
 
 	printf '\n== 重启x-ui加载新证书 ==\n'
-	sudo -n systemctl restart x-ui
+	systemctl restart x-ui
 
 	printf '\n== 安装证书同步任务 ==\n'
 	install_direct_tls_sync_task

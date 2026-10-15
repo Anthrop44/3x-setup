@@ -131,7 +131,7 @@ pwsh sync-config.ps1
 
 **`init.ps1`和`sync-config.ps1`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 
-代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.ps1`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
+代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.ps1`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS以root执行`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
 
 ## 连接3X-UI面板
 
@@ -165,7 +165,7 @@ pwsh update-all.ps1
 
 地区运营商可能会阻断部分ip的QUIC，这会导致Hysteria2入站不可用，属不可抗力
 
-部署完成后，您的私钥`~/.ssh/id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
+部署及维护均以root运行，工作目录为`/root/3x-setup`。部署完成后，root只允许SSH公钥认证，密码及交互式认证均禁用；您的私钥`~/.ssh/id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
 
 ## 致谢
 

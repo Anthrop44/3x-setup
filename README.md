@@ -133,7 +133,7 @@ The script will upload the new `remote/config.json`, synchronize client informat
 
 **`init.ps1` and `sync-config.ps1` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
-Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.ps1`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
+Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.ps1`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
 
 ## Connecting to the 3X-UI Panel
 
@@ -167,7 +167,7 @@ If you want to test this script by rebuilding the server multiple times with the
 
 Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
 
-Your private key `~/.ssh/id_ed25519` is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
+Deployment and maintenance run as root in `/root/3x-setup`. After deployment, root SSH login requires public-key authentication; password and keyboard-interactive authentication are disabled. Your private key `~/.ssh/id_ed25519` is the **only** method to log in to the proxy server. Please back up and store it securely.
 
 ## Acknowledgements
 
