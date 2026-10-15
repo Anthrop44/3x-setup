@@ -44,7 +44,7 @@
 
 ---
 
-`modules/generate-ssh-key.psm1`导出`Initialize-DeploymentSshKey`，用于准备部署所需的`remote/id_ed25519.pub`；它先检查`~/.ssh/id_ed25519`，如果`remote/id_ed25519.pub`已存在且对应该私钥，则打印成功信息后退出；如果已有公钥不对应该私钥，则拒绝覆盖并报错。私钥不存在时调用`ssh-keygen -t ed25519`生成Ed25519密钥放在本机`.ssh/`目录；私钥已存在时用`ssh-keygen -y`重新导出公钥
+`modules/generate-ssh-key.psm1`导出`Initialize-DeploymentSshKey`，用于准备部署所需的`remote/id_ed25519.pub`；它先检查仓库根目录下的`./id_ed25519`，如果`remote/id_ed25519.pub`已存在且对应该私钥，则打印成功信息后退出；如果已有公钥不对应该私钥，则拒绝覆盖并报错。私钥不存在时调用`ssh-keygen -t ed25519`生成Ed25519密钥放在仓库根目录；私钥已存在时用`ssh-keygen -y`重新导出公钥
 
 ---
 
@@ -53,6 +53,8 @@
 ---
 
 `modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，并把`proxyClientsFilenames`分别渲染为使用`cdnDomain`和`directDomain`的固定代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
+
+所有本地入口（`init.ps1`、`sync-config.ps1`、`get-log.ps1`、`ssh-tunnel.ps1`和`update-all.ps1`）的SSH、SCP和SFTP连接都通过`-i`显式指定仓库根目录下的`id_ed25519`，路径基于脚本位置解析，不依赖当前工作目录。私钥由`.gitignore`排除，公钥仍保存在`remote/id_ed25519.pub`。已有部署升级脚本时，请先把原来的`~/.ssh/id_ed25519`复制到仓库根目录并保留严格的文件权限（Linux/macOS下为`600`），确保它与已有公钥匹配
 
 ## 远端初始化脚本
 

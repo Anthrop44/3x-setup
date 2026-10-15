@@ -12,6 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
+$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConstantsPath = Join-Path $RemoteDir "constants.json"
@@ -60,7 +61,7 @@ try
 {
 	Write-Host "Creating remote tar archive from $RemoteLogDir/ ..."
 	$RemoteTarCommand = "tar -C $RemoteLogDir -cf $RemoteArchivePath . || { rm -f $RemoteArchivePath; exit 1; }"
-	ssh @SshHostKeyOptions -p $SshPort $SshTarget $RemoteTarCommand
+	ssh -i $PrivateKeyPath @SshHostKeyOptions -p $SshPort $SshTarget $RemoteTarCommand
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to create remote log archive"
 
 	$LocalArchiveSftpPath = $LocalArchivePath -replace "\\", "/"
@@ -72,7 +73,7 @@ try
 	Set-Content -LiteralPath $SftpBatchPath -Encoding ascii -Value $SftpCommands
 
 	Write-Host "Downloading archive to $LocalArchivePath ..."
-	sftp @SshHostKeyOptions -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget
+	sftp -i $PrivateKeyPath @SshHostKeyOptions -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to download remote log archive"
 
 	Write-Host "Extracting archive to $LocalLogDir/ ..."

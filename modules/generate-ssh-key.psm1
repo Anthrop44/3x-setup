@@ -85,7 +85,7 @@ function Initialize-DeploymentSshKey
 	.SYNOPSIS
 		生成或导出部署所需的SSH公钥
 	.DESCRIPTION
-		如果 remote/id_ed25519.pub 已存在且对应 $env:HOME/.ssh/id_ed25519 ，则打印成功信息后跳过；如果不对应则报错，避免覆盖已有部署公钥。如果本地私钥不存在，则生成一对新的Ed25519密钥；如果该私钥已存在，则从它导出公钥。最终公钥写入 remote/id_ed25519.pub
+		如果 remote/id_ed25519.pub 已存在且对应 $ProjectDir/id_ed25519 ，则打印成功信息后跳过；如果不对应则报错，避免覆盖已有部署公钥。如果本地私钥不存在，则生成一对新的Ed25519密钥；如果该私钥已存在，则从它导出公钥。最终公钥写入 remote/id_ed25519.pub
 	#>
 	[CmdletBinding()]
 	param(
@@ -97,13 +97,7 @@ function Initialize-DeploymentSshKey
 	$RemotePublicKeyPath = Join-Path $RemoteDir "id_ed25519.pub"
 	$PublicKeyComment = "https://github.com/Anthrop44/3x-setup"
 
-	if ([string]::IsNullOrWhiteSpace($env:HOME))
-	{
-		throw "HOME environment variable is empty; cannot locate the local SSH key directory"
-	}
-
-	$SshDir = Join-Path $env:HOME ".ssh"
-	$PrivateKeyPath = Join-Path $SshDir "id_ed25519"
+	$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 	$AdjacentPublicKeyPath = "$PrivateKeyPath.pub"
 
 	if (-not (Get-Command ssh-keygen -ErrorAction SilentlyContinue))
@@ -145,8 +139,6 @@ function Initialize-DeploymentSshKey
 		{
 			throw "found $AdjacentPublicKeyPath without $PrivateKeyPath; move or delete it before generating a new key"
 		}
-
-		New-Item -ItemType Directory -Path $SshDir -Force | Out-Null
 
 		Write-Host "Generating Ed25519 private key: $PrivateKeyPath"
 		ssh-keygen -q -t ed25519 -f $PrivateKeyPath -C $PublicKeyComment -N ""

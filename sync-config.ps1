@@ -12,6 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
+$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConfigSchemaPath = Join-Path $RemoteDir "config.schema.json"
@@ -102,14 +103,14 @@ try
 
 	Write-Host "Preparing remote config distribution directory"
 	Invoke-CommandWithHostKeyRecovery `
-		-Command { & $SshPath -p $SshPort $SshTarget $PrepareRemoteCommand } `
+		-Command { & $SshPath -i $PrivateKeyPath -p $SshPort $SshTarget $PrepareRemoteCommand } `
 		-LogScriptPath $LogScriptPath `
 		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to prepare remote config distribution directory"
 
 	Write-Host "Uploading remote/config.json and distribution files to $RemoteHost"
 	Invoke-CommandWithHostKeyRecovery `
-		-Command { & $SftpPath -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget } `
+		-Command { & $SftpPath -i $PrivateKeyPath -o BatchMode=no -P $SshPort -b $SftpBatchPath $SshTarget } `
 		-LogScriptPath $LogScriptPath `
 		-Attempted ([ref]$HostKeyRecoveryAttempted)
 	Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to upload remote config files"
@@ -120,7 +121,7 @@ try
 
 Write-Host "Starting remote config sync"
 Invoke-CommandWithHostKeyRecovery `
-	-Command { & $SshPath -p $SshPort $SshTarget $RemoteCommand } `
+	-Command { & $SshPath -i $PrivateKeyPath -p $SshPort $SshTarget $RemoteCommand } `
 	-LogScriptPath $LogScriptPath `
 	-Attempted ([ref]$HostKeyRecoveryAttempted)
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to sync remote config"

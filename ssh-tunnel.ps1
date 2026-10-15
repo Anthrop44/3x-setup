@@ -13,6 +13,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
+$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ModuleDir = Join-Path $ProjectDir "modules"
 $ConfigPath = Join-Path $RemoteDir "config.json"
@@ -34,6 +35,7 @@ $PanelUsername = $Constants.'3xusername'
 $PanelPassword = $Constants.'3xpassword'
 $SshTarget = "${Username}@${RemoteHost}"
 $SshOptions = @(
+	"-i", "`"$PrivateKeyPath`"",
 	"-o", "ExitOnForwardFailure=yes",
 	"-o", "BatchMode=no"
 )

@@ -167,7 +167,7 @@ If you want to test this script by rebuilding the server multiple times with the
 
 Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
 
-Your private key `~/.ssh/id_ed25519` is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
+Your private key `./id_ed25519` (in the repository root) is the **only** method to log in to the proxy server after deployment. Please back up and store it securely.
 
 ## Acknowledgements
 
