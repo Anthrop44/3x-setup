@@ -18,6 +18,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
+$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ConfigSchemaPath = Join-Path $RemoteDir "config.schema.json"
@@ -250,13 +251,13 @@ try
 	$SshPath = $SshCommand.Source
 
 
-	& $ScpPath @ScpHostKeyOptions -P $InitialSshPort $TarPath "root@${RemoteHost}:/root/3x-setup.tar"
+	& $ScpPath -i $PrivateKeyPath @ScpHostKeyOptions -P $InitialSshPort $TarPath "root@${RemoteHost}:/root/3x-setup.tar"
 	$UploadExitCode = $LASTEXITCODE
 	Assert-ExitCode -ExitCode $UploadExitCode -FailureMessage "Failed to upload 3x-setup.tar"
 
 	Write-Host "Starting remote initialization"
 	$RemoteInitializationStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-	& $SshPath -p $InitialSshPort "root@$RemoteHost" $RemoteCommand
+	& $SshPath -i $PrivateKeyPath -p $InitialSshPort "root@$RemoteHost" $RemoteCommand
 	$InitExitCode = $LASTEXITCODE
 } finally
 {

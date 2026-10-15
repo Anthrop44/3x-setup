@@ -12,6 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ProjectDir = $PSScriptRoot
+$PrivateKeyPath = Join-Path $ProjectDir "id_ed25519"
 $RemoteDir = Join-Path $ProjectDir "remote"
 $ConfigPath = Join-Path $RemoteDir "config.json"
 $ModuleDir = Join-Path $ProjectDir "modules"
@@ -42,7 +43,7 @@ systemctl start 3x-fetch-apps.service
 
 Write-Host "Updating system, 3X-UI, and proxy client files on $RemoteHost"
 Invoke-CommandWithHostKeyRecovery `
-	-Command { & $SshCommand.Source -p $SshPort $SshTarget $RemoteCommand } `
+	-Command { & $SshCommand.Source -i $PrivateKeyPath -p $SshPort $SshTarget $RemoteCommand } `
 	-LogScriptPath $LogScriptPath `
 	-Attempted ([ref]$HostKeyRecoveryAttempted)
 Assert-ExitCode -ExitCode $LASTEXITCODE -FailureMessage "Failed to update the remote server"
