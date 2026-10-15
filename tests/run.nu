@@ -9,7 +9,8 @@ use ../remote/3x-ui-api.nu inbound
 use ../remote/3x-panel-init.nu [subscription-settings configure-outbounds happy-eyeballs]
 use ../remote/cf-host-init.nu host-payloads
 use ../remote/3x-client-init.nu [client-policy stale-clients]
-use ../remote/3x-client-check.nu validate-links
+use ../remote/3x-client-check.nu [validate-links proxy-config]
+use ../remote/vless-encryption.nu [select-vless-encryption validate-vless-encryption]
 use ../remote/caddyfile-common.nu render-caddyfile
 use ../remote/fetch-apps.nu [resource-specs validate-download select-asset failure-state reset-state update-resources]
 use ../remote/cloudflare-ufw.nu parse-networks
@@ -70,8 +71,31 @@ def main [] {
 		ensure ($caddy | str contains 'tls /etc/caddy/3x-direct-cert.pem /etc/caddy/3x-direct-key.pem') 'Missing initial file TLS'
 		ensure (not ($caddy | str contains 'issuer acme')) '--noTLS should not render ACME'
 		ensure ((render-caddyfile $ctx --acme) | str contains 'disable_tlsalpn_challenge') 'Missing HTTP-01 configuration'
-		let payloads = (inbound-payloads $ctx (open ($ctx.dir | path join paths.json)) {privateKey: secret, publicKey: public} '0011223344556677' 'aabbccddeeff0011')
+		let seed = ('s' | fill --width 64 --character s | encode base64 --url --nopad)
+		let public = ('p' | fill --width 1184 --character p | encode base64 --url --nopad)
+		let encryption = {decryption: $"mlkem768x25519plus.xorpub.600s.($seed)", encryption: $"mlkem768x25519plus.xorpub.0rtt.($public)"}
+		let auth = ($encryption | insert id mlkem768_xorpub)
+		ensure ((select-vless-encryption {auths: [{id: x25519_xorpub} {id: mlkem768} $auth]}) == $encryption) 'Wrong VLESS authentication selected'
+		rejects { select-vless-encryption {auths: []} }
+		rejects { select-vless-encryption {auths: [$auth $auth]} }
+		rejects { validate-vless-encryption ($encryption | update decryption 'mlkem768x25519plus.xorpub.600s.short') }
+		rejects { validate-vless-encryption ($encryption | update encryption 'mlkem768x25519plus.xorpub.0rtt.short') }
+		rejects { validate-vless-encryption ($encryption | update encryption ($encryption.encryption | str replace '.xorpub.' '.native.')) }
+		let payloads = (inbound-payloads $ctx (open ($ctx.dir | path join paths.json)) {privateKey: secret, publicKey: public} '0011223344556677' 'aabbccddeeff0011' $encryption)
 		ensure (($payloads | get port) == [443 443 $constants.xhttpPort]) 'Wrong inbound ports'
+		ensure (($payloads.2.settings | select decryption encryption) == $encryption and $payloads.1.settings.encryption == none and $payloads.1.settings.decryption == none) 'Wrong inbound encryption settings'
+		ensure ('fallbacks' not-in $payloads.2.settings) 'Even empty fallbacks conflict with VLESS encryption'
+		let reality = $payloads.1.streamSettings.realitySettings
+		let direct_proxy = (proxy-config $ctx uuid $reality 12345 --xhttp={} --cdn-alpn='')
+		ensure ($direct_proxy.outbounds.0.settings.vnext.0.users.0.encryption == none) 'Reality encryption changed'
+		let xhttp_proxy = (proxy-config $ctx uuid $reality 12345 --xhttp=$payloads.2.settings)
+		ensure ($xhttp_proxy.outbounds.0.settings.vnext.0.users.0 == {id: uuid, encryption: $encryption.encryption, flow: xtls-rprx-vision}) 'XHTTP proxy test does not use encryption and Vision'
+		ensure ($xhttp_proxy.outbounds.0.settings.vnext.0.port == $constants.xhttpPort and $xhttp_proxy.outbounds.0.streamSettings.security == none) 'Wrong loopback test endpoint'
+		for alpn in [h2 h3] {
+			let outbound = (proxy-config $ctx uuid $reality 12345 --xhttp=$payloads.2.settings --cdn-alpn=$alpn | get outbounds.0)
+			ensure ($outbound.settings.vnext.0.address == $config.cdnDomain and $outbound.settings.vnext.0.port == 443 and $outbound.streamSettings.security == tls and $outbound.streamSettings.tlsSettings.alpn == [$alpn] and $outbound.streamSettings.tlsSettings.serverName == $config.cdnDomain and $outbound.streamSettings.xhttpSettings.host == $config.cdnDomain) 'Wrong CDN test endpoint or TLS'
+			ensure (not ($outbound | to json --raw | str contains $seed)) 'ML-KEM private seed leaked into client configuration'
+		}
 		let encoded = ($payloads | each {|p| $p | update settings {|r| $r.settings | to json --raw } | update streamSettings {|r| $r.streamSettings | to json --raw } | update sniffing {|r| $r.sniffing | to json --raw } })
 		ensure ((inbound $encoded TCP | get streamSettings.realitySettings.settings.publicKey) == public) 'Failed to decode 3X-UI JSON strings'
 		let hosts = (host-payloads $ctx 9)
@@ -86,14 +110,18 @@ def main [] {
 		let links = [
 			'hysteria2://auth@direct.example.com:443/#QUIC'
 			'vless://uuid@direct.example.com:443/?flow=xtls-rprx-vision#TCP'
-			'vless://uuid@cdn.example.com:443/?type=xhttp&alpn=h2'
-			'vless://uuid@cdn.example.com:443/?type=xhttp&alpn=h3'
-			'vless://uuid@opt.example.com:443/?type=xhttp&alpn=h2'
-			'vless://uuid@opt.example.com:443/?type=xhttp&alpn=h3'
+			$"vless://uuid@cdn.example.com:443/?type=xhttp&alpn=h2&encryption=($encryption.encryption)&flow=xtls-rprx-vision"
+			$"vless://uuid@cdn.example.com:443/?type=xhttp&alpn=h3&encryption=($encryption.encryption)&flow=xtls-rprx-vision"
+			$"vless://uuid@opt.example.com:443/?type=xhttp&alpn=h2&encryption=($encryption.encryption)&flow=xtls-rprx-vision"
+			$"vless://uuid@opt.example.com:443/?type=xhttp&alpn=h3&encryption=($encryption.encryption)&flow=xtls-rprx-vision"
 		]
-		validate-links $ctx $links
-		rejects { validate-links $ctx ($links | drop) }
-		rejects { validate-links $ctx ($links | each { str replace ':443/' ':23456/' }) }
+		validate-links $ctx $links $encryption.encryption
+		validate-links $ctx ($links | each { str replace 'encryption=mlkem' 'encryption=%6Dlkem' }) $encryption.encryption
+		rejects { validate-links $ctx ($links | drop) $encryption.encryption }
+		rejects { validate-links $ctx ($links | each { str replace ':443/' ':23456/' }) $encryption.encryption }
+		rejects { validate-links $ctx ($links | each { str replace $encryption.encryption none }) $encryption.encryption }
+		rejects { validate-links $ctx ($links | each { str replace $encryption.encryption $encryption.decryption }) $encryption.encryption }
+		rejects { validate-links $ctx ($links | each { str replace '&flow=xtls-rprx-vision' '' }) $encryption.encryption }
 		print 'PASS configuration stability, distribution generation, SSH keys, Caddy, API payloads and subscription validation'
 
 		let plaintext = 'Subscription test: 中文 <>&'

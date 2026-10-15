@@ -1,5 +1,6 @@
 use common.nu *
 use 3x-ui-api.nu *
+use vless-encryption.nu validate-vless-encryption
 
 export def verify [ctx: record] {
 	let paths = (open ($ctx.dir | path join paths.json))
@@ -21,6 +22,8 @@ export def verify [ctx: record] {
 		ensure (($rs.target? | default $rs.dest?) == $"127.0.0.1:($ctx.constants.realityTargetPort)" and $ctx.config.directDomain in $rs.serverNames and $rs.settings.fingerprint == $ctx.constants.fingerprint and ($rs.shortIds | is-not-empty) and ($rs.privateKey | is-not-empty) and ($rs.settings.publicKey | is-not-empty)) 'Wrong Reality settings'
 		ensure ($cf.protocol == vless and $cf.subSortIndex == 3 and $cf.listen == '127.0.0.1' and $cf.port == $ctx.constants.xhttpPort and $cf.shareAddrStrategy == listen and ($cf.shareAddr? | default '') == '') 'Wrong XHTTP inbound'
 		ensure ($cf.streamSettings.network == xhttp and $cf.streamSettings.security == none and $cf.streamSettings.xhttpSettings.path == $"/($paths.xhttpPath)" and ($cf.streamSettings.externalProxy? | default [] | is-empty)) 'Wrong XHTTP transport'
+		validate-vless-encryption $cf.settings
+		ensure ('fallbacks' not-in $cf.settings) 'Encrypted XHTTP must omit fallbacks, including an empty array'
 	}
 	no-failed-units
 }

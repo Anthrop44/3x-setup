@@ -7,7 +7,7 @@ The ultimate best one-click proxy server deployment script based on Xray-core an
 This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
 - Hysteria2 direct connection
 - VLESS+Reality+Vision direct connection
-- VLESS+XHTTP+Cloudflare CDN
+- VLESS Encryption (ML-KEM-768, xorpub)+Vision+XHTTP+Cloudflare CDN
 
 This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13+ or Ubuntu 24.04+, as well as the local tools listed below.
 

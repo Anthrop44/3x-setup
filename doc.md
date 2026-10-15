@@ -43,9 +43,9 @@
 
 `root-init`安装依赖和root公钥，`system-init`优先加载`00-3x-setup.conf`，校验sshd实际配置后才重启；SSH只接受公钥，UFW只开放80/tcp、443/tcp、443/udp和SSH端口，CDN回源端口仅对Cloudflare网段开放，启用BBR
 
-`caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步三个入站、H2/H3 Host组和客户
+`caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步三个入站、H2/H3 Host组和客户。XHTTP入站通过`getNewVlessEnc`生成并选择`mlkem768_xorpub`，将私有`decryption`和公开`encryption`保存到面板入站设置，客户使用Vision流控；检查会验证ML-KEM-768密钥长度和xorpub模式
 
-`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、Xray状态和监听地址；启动临时Xray/SOCKS实例执行Reality与XHTTP端到端测试，结束或失败时清理临时进程。HY2只检查配置与UDP监听，不执行端到端测试
+`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、XHTTP加密参数与Vision流控、Xray状态和监听地址；启动临时Xray/SOCKS实例执行Reality、XHTTP本机回环与Cloudflare公网H2/H3端到端测试，XHTTP测试使用入站的公开加密参数，结束或失败时清理临时进程。HY2只检查配置与UDP监听，不执行端到端测试
 
 `direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；生产模式还检查证书有效期、域名、证书私钥匹配和系统信任链
 
@@ -105,7 +105,7 @@
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
 	- Caddy -> 127.0.0.1:{xhttpPort}
-	- Xray (XHTTP)
+	- Xray (XHTTP + VLESS Encryption ML-KEM-768 xorpub + Vision)
 - directDomain cert
 	- noTLS：脚本生成自签测试证书，不访问CA
 	- TLS：direct-tls-init.nu触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy续期后，3x-direct-tls-sync.timer会把新证书同步给Xray并重启x-ui

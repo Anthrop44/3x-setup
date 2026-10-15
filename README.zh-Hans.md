@@ -5,7 +5,7 @@
 本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
 - Hysteria2直连
 - VLESS+Reality+Vision直连
-- VLESS+XHTTP+Cloudflare CDN
+- VLESS Encryption（ML-KEM-768，xorpub）+Vision+XHTTP+Cloudflare CDN
 
 本方案需要一台专用代理服务器，内存至少1GB、使用新版Debian或Ubuntu操作系统，有独立ip。如果你不知道怎么挑服务器商，可以访问<https://www.nodeseek.com/>（我与该网站无任何关系）
 
