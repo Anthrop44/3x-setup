@@ -9,7 +9,7 @@ This solution is based on the 3X-UI API to deploy multiple co-located masqueradi
 - VLESS+Reality+Vision direct connection
 - VLESS+XHTTP+Cloudflare CDN
 
-This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13 or higher, as well as a local OS with OpenSSH support.
+This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13+ or Ubuntu 24.04+, as well as the local tools listed below.
 
 The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
@@ -113,42 +113,42 @@ Prepare the static masquerade site: (If you don't know how, you can let an AI ge
 
 Once all the files above are ready, you can begin the deployment.
 
-Install [PowerShell 7](https://github.com/PowerShell/PowerShell) on your local machine, ensure OpenSSH is available, and then run:
+Install [Nushell](https://www.nushell.sh/book/installation.html) 0.116.1 or newer on your local machine, and make sure OpenSSH, OpenSSL 3 and tar are on PATH. Then run:
 
-```powershell
-pwsh init.ps1
+```nu
+nu init.nu
 ```
 
-`init.ps1` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The `clients.tsv` file it generates contains the subscription distribution page URL that each client should receive — just send the listed URL directly to your clients. The entire server initialization process usually takes 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
+`init.nu` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The `clients.tsv` file it generates contains the subscription distribution page URL that each client should receive — just send the listed URL directly to your clients. The entire server initialization process usually takes 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
 ## Updating Client Information and Cloudflare Optimized Domains
 
 To change client information or add or remove Cloudflare optimized domains, edit `clients` and `cdnOptDomains` in `remote/config.json`, then run:
 
-```powershell
-pwsh sync-config.ps1
+```nu
+nu sync-config.nu
 ```
 
 The script will upload the new `remote/config.json`, synchronize client information and Cloudflare optimized domains, restart Xray, and re-export `clients.tsv`.
 
-**`init.ps1` and `sync-config.ps1` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
+**`init.nu` and `sync-config.nu` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
-Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.ps1`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
+Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.nu`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. The remote bootstrap installs Nushell from the official Fury APT repository before starting deployment. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
 
 ## Connecting to the 3X-UI Panel
 
 Generally, this solution does not require manual management of the 3X-UI panel. However, if you do need to access it, run:
 
-```powershell
-pwsh ssh-tunnel.ps1
+```nu
+nu ssh-tunnel.nu
 ```
 
 ## Updating Software
 
 To update Debian packages and 3X-UI, then immediately check for proxy-client updates, run:
 
-```powershell
-pwsh update-all.ps1
+```nu
+nu update-all.nu
 ```
 
 Please run this regularly or redeploy proxy server to stay up-to-date with upstream security updates.
@@ -163,7 +163,7 @@ This project is not an idempotent deployer. It must be executed on a freshly reb
 
 Do not leak private configurations like `remote/config.json`. **If leaked, rebuild the server immediately and change its IP address and domain names.**
 
-If you want to test this script by rebuilding the server multiple times with the same domain, please use `pwsh init.ps1 -noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Note that due to the lack of a trusted certificate, the Hysteria2 inbound will not work under this mode. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
+If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Note that due to the lack of a trusted certificate, the Hysteria2 inbound will not work under this mode. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
 
 Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
 
