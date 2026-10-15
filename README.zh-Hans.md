@@ -24,7 +24,7 @@
 - SSL/TLS加密模式选择`完全（严格）`
 - 启用始终使用HTTPS
 - 启用TLS1.3
-- 最低TLS版本1.3（若要使用Windows 10或macOS，可以降为1.2。但不太推荐）
+- 最低TLS版本1.3。如果用户要用Windows 10，也可以降为1.2
 - 启用gRPC
 - 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
 	- 进入`SSL/TLS`->`源站服务器`

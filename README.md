@@ -26,7 +26,7 @@ The following is a usage tutorial and does not explain the underlying principles
 - Select **Full (strict)** for the SSL/TLS encryption mode.
 - Enable **Always Use HTTPS**.
 - Enable **TLS 1.3**.
-- Set **Minimum TLS Version** to 1.3. If you need to support Windows 10 or macOS clients, you can lower it to 1.2, though this is not recommended.
+- Set **Minimum TLS Version** to 1.3. Lower it to 1.2 only if you must support Windows 10 clients.
 - Enable **gRPC**.
 - Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
 	- Go to **SSL/TLS** -> **Origin Server**.
