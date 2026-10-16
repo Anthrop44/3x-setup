@@ -3,8 +3,8 @@
 最好用的基于Xray-core和3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
 本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
-- VLESS+XHTTP+TLS直连
-- VLESS Encryption（ML-KEM-768，xorpub）+Vision+XHTTP+Cloudflare CDN
+- 直连：VLESS + XHTTP + TLS fallback
+- Cloudflare CDN：VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
 
 本方案需要一台专用代理服务器，内存至少1GB、使用新版Debian或Ubuntu操作系统，有独立ip。如果你不知道怎么挑服务器商，可以访问<https://www.nodeseek.com/>（我与该网站无任何关系）
 
@@ -13,7 +13,7 @@
 ## Cloudflare设置
 
 - 去Cloudflare里买个域名，或把一个域名托管到Cloudflare
-- 在Cloudflare里找到这个域名的DNS设置，创建两个A记录（若机器有ipv6，也可以创建AAAA记录），指向代理服务器真实ip
+- 在Cloudflare里找到这个域名的DNS设置，创建两个A/AAAA记录，指向代理服务器真实ip
 	- `cdnDomain`走Cloudflare CDN回源，开启小橙云
 	- `directDomain`关闭小橙云
 - 设置`cdnDomain`高位回源端口，记为`cdnPort`
@@ -22,7 +22,7 @@
 	- `目标端口`：重写到`cdnPort`
 - SSL/TLS加密模式选择`完全（严格）`
 - 启用始终使用HTTPS
-- 启用TLS1.3
+- 启用TLS 1.3
 - 最低TLS版本1.3。如果用户要用Windows 10，也可以降为1.2
 - 启用gRPC
 - 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
@@ -67,7 +67,7 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxx
 -----END PRIVATE KEY-----
 ```
 
-如果`cdnDomain`或`directDomain`是子域名，建议同时让主域名和`www`子域名开启小橙云并指向同一服务器，降低根域名裸露带来的指纹风险
+如果`cdnDomain`或`directDomain`是子域名，建议同时让主域名指向同一服务器并开启小橙云以降低根域名裸露带来的指纹风险
 
 ## 本地文件准备
 

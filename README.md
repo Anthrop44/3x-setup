@@ -5,8 +5,8 @@
 The ultimate best one-click proxy server deployment script based on Xray-core and 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
 This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
-- VLESS+XHTTP+TLS direct connection
-- VLESS Encryption (ML-KEM-768, xorpub)+Vision+XHTTP+Cloudflare CDN
+- Direct connection: VLESS + XHTTP + TLS fallback
+- Cloudflare CDN: VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
 
 This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and a recent version of Debian or Ubuntu. If you need help choosing a server provider, you can visit <https://www.nodeseek.com/> (I have no affiliation with this website).
 
@@ -15,7 +15,7 @@ The following is a usage tutorial and does not explain the underlying principles
 ## Cloudflare Settings
 
 - Purchase a domain through Cloudflare, or add an existing domain to Cloudflare.
-- In the domain's DNS settings, create two A records pointing to your proxy server's real IP. If the server has IPv6, you can also create AAAA records:
+- In the domain's DNS settings, create two A/AAAA records pointing to your proxy server's real IP:
 	- `cdnDomain`: Proxied through Cloudflare CDN (enable the orange cloud).
 	- `directDomain`: DNS only (disable the orange cloud).
 - Set a high-numbered origin pull port for `cdnDomain`, and note it down as `cdnPort`:
@@ -69,7 +69,7 @@ xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxxxxxxxxxxxxxxxxx
 -----END PRIVATE KEY-----
 ```
 
-If `cdnDomain` or `directDomain` is a subdomain, it is recommended to also enable the orange cloud for the main domain and the `www` subdomain and point them to the same server. This reduces the risk of fingerprinting exposure caused by an exposed root domain.
+If `cdnDomain` or `directDomain` is a subdomain, it is recommended to also point their main domains to the same server and enable the orange cloud. This reduces the risk of fingerprinting exposure caused by an exposed root domain.
 
 ## Local File Preparation
 
