@@ -3,6 +3,7 @@ use ../../lib/systemd.nu no-failed-units
 use api.nu *
 use encryption.nu *
 
+# 生成直连无VLESS加密和CDN使用ML-KEM-768的XHTTP入站请求数据
 export def inbound-payloads [ctx: record, paths: record, encryption: record] {
 	validate-vless-encryption $encryption
 	let common = {enable: true, listen: '127.0.0.1', expiryTime: 0, total: 0, trafficReset: never, shareAddrStrategy: listen, shareAddr: ''}
@@ -30,6 +31,7 @@ export def inbound-payloads [ctx: record, paths: record, encryption: record] {
 	]
 }
 
+# 获取面板生成的加密密钥并创建Direct与Cloudflare入站
 export def apply [ctx: record] {
 	with-panel $ctx {|session|
 		let encryption = (select-vless-encryption (request $session /panel/api/server/getNewVlessEnc))
@@ -38,6 +40,7 @@ export def apply [ctx: record] {
 	}
 }
 
+# 检查两个XHTTP入站的监听、路径、加密、流控和回落策略
 export def verify [ctx: record] {
 	let paths = (open $ctx.paths.state)
 	with-panel $ctx {|session|

@@ -1,5 +1,6 @@
 use ../../lib/core.nu [checked ensure]
 
+# 根据配置和持久化路径渲染使用初始证书或ACME的Caddyfile
 export def render-caddyfile [ctx: record, --acme] {
 	let paths = (open $ctx.paths.state)
 	let tls = (if $acme { "tls {\n\t\tissuer acme {\n\t\t\tdisable_tlsalpn_challenge\n\t\t}\n\t}" } else { 'tls /etc/caddy/3x-direct-cert.pem /etc/caddy/3x-direct-key.pem' })
@@ -22,6 +23,7 @@ export def render-caddyfile [ctx: record, --acme] {
 	$content
 }
 
+# 写入、格式化并校验Caddyfile，然后重新加载Caddy
 export def install-caddyfile [ctx: record, --acme] {
 	render-caddyfile $ctx --acme=$acme | save --force /etc/caddy/Caddyfile
 	checked -- caddy fmt --overwrite /etc/caddy/Caddyfile

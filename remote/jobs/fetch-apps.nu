@@ -3,6 +3,7 @@ const FILE = path self
 use ../lib/core.nu [root-required ensure]
 use ../features/apps.nu
 
+# 校验更新或重置模式，在文件锁保护下执行代理客户端任务
 def main [--update, --reset: string, --locked] {
 	root-required
 	let config_path = ($env.FETCH_APPS_CONFIG_PATH? | default '/etc/3x-fetch-apps.json')

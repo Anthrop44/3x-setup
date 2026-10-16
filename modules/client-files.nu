@@ -1,6 +1,7 @@
 use ../remote/lib/core.nu [ensure capture token]
 
-# OpenSSL supplies PBKDF2, AES and HMAC; orchestration stays in Nu
+# 使用客户密码加密页面正文，返回Base64编码的盐、IV、密文和认证标签
+# PBKDF2、AES和HMAC由OpenSSL提供，流程编排由Nu完成
 export def encrypt-page [plaintext: string, password: string] {
 	let salt = (token 16)
 	let iv = (token 16)
@@ -15,6 +16,7 @@ export def encrypt-page [plaintext: string, password: string] {
 	{salt: ($salt | decode hex | encode base64), iv: ($iv | decode hex | encode base64), ciphertext: ($encrypted.stdout | encode base64), tag: ($tag.stdout | encode base64)}
 }
 
+# 为每位客户生成加密分发页，并导出包含链接和密码的clients.tsv
 export def export-client-files [project: string, config: record, constants: record] {
 	let template = (open --raw ($project | path join modules template.xhtml) | str replace --all "\r\n" "\n")
 	let dir = ($project | path join remote fake-site $config.distributionPath)

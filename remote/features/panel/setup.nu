@@ -2,8 +2,10 @@ use ../../lib/core.nu *
 use ../../lib/network.nu [curl-text only-loopback]
 use api.nu *
 
+# 返回直连出站使用的Happy Eyeballs连接参数
 export def happy-eyeballs [] { {tryDelayMs: 0, prioritizeIPv6: false, interleave: 1, maxConcurrentTry: 4} }
 
+# 合并本机订阅服务、公开订阅地址和展示策略到现有面板设置
 export def subscription-settings [ctx: record, current: record] {
 	$current | merge {
 		subEnable: true, subJsonEnable: false, subListen: '127.0.0.1', subPort: $ctx.constants.subscriptionPort
@@ -16,6 +18,7 @@ export def subscription-settings [ctx: record, current: record] {
 	}
 }
 
+# 确保存在direct的freedom出站，并为其设置Happy Eyeballs
 export def configure-outbounds [template: record] {
 	mut outbounds = ($template.outbounds? | default [])
 	if not ($outbounds | any {|o| $o.protocol == freedom and $o.tag? == direct }) { $outbounds = ($outbounds | append {protocol: freedom, tag: direct, settings: {}}) }
@@ -27,6 +30,7 @@ export def configure-outbounds [template: record] {
 	})
 }
 
+# 安装并配置本机3X-UI面板、订阅服务和Xray出站
 export def apply [ctx: record] {
 	with-temp {|temp|
 		let installer = ($temp | path join 3x-ui-install.sh)
@@ -53,6 +57,7 @@ export def apply [ctx: record] {
 	wait-panel $ctx
 }
 
+# 检查面板服务、回环监听、订阅设置和Happy Eyeballs配置
 export def verify [ctx: record] {
 	checked -- systemctl is-active --quiet x-ui
 	checked -- systemctl is-enabled --quiet x-ui

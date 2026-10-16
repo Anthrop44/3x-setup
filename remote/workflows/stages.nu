@@ -9,8 +9,8 @@ use ../features/panel/clients.nu
 use ../features/apps.nu
 use ../checks/connectivity.nu
 
-# One definition of each stage, shared by workflow plans and diagnostic commands.
-# Stage names identify logs and explicit diagnostic commands.
+# 集中定义每个阶段，供工作流计划和诊断命令共用
+# 阶段名用于标识日志和显式诊断命令
 export def catalog [] {
 	[
 		{name: root-init, source: features/system.nu, description: 'Install dependencies and root SSH key', run: {|ctx| system provision $ctx }}
@@ -34,16 +34,19 @@ export def catalog [] {
 	]
 }
 
+# 按名称返回唯一的阶段定义，名称不存在时报错
 export def find-stage [name: string] {
 	let matches = (catalog | where name == $name)
 	ensure (($matches | length) == 1) $"Unknown stage: ($name)"
 	$matches.0
 }
 
+# 按输入顺序将阶段名列表解析为阶段定义列表
 export def plan [names: list] {
 	$names | each {|name| find-stage $name }
 }
 
+# 将诊断目标映射到对应的检查阶段，拒绝未知目标
 export def check-stage [target: string] {
 	let checks = {
 		system: service-check, caddy: caddy-check, panel: 3x-panel-check

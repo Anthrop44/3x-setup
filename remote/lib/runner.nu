@@ -1,6 +1,7 @@
 use core.nu ensure
 
-# Stage functions stay in the catalog; this runner knows only names and closures.
+# 执行单个阶段并输出开始、耗时和成功或失败信息
+# 阶段函数由登记表维护，执行器只处理阶段名和闭包
 export def execute-stage [stage: record, ctx: record] {
 	let started = (date now)
 	print $"Starting ($stage.name) at ($started)"
@@ -13,6 +14,7 @@ export def execute-stage [stage: record, ctx: record] {
 	}
 }
 
+# 依次在独立Nu进程中执行阶段并保存日志，失败时停止
 export def run-workflow [ctx: record, stages: list, --from: string] {
 	let selected = (if $from == null { $stages } else {
 		ensure ($from in $stages.name) $"Invalid starting stage: ($from)"

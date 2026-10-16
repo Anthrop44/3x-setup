@@ -4,6 +4,7 @@ use ../lib/core.nu [root-required ensure]
 use ../lib/config.nu project-paths
 use ../features/system.nu refresh-firewall
 
+# 以root权限和文件锁刷新Cloudflare回源防火墙规则
 def main [--locked] {
 	root-required
 	if not $locked {

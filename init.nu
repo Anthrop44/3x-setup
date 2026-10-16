@@ -6,7 +6,7 @@ use modules/generate-ssh-key.nu initialize-key
 use modules/client-files.nu export-client-files
 use modules/ssh.nu [shell-quote ssh-target scp-target]
 
-# Deploy to a freshly rebuilt Debian/Ubuntu server
+# 部署到刚重建的Debian/Ubuntu服务器
 def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 	let project = ($FILE | path dirname)
 	let remote = ($project | path join remote)

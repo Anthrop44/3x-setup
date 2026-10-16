@@ -15,20 +15,24 @@ use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
 
+# 断言实际值与预期值相等，否则显示差异并抛错
 def equal [actual: any, expected: any] {
 	ensure ($actual == $expected) $"Expected ($expected | to nuon), got ($actual | to nuon)"
 }
 
+# 断言闭包执行失败且错误信息包含指定文本
 def rejects [body: closure, message: string] {
 	let result = (try { do $body; {failed: false, message: ''} } catch {|err| {failed: true, message: $err.msg} })
 	ensure ($result.failed and ($result.message | str contains $message)) $"Expected failure containing '($message)', got ($result | to nuon)"
 }
 
+# 运行一组测试，并在成功后打印测试名称
 def test [name: string, body: closure] {
 	do $body
 	print $"PASS ($name)"
 }
 
+# 在临时目录生成有效部署配置、常量和模板，返回测试上下文
 def fixture [directory: string] {
 	let remote = ($directory | path join remote)
 	mkdir $remote ($remote | path join templates)
@@ -43,10 +47,12 @@ def fixture [directory: string] {
 	context $remote false false
 }
 
+# 生成满足格式与长度校验的VLESS加密测试数据
 def encryption [] {
 	{decryption: $"mlkem768x25519plus.xorpub.600s.(1..86 | each { 'A' } | str join)", encryption: $"mlkem768x25519plus.xorpub.1rtt.(1..1579 | each { 'A' } | str join)"}
 }
 
+# 运行本地语法、配置、工作流和业务逻辑测试
 def main [] {
 	test 'all Nu modules and entry points parse' {
 		for file in (glob ($ROOT | path join '**/*.nu')) { ensure (nu-check --debug $file) $"Cannot parse ($file)" }

@@ -3,15 +3,18 @@ use ../lib/config.nu [project-paths context validate-config]
 use ../lib/runner.nu run-workflow
 use stages.nu plan
 
-# This allowlist deliberately does not depend on the tail of the deployment plan.
+# 返回配置同步所需的Host、客户、连通性和TLS阶段
+# 此阶段白名单独立维护，不依赖部署计划的末尾阶段
 export def steps [] {
 	plan [cf-host-init cf-host-check 3x-client-init 3x-client-check connectivity-check direct-tls-check]
 }
 
+# 确保已有部署仅修改clients和cdnOptDomains字段
 export def validate-changes [current: record, proposed: record] {
 	ensure (($current | reject --optional clients cdnOptDomains) == ($proposed | reject --optional clients cdnOptDomains)) 'Only clients and cdnOptDomains may be changed on an existing deployment'
 }
 
+# 校验上传配置并执行同步检查，成功后替换线上分发目录
 export def execute [directory: string, staging: string] {
 	ensure ($staging =~ '^/root/3x-sync-[a-f0-9-]+$') 'Invalid staging directory'
 	let paths = (project-paths $directory)

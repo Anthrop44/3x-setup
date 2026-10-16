@@ -2,8 +2,10 @@ use ../lib/core.nu *
 use ../lib/network.nu [curl-text listening]
 use ../lib/systemd.nu [install-timer check-timer]
 
+# 安装将参数转发到指定Nu脚本的可执行入口
 def install-command [name: string, script: string] {
 	$'#!/usr/bin/nu --no-config-file
+# 将全部参数转发给目标Nu脚本，并替换当前入口进程
 def --wrapped main [...args: string] {
 	exec /usr/bin/nu --no-config-file ($script | to nuon) ...$args
 }
@@ -11,6 +13,7 @@ def --wrapped main [...args: string] {
 	checked -- chmod 755 $"/usr/local/sbin/($name)"
 }
 
+# 安装基础依赖，配置部署目录权限、root公钥和客户端更新入口
 export def provision [ctx: record] {
 	checked -- apt-get update
 	checked -- apt-get -o DPkg::Lock::Timeout=600 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade -y
@@ -24,6 +27,7 @@ export def provision [ctx: record] {
 	install-command 3x-fetch-apps ($ctx.paths.jobs | path join fetch-apps.nu)
 }
 
+# 检查sshd的实际生效配置是否符合端口和仅公钥认证策略
 export def ssh-policy [port: int, --config: string = '/etc/ssh/sshd_config', --connection: string = 'user=root,host=localhost,addr=127.0.0.1'] {
 	let effective = (capture -- sshd -T -f $config -C $connection | lines)
 	for expected in [$"port ($port)" 'pubkeyauthentication yes' 'authenticationmethods publickey' 'passwordauthentication no' 'kbdinteractiveauthentication no' 'permitemptypasswords no' 'authorizedkeysfile .ssh/authorized_keys'] {
@@ -32,6 +36,7 @@ export def ssh-policy [port: int, --config: string = '/etc/ssh/sshd_config', --c
 	ensure (('permitrootlogin prohibit-password' in $effective) or ('permitrootlogin without-password' in $effective)) 'Unexpected PermitRootLogin policy'
 }
 
+# 生成指定端口且仅允许公钥认证的SSH配置
 export def ssh-config [port: int] {
 	$'Port ($port)
 PubkeyAuthentication yes
@@ -44,11 +49,13 @@ AuthorizedKeysFile .ssh/authorized_keys
 '
 }
 
+# 将指定SSH配置的Include移到文件首行，并移除重复引用
 export def prioritize-ssh-include [content: string, include: string] {
 	let retained = ($content | lines | where {|line| ($line | str trim) != $"Include ($include)" } | str join "\n")
 	$"Include ($include)\n($retained)\n"
 }
 
+# 配置并检查SSH策略，设置UFW、Cloudflare规则定时器和BBR
 export def apply [ctx: record] {
 	let cfg = $ctx.config
 	checked -- ssh-keygen -l -f /root/.ssh/authorized_keys
@@ -76,6 +83,7 @@ export def apply [ctx: record] {
 	checked -- sysctl -w net.ipv4.tcp_congestion_control=bbr
 }
 
+# 检查SSH、防火墙、Cloudflare定时器和BBR是否按预期生效
 export def verify [ctx: record] {
 	try { checked -- systemctl is-active --quiet ssh } catch { checked -- systemctl is-active --quiet sshd }
 	ssh-policy $ctx.config.sshPort
@@ -89,6 +97,7 @@ export def verify [ctx: record] {
 	ensure (listening $ctx.config.sshPort) 'SSH port is not listening'
 }
 
+# 解析并去重Cloudflare网段列表，拒绝空列表和非法条目
 export def parse-networks [content: string] {
 	let networks = ($content | lines | each { str trim } | where {|s| $s != '' } | uniq)
 	ensure ($networks | is-not-empty) 'Empty Cloudflare network list; keeping current rules'
@@ -98,6 +107,7 @@ export def parse-networks [content: string] {
 	$networks
 }
 
+# 下载并校验Cloudflare网段，替换CDN回源规则并启用UFW
 export def refresh-firewall [cfg: record] {
 	let networks = (parse-networks $"(curl-text -- --retry 3 https://www.cloudflare.com/ips-v4)\n(curl-text -- --retry 3 https://www.cloudflare.com/ips-v6)")
 	let rules = (capture -- ufw status numbered | lines | where {|s| ($s | str contains '3x-cloudflare-cdn') and ($s | str contains $"($cfg.cdnPort)/tcp") } | parse --regex '^\[\s*(?P<id>\d+)\]' | get id | into int | sort --reverse)

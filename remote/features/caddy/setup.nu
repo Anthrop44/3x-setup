@@ -2,6 +2,7 @@ use ../../lib/core.nu *
 use ../../lib/network.nu [curl-text listening]
 use config.nu install-caddyfile
 
+# 安装Caddy、伪装站和初始证书，生成XHTTP路径并配置服务
 export def apply [ctx: record] {
 	write-json $ctx.paths.state {xhttpPath: (token 10)}
 	checked -- apt-get -o DPkg::Lock::Timeout=600 install -y debian-keyring debian-archive-keyring apt-transport-https ca-certificates curl gnupg
@@ -31,6 +32,7 @@ export def apply [ctx: record] {
 	checked -- systemctl enable caddy
 }
 
+# 检查Caddy服务、配置、初始证书、站点和HTTPS监听
 export def verify [ctx: record] {
 	checked -- systemctl is-active --quiet caddy
 	checked -- caddy validate --config /etc/caddy/Caddyfile

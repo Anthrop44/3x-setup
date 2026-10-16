@@ -1,11 +1,13 @@
 use ../../lib/core.nu *
 use api.nu *
 
+# 将客户配置转换为面板的订阅ID、字节配额和重置周期
 export def client-policy [client: record] {
 	let traffic = ($client.traffic? | default 0)
 	{email: $client.client, subId: $client.path, totalGB: ($traffic * 1073741824), reset: (if $traffic > 0 { 30 } else { 0 })}
 }
 
+# 返回已移除或订阅及配额策略发生变化的现有客户名
 export def stale-clients [configured: list, current: list] {
 	let expected = ($configured | each { client-policy $in })
 	$current | where {|client|
@@ -14,6 +16,7 @@ export def stale-clients [configured: list, current: list] {
 	} | get email | uniq
 }
 
+# 同步客户策略及入站关联，重启Xray并等待运行就绪
 export def apply [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)
@@ -38,11 +41,13 @@ export def apply [ctx: record] {
 	}
 }
 
+# 将字符串、面板响应或链接列表统一为订阅链接列表
 export def subscription-links [value: any] {
 	let kind = ($value | describe)
 	if $kind == string { $value | lines | where {|s| $s != '' } } else if $kind starts-with record { $value.externalLinks? | default [] } else { $value }
 }
 
+# 校验各域名H2/H3订阅的数量、端口、TLS、加密和流控设置
 export def validate-links [ctx: record, value: any, encryption: record] {
 	let links = (subscription-links $value)
 	let domains = ([$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []))
@@ -70,6 +75,7 @@ export def validate-links [ctx: record, value: any, encryption: record] {
 	ensure ($links | all {|link| $link =~ '^vless://[^@]+@[^:/?#]+:443([/?#]|$)' }) 'A subscription has an obsolete protocol or exposes an internal port'
 }
 
+# 检查客户配额、认证状态、入站关联和订阅链接
 export def verify [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)

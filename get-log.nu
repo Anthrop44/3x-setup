@@ -3,6 +3,7 @@ const FILE = path self
 use remote/lib/core.nu [checked ensure]
 use modules/ssh.nu [remote-nu ssh-options ssh-target scp-target]
 
+# 下载远端阶段日志，并轮转本地已有的非空日志目录
 def main [] {
 	let project = ($FILE | path dirname)
 	let config = (open ($project | path join remote config.json))

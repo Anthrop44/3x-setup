@@ -8,6 +8,7 @@ use workflows/deploy.nu
 use workflows/sync.nu
 use workflows/update.nu
 
+# 检查root权限，并设置无人值守APT环境和系统命令搜索路径
 def --env prepare [] {
 	root-required
 	$env.DEBIAN_FRONTEND = 'noninteractive'
@@ -15,13 +16,14 @@ def --env prepare [] {
 	$env.PATH = ($env.PATH | prepend [/usr/local/sbin /usr/sbin /sbin])
 }
 
+# 读取远端执行上下文，并校验部署配置完整性
 def load-context [no_tls: bool, no_app: bool] {
 	let ctx = (context $ROOT $no_tls $no_app)
 	validate-config $ctx.config $ctx.constants --complete
 	$ctx
 }
 
-# Deploy only to a freshly rebuilt server; --from and --stage are diagnostic tools.
+# 仅部署到刚重建的服务器；--from和--stage用于诊断
 def 'main deploy' [--noTLS, --noAPP, --from: string = root-init, --stage: string] {
 	# Resolve names before loading configuration or performing privileged operations.
 	if $stage != null {
@@ -34,26 +36,26 @@ def 'main deploy' [--noTLS, --noAPP, --from: string = root-init, --stage: string
 	if $stage != null { execute-stage (find-stage $stage) $ctx } else { deploy execute $ctx --from $from }
 }
 
-# Synchronize clients and CDN Host groups from a validated upload directory.
+# 从经过校验的上传目录同步客户和CDN的Host组
 def 'main sync' [staging: string] {
 	prepare
 	sync execute $ROOT $staging
 }
 
-# Update system packages, 3X-UI and installed proxy applications.
+# 更新系统软件包、3X-UI和已安装的代理客户端
 def 'main update' [] {
 	prepare
 	update execute
 }
 
-# Run a read-only system, caddy, panel, inbounds, hosts, clients, connectivity, apps or tls check.
+# 对system、caddy、panel、inbounds、hosts、clients、connectivity、apps或tls执行只读检查
 def 'main check' [target: string] {
 	let stage = (check-stage $target)
 	prepare
 	execute-stage $stage (load-context true true)
 }
 
-# Inspect ordered stages and implementation paths without root or deployment configuration.
+# 查看按执行顺序排列的阶段及其实现路径，无需root权限或部署配置
 def 'main list-stages' [--workflow: string = deploy, --noAPP, --json] {
 	let stages = (match $workflow {
 		deploy => { deploy steps --noAPP=$noAPP }
@@ -64,6 +66,7 @@ def 'main list-stages' [--workflow: string = deploy, --noAPP, --json] {
 	if $json { $rows | to json } else { $rows }
 }
 
+# 显示远端部署、同步、更新和诊断命令的帮助
 def main [] {
 	help main
 }

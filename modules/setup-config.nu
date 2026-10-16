@@ -1,6 +1,7 @@
 use ../remote/lib/core.nu [ensure token write-json]
 use ../remote/lib/config.nu validate-config
 
+# 校验并保存配置，补齐缺失字段；初次部署时生成订阅路径和SSH端口
 export def prepare-config [project: string, --initial] {
 	let remote = ($project | path join remote)
 	mut config = (open ($remote | path join config.json))

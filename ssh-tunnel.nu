@@ -3,6 +3,7 @@ const FILE = path self
 use remote/lib/core.nu ensure
 use modules/ssh.nu [ssh-options ssh-target]
 
+# 建立面板的本地SSH隧道，等待就绪后打开浏览器
 def main [--startup-timeout-seconds: int = 10] {
 	ensure ($startup_timeout_seconds in 1..3600) 'Startup timeout must be between 1 and 3600 seconds'
 	let project = ($FILE | path dirname)

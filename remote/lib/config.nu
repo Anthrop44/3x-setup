@@ -1,6 +1,7 @@
 const ROOT = path self | path dirname | path dirname
 use core.nu ensure
 
+# 根据远端根目录返回配置、状态、日志和模板的绝对路径
 export def project-paths [directory: string] {
 	let root = ($directory | path expand)
 	{
@@ -15,13 +16,14 @@ export def project-paths [directory: string] {
 	}
 }
 
+# 加载配置和常量，组合路径及功能开关为执行上下文
 export def context [directory: string, no_tls: bool, no_app: bool] {
 	let paths = (project-paths $directory)
 	{dir: $paths.root, paths: $paths, config: (open $paths.config), constants: (open $paths.constants), noTLS: $no_tls, noAPP: $no_app}
 }
 
-# Validator for every assertion used by the two repository schemas
-# Formats are annotations; IP/domain formats also have explicit schema patterns
+# 校验仓库中两个schema使用的全部断言
+# format仅作注解，IP和域名格式另由schema中的显式pattern校验
 export def validate-schema [value: any, schema: record, location: string = '$'] {
 	if 'type' in $schema {
 		let actual = ($value | describe)
@@ -71,6 +73,7 @@ export def validate-schema [value: any, schema: record, location: string = '$'] 
 	if 'maximum' in $schema { ensure ($value <= $schema.maximum) $"($location): above maximum" }
 }
 
+# 校验配置schema及名称、域名、文件名和端口冲突，可要求字段完整
 export def validate-config [config: record, constants: record, --complete] {
 	validate-schema $config (open ($ROOT | path join config.schema.json)) config
 	validate-schema $constants (open ($ROOT | path join constants.schema.json)) constants

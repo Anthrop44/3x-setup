@@ -1,6 +1,7 @@
 use ../../lib/core.nu ensure
 use api.nu *
 
+# 为直连或CDN域名生成公网443端口的H2/H3 Host组请求数据
 export def host-payloads [ctx: record, inbound_id: int, --direct] {
 	let domains = (if $direct { [$ctx.config.directDomain] } else { [$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []) })
 	$domains | enumerate | each {|item|
@@ -12,6 +13,7 @@ export def host-payloads [ctx: record, inbound_id: int, --direct] {
 	} | flatten
 }
 
+# 创建或更新直连与CDN的Host组，并删除多余组
 export def apply [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)
@@ -29,6 +31,7 @@ export def apply [ctx: record] {
 	}
 }
 
+# 检查直连与CDN的Host组数量及各项配置
 export def verify [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)

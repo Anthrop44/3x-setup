@@ -5,6 +5,7 @@ use modules/setup-config.nu prepare-config
 use modules/client-files.nu export-client-files
 use modules/ssh.nu [remote-nu ssh-run scp-target]
 
+# 生成并上传客户分发文件，触发远端配置同步后下载日志
 def main [] {
 	let project = ($FILE | path dirname)
 	let setup = (prepare-config $project)

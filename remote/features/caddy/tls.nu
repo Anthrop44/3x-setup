@@ -3,6 +3,7 @@ use ../../lib/network.nu curl-text
 use ../../lib/systemd.nu no-failed-units
 use config.nu install-caddyfile
 
+# 校验证书有效期、域名和私钥，可额外验证生产公信证书及信任链
 export def validate-certificate [cert: string, key: string, domain: string, --public] {
 	checked -- openssl x509 -in $cert -noout -checkend 0
 	ensure ((capture -- openssl x509 -in $cert -noout -checkhost $domain) | str contains ' does match certificate') 'Certificate hostname mismatch'
@@ -17,11 +18,13 @@ export def validate-certificate [cert: string, key: string, domain: string, --pu
 	}
 }
 
+# 返回指定域名在Caddy的Let’s Encrypt生产证书目录中的证书和私钥路径
 export def certificate-files [domain: string] {
 	let base = $"/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/($domain)"
 	{cert: $"($base)/($domain).crt", key: $"($base)/($domain).key"}
 }
 
+# 启用ACME并等待直连公信证书可用，设置noTLS时跳过
 export def apply [ctx: record] {
 	if $ctx.noTLS { print 'Skipping ACME (--noTLS)'; return }
 	install-caddyfile $ctx --acme
@@ -32,6 +35,7 @@ export def apply [ctx: record] {
 	}
 }
 
+# 按正在使用的配置校验证书，并检查HTTP跳转、伪装站和服务状态
 export def verify [ctx: record] {
 	checked -- systemctl is-active --quiet caddy
 	checked -- systemctl is-active --quiet x-ui

@@ -3,6 +3,7 @@ use ../lib/network.nu [curl-text listening only-loopback]
 use ../lib/systemd.nu no-failed-units
 use ../features/panel/api.nu *
 
+# 生成用于回环或公网H2/H3链路测试的临时Xray代理配置
 export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: int, --direct, --alpn: string = ''] {
 	let tls = ($alpn != '')
 	ensure (not $tls or $alpn in [h2 h3]) 'XHTTP testing requires h2 or h3'
@@ -20,6 +21,7 @@ export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: i
 	{log: {loglevel: warning}, inbounds: [{tag: socks, listen: '127.0.0.1', port: $socks_port, protocol: socks, settings: {auth: noauth, udp: false}}], outbounds: [{tag: proxy, protocol: vless, settings: {vnext: [{address: $address, port: $port, users: [$user]}]}, streamSettings: $stream}]}
 }
 
+# 启动临时Xray并通过SOCKS测试代理链路，结束时清理测试任务
 def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: string = ''] {
 	let candidates = (glob /usr/local/x-ui/bin/xray* | where {|p| ($p | path type) == file })
 	ensure ($candidates | is-not-empty) 'Xray binary not found'
@@ -42,6 +44,7 @@ def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: stri
 	}
 }
 
+# 检查Xray和监听地址，并测试直连与CDN的回环及公网H2/H3链路
 export def verify [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)

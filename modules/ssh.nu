@@ -1,24 +1,29 @@
 use ../remote/lib/core.nu [ensure checked]
 
+# 将字符串转义为远端Shell可安全解析的单引号参数
 export def shell-quote [value: string] {
 	"'" + ($value | str replace --all "'" "'\"'\"'") + "'"
 }
 
+# 构造不加载用户配置且正确引用代码的远端Nu命令
 export def remote-nu [code: string] {
 	$"nu --no-config-file -c (shell-quote $code)"
 }
 
+# 构造root的SSH目标地址，去掉IPv6地址的方括号
 export def ssh-target [config: record] {
 	$"root@($config.ip | str trim --char '[' | str trim --char ']')"
 }
 
+# 构造root的SCP目标路径，保留IPv6地址的方括号
 export def scp-target [config: record, path: string] { $"root@($config.ip):($path)" }
 
+# 返回部署私钥和配置端口对应的SSH参数
 export def ssh-options [project: string, config: record] {
 	[-i ($project | path join id_ed25519) -p ($config.sshPort | into string)]
 }
 
-# Recover an unknown host once per entrypoint, never accept a changed known key
+# 每次入口执行最多尝试恢复一次未知主机连接，绝不接受已知主机的密钥变更
 export def --env ssh-run [project: string, config: record, command: string] {
 	mut result = (^ssh ...(ssh-options $project $config) (ssh-target $config) $command | complete)
 	if $result.exit_code == 255 and not ($env.THREEX_HOST_RECOVERY? | default false) {
