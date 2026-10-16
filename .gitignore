@@ -1,7 +1,9 @@
 temp.*
+AGENTS.override.md
 id_ed25519*
-/AGENTS.override.md
 /3x-setup.tar
+/sync-*.tar
+/3x-setup-log-*.tar
 /clients.tsv
 /log*/
 /remote/fake-site/*

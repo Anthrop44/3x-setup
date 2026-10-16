@@ -1,112 +1,156 @@
 # 开发文档
 
-**本文档由AI生成并经过人工粗略检查，若发现bug请发issue**
+所有本地部署、远端部署、检查和维护逻辑均使用Nushell0.116.1+，JSON直接作为record/list处理，不依赖PowerShell、jq或Python
 
-本方案默认安全，不需要任何额外加固，服务器只对公网暴露80、443和自定义SSH端口，对Cloudflare ip段暴露自定义高位cdn回源端口。3X-UI面板不暴露公网，通过SSH通道访问。普通HTTP(S)访问和主动探测会回落到本机自托管的伪装站。XHTTP和订阅链接隐藏路径由脚本自动随机生成以确保无特征隐蔽性
+本地依赖Nushell、OpenSSH（ssh、scp、ssh-keygen）、OpenSSL 3和tar；Windows需将这些程序加入PATH，Git for Windows提供的OpenSSL也可使用
 
-默认完整执行顺序：`init.ps1` > 上传`remote/`触发远端执行 > `root-init.sh` > `user-init.sh` > `service-check.sh` > `caddy-init.sh` > `caddy-check.sh` > `3x-panel-init.sh` > `3x-panel-check.sh` > `3x-inbound-init.sh` > `3x-inbound-check.sh` > `cf-host-init.sh` > `cf-host-check.sh` > `3x-client-init.sh` > `3x-client-check.sh` > `fetch-apps-init.sh` > `fetch-apps-check.sh` > `direct-tls-init.sh` > `direct-tls-check.sh` > 回到本地环境 > `get-log.ps1`
+## 入口
 
-## 配置文件
+- `nu init.nu`：首次部署；缺少`remote/config.json`时创建schema骨架并退出
+- `nu init.nu --prepare-only`：只完成本地校验、补齐字段、密钥准备与分发页生成，不连接服务器
+- `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；本机直连检查显式信任初始自签证书
+- `nu init.nu --accept-new-host`：在清除重建服务器旧指纹后自动接受新指纹
+- `nu sync-config.nu`：同步`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`，其它部署参数必须保持不变
+- `nu get-log.nu`：下载所有阶段日志，已有非空`log/`轮转为`log0/`等目录
+- `nu ssh-tunnel.nu --startup-timeout-seconds 60`：保留终端交互认证，访问仅本机监听的面板
+- `nu update-all.nu`：更新APT软件与3X-UI，并触发已安装的代理客户端更新器
 
-`remote/config.json`保存用户私有敏感配置。`{"$schema": "config.schema.json"}`
+所有入口按脚本路径查找配置与根目录`id_ed25519`，不依赖当前工作目录；`--noAPP`和`--noTLS`采用Nushell双连字符参数语法
 
-`remote/constants.json`保存非敏感配置。`{"$schema": "constants.schema.json"}`
+## 本地模块
 
-## 本地脚本和模块
+`modules/setup-config.nu`读取schema、补齐`sshPort`、`subscriptionPath`、`distributionPath`、`clients[].path`和`clients[].password`，检查端口、域名、客户名、路径和文件名冲突，已有字段保持不变；密码为八位数字字符串，缺失时生成并保存到`remote/config.json`，重建或同步时复用；配置同步不生成缺失的初始订阅路径或SSH端口
 
-`init.ps1`是首次部署入口。若`remote/config.json`不存在，它会先创建仅包含`{"$schema": "config.schema.json"}`的初始文件并成功退出，等待用户填写配置后再次执行；配置文件已存在时，它会导入`modules/generate-ssh-key.psm1`并调用`Initialize-DeploymentSshKey`准备部署所需的`remote/id_ed25519.pub`，检查`cert.pem`、`key.pem`、`id_ed25519.pub`和`fake-site/index.html`存在且正确，再通过`modules/setup-config.psm1`校验`remote/config.json`和`remote/constants.json`，自动补齐`sshPort`、`subscriptionPath`、`distributionPath`和`clients[].path`，检查部署端口、客户端名、客户订阅路径和代理客户端固定文件名不重复，随后写回`remote/config.json`并调用`modules/client-files.psm1`导出加密的`remote/fake-site/{distributionPath}/{clients.path}.html`、同目录`template.css`及根目录`clients.tsv`；所有文件生成完成后，将`remote/`中的文本文件统一为LF
+`remote/lib/config.nu`统一管理远端配置和资源路径，并实现这两个schema使用的断言：类型、required、additionalProperties、oneOf、not、enum、pattern、长度、数值范围和uniqueItems；format是注解，域名格式由schema中的pattern验证
 
-上传阶段使用OpenSSH的`scp`和`ssh`；连接前先用`ssh-keygen -R`清除目标IP在`initialSshPort`和部署后`sshPort`上的`known_hosts`记录，若接到`-accept-new-host`参数，则以`StrictHostKeyChecking=accept-new`自动接受并保存初始端口的新主机指纹；脚本把`remote/`打包成`3x-setup.tar`上传到root家目录，再通过`ssh root@ip`启动`root-init.sh`，允许用户在终端中交互输入密码；远端服务器root已绑定本地公钥时也可非交互执行；`init.ps1`从开始执行远端命令起计时，在SSH正常退出后输出远端初始化耗时，再执行`get-log.ps1`
+`modules/generate-ssh-key.nu`生成或导出Ed25519部署公钥，支持已有Ed25519-SK密钥；私钥缺失或已有公钥不匹配时拒绝覆盖
 
-`pwsh init.ps1 -noTLS`会把`--noTLS`传给远端链路；Caddy仍会安装`directDomain`自签测试证书并完成Reality/XHTTP检查，但`direct-tls-init.sh`不会渲染ACME配置，也不会访问CA；该模式下HY2入站不可用
+`modules/client-files.nu`读取`modules/template.html`和CSS模板，使用各客户的`password`加密并导出分发页，`clients.tsv`的`Password`列保存对应密码；页面正文使用OpenSSL的PBKDF2-SHA256（100000次、64字节密钥）、AES-256-CBC与HMAC-SHA256加密认证，前32字节用于AES、后32字节用于HMAC，HMAC覆盖IV和密文；浏览器通过WebCrypto先验签再解密。HTML不包含明文密码，用户需输入八位数字密码解锁
 
-`pwsh init.ps1 -noAPP`会把`--noAPP`传给远端链路，`3x-client-check.sh`会跳过`3x-fetch-apps`代理客户端静态分发，直接执行`direct-tls-init.sh`
+`modules/ssh.nu`负责使用`directDomain`构造SSH/SCP目标和远端命令引用；首次部署和所有维护连接均使用该域名，需要提前将其解析到服务器并关闭Cloudflare代理。维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
 
----
+## 远端目录与调用边界
 
-`get-log.ps1`负责日志下载；它以`StrictHostKeyChecking=accept-new`连接，自动接受并保存部署后SSH端口上此前未知的新主机指纹，但拒绝与现有记录冲突的指纹；它让远端把`~/3x-setup/log/`打包到`/tmp`，用SFTP下载到本地，再解包到`log/`；如果本地`log/`非空，会先轮转为`log0/`、`log1/`等目录，避免覆盖上一次结果。如果失败，请检查并放通云服务器商的防火墙设置，因为本方案自带端口加固
+```text
+remote/
+├── bootstrap.sh              # 安装Nu后进入main.nu deploy
+├── main.nu                   # deploy、sync、update、check、list-stages
+├── workflows/
+│   ├── stages.nu             # 阶段名称、说明、实现位置与函数的唯一登记表
+│   ├── deploy.nu             # 首次部署步骤
+│   ├── sync.nu               # 配置同步步骤与分发目录替换
+│   └── update.nu             # APT与3X-UI更新
+├── features/
+│   ├── system.nu             # 依赖、公钥、SSH、防火墙、BBR及检查
+│   ├── caddy/
+│   │   ├── mod.nu            # 导出安装与基础检查
+│   │   ├── setup.nu
+│   │   ├── config.nu         # Caddyfile渲染与安装
+│   │   └── tls.nu            # 证书启用与检查
+│   ├── panel/
+│   │   ├── mod.nu            # 导出面板安装与检查
+│   │   ├── setup.nu
+│   │   ├── api.nu            # Cookie、CSRF会话与API请求
+│   │   ├── inbounds.nu
+│   │   ├── hosts.nu          # 直连与CDN的Host组
+│   │   ├── clients.nu
+│   │   └── encryption.nu
+│   └── apps.nu               # 应用分发、下载、状态和检查
+├── checks/connectivity.nu    # 跨Caddy、Xray与CDN的端到端检查
+├── jobs/                     # systemd入口，只负责参数、权限与锁
+│   ├── cloudflare-ufw.nu
+│   └── fetch-apps.nu
+├── lib/
+│   ├── core.nu               # 断言、进程执行、JSON、临时目录与重试
+│   ├── config.nu             # 配置校验、context与路径
+│   ├── runner.nu             # 阶段子进程、日志、耗时与失败即停
+│   ├── systemd.nu
+│   └── network.nu
+├── templates/Caddyfile.template
+├── config.json / config.schema.json
+├── constants.json / constants.schema.json
+├── cert.pem / key.pem / id_ed25519.pub
+└── fake-site/
+```
 
----
+查找业务逻辑从`features/`开始，同一业务的安装或同步函数`apply`与检查函数`verify`放在一起；跨业务链路检查放在`checks/`
 
-`sync-config.ps1`用于已有服务器的客户和Cloudflare优选域名同步；它与`init.ps1`复用同一套schema校验和自动字段补齐逻辑，会补齐缺失的`distributionPath`和`clients[].path`，但要求初始部署生成的`subscriptionPath`已经存在；随后用OpenSSH/SFTP上传`remote/config.json`和包含最新`template.css`的完整`remote/fake-site/{distributionPath}/`，主机指纹检查采用OpenSSH默认行为；执行`cf-host-init.sh --noTLS --noAPP`，依次同步Host和客户，成功后删除并重建`/var/www/3x-fake-site/{distributionPath}`，最后下载日志。分发文件先完整上传到用户工作目录并检查样式表存在，上传或远端同步失败时不会删除当前线上目录；`--noTLS`避免触发证书流程，`--noAPP`避免配置同步安装或更新代理客户端静态分发资源。此入口只支持修改`clients`和`cdnOptDomains`，其它部署参数变化需要重建VPS
+调用方向为`main.nu`→`workflows/`→`features/`与`checks/`→`lib/`，定时任务从`jobs/`进入相同业务模块；业务模块不调度工作流，公共库不导入业务模块
 
----
+工作流只排列需要执行的阶段名，`workflows/stages.nu`统一关联实现函数与源文件；增加部署阶段不会隐式改变同步流程
 
-`ssh-tunnel.ps1`用于访问3X-UI面板；它读取`localSshPort`、`3xpanelPort`和`3xpanelUriPath`，以OpenSSH默认主机指纹检查行为启动`ssh -N -L`，把本地端口转发到远端`127.0.0.1:3xpanelPort`，保留当前终端的交互认证，支持FIDO2物理密钥的PIN输入和触摸确认；默认等待10秒，可用`-StartupTimeoutSeconds`调整，认证期间端口未监听时继续重试；等待端口可连接后输出面板URL和登录凭据，并通过`Start-Process`在默认浏览器中打开面板；正常退出、启动超时、异常或Ctrl+C时清理隧道
+所有上传文件仍位于`remote/`，本地与远端共用的辅助函数保存在`remote/lib/`，初次部署会完整打包该目录，包括嵌套模块和模板
 
----
+## 远端执行
 
-`update-all.ps1`用于维护已有服务器；它采用OpenSSH默认主机指纹检查行为，依次执行`sudo -n apt-get update`、`sudo -n apt-get dist-upgrade -y`和`sudo -n x-ui update`，随后用`sudo -n systemctl start 3x-fetch-apps.service`立刻执行一次`fetch-apps-init.sh`安装的代理客户端检查更新任务。脚本同步等待全部命令完成，任一命令失败都会停止并返回错误；使用`init.ps1 -noAPP`部署时没有该service，因此脚本会在系统与3X-UI更新后失败
+`remote/bootstrap.sh`是唯一自有Bash脚本：以root安装curl/GnuPG/sudo等基础依赖，执行Nushell官方Fury源安装命令，再`exec nu --no-config-file ./main.nu deploy`。无人值守APT增加`-y`，GnuPG增加`--batch --yes`
 
----
+初始SSH命令通过`setsid --wait`启动Bash引导，断线后远端子进程继续执行；引导输出在`log/bootstrap.log`。3X-UI官方安装器仍以其上游发布的Bash格式运行
 
-`modules/assert-exit-code.psm1`导出`Assert-ExitCode`，供本地脚本和其它模块统一检查外部命令退出码；退出码非0时抛出调用方提供的错误消息
+`remote/main.nu`是统一入口，`workflows/deploy.nu`排列部署阶段，`lib/runner.nu`为每个阶段启动独立的无用户配置Nu进程，stdout/stderr写入`log/{阶段}.log`，记录耗时、完成或失败；失败立即中止后续阶段
 
----
+执行顺序：`root-init`→`system-init`→`service-check`→`caddy-init`→`caddy-check`→`3x-panel-init`→`3x-panel-check`→`3x-inbound-init`→`3x-inbound-check`→`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`connectivity-check`→`fetch-apps-init`→`fetch-apps-check`→`direct-tls-init`→`direct-tls-check`
 
-`modules/generate-ssh-key.psm1`导出`Initialize-DeploymentSshKey`，用于准备部署所需的`remote/id_ed25519.pub`；它先检查`~/.ssh/id_ed25519`，如果`remote/id_ed25519.pub`已存在且对应该私钥，则打印成功信息后退出；如果已有公钥不对应该私钥，则拒绝覆盖并报错。私钥不存在时调用`ssh-keygen -t ed25519`生成Ed25519密钥放在本机`.ssh/`目录；私钥已存在时用`ssh-keygen -y`重新导出公钥
+在本地仓库中可以直接列出阶段，不需要root或用户配置：
 
----
+```nu
+nu remote/main.nu list-stages
+nu remote/main.nu list-stages --workflow sync
+nu remote/main.nu list-stages --noAPP --json
+```
 
-`modules/setup-config.psm1`封装配置处理；它用`Test-Json`校验schema，用加密随机数生成16位十六进制token，补齐空白字段，确保客户端数组非空、`client`非空、`path`非空、客户端名不重复、订阅ID不重复，并检查`proxyClientsFilenames`中的固定文件名不重复
+在VPS的`/root/3x-setup`中运行诊断命令：
 
----
+```nu
+nu main.nu check clients
+nu main.nu check connectivity
+nu main.nu check tls
+nu main.nu deploy --stage 3x-client-check
+nu main.nu deploy --from cf-host-init --noAPP --noTLS
+```
 
-`modules/client-files.psm1`负责生成本地分发文件；它读取`modules/template.xhtml`和`modules/template.css`，删除并重建`remote/fake-site/{distributionPath}/`，把最新样式表写为该目录的`template.css`，为每个`clients[]`生成引用该样式表的`{clients.path}.html`，同时在根目录生成客户名到`https://cdnDomain/distributionPath/path.html`的`clients.tsv`映射。页面把普通订阅链接写成`https://cdnDomain/subscriptionPath/path`，并把`proxyClientsFilenames`分别渲染为使用`cdnDomain`和`directDomain`的固定代理客户端下载URL。渲染后的`#encrypted`正文会被加密以防简单爬虫。可以通过修改`modules/template.xhtml`和`modules/template.css`编辑内容与样式模板
+`check`支持`system`、`caddy`、`panel`、`inbounds`、`hosts`、`clients`、`connectivity`、`apps`和`tls`，只执行检查逻辑；连通性检查会创建并清理临时测试进程
 
-## 远端初始化脚本
+`--noAPP`省略两个fetch-apps阶段，`--noTLS`仍执行TLS检查但不接触CA；`--from`和`--stage`是显式排障工具，不是自动恢复机制，首次部署不幂等，不应盲目重跑已完成的初始化阶段
 
-`remote/root-init.sh`以root执行，是远端链路的入口；它安装基础依赖，创建并配置免密码sudo用户，把上传目录复制到`/home/username/3x-setup`，修正权限，并把`id_ed25519.pub`安装到该用户的`authorized_keys`，然后`sudo -Hu`切换身份执行`user-init.sh`
+`root-init`安装依赖和root公钥，`system-init`优先加载`00-3x-setup.conf`，校验sshd实际配置后才重启；SSH只接受公钥，UFW只开放80/tcp、443/tcp、443/udp和SSH端口，CDN回源端口仅对Cloudflare网段开放，启用BBR
 
----
+`caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步`Direct`、`Cloudflare`两个本机XHTTP入站、H2/H3 Host组和客户。直连入站的`decryption`和`encryption`均为`none`，通过`disableFlow: true`禁用Vision；CDN入站通过`getNewVlessEnc`生成并选择`mlkem768_xorpub`，将私有`decryption`和公开`encryption`保存到面板入站设置，客户使用Vision流控；检查会验证两类策略、ML-KEM-768密钥长度和xorpub模式
 
-`remote/user-init.sh`修改SSH端口，启用公钥认证，禁用密码登录和root登录，重启`ssh`或`sshd`；配置UFW默认拒绝入站、允许出站，只开放`80/tcp`、`443/tcp`、`443/udp`和`sshPort/tcp`；`cdnPort`只对Cloudflare IP段开放；生成`/usr/local/sbin/3x-update-cloudflare-ufw.sh`，从Cloudflare官方IP列表刷新`cdnPort`白名单规则，并安装`3x-cloudflare-ufw.service`和每日运行的`3x-cloudflare-ufw.timer`；启用BBR；进入`service-check.sh`
+`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、直连无VLESS加密与无flow、CDN加密参数与Vision流控
 
----
+`connectivity-check`校验Xray状态和监听地址，启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
 
-`remote/service-check.sh`检查通用服务状态；它记录系统信息、SSH服务状态、UFW状态、`cdnPort`Cloudflare规则、Cloudflare UFW定时器、BBR内核参数、监听端口和失败systemd单元；关键检查失败会中断链路，成功后进入Caddy阶段
+`direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；按已安装Caddyfile选择当前证书来源，ACME启用后即使配置同步使用`--noTLS`也会检查公信证书、域名、证书私钥匹配和系统信任链，不再依赖初始自签证书的有效期
 
----
+## 定时任务
 
-`remote/caddy-init.sh`和`remote/caddy-check.sh`负责Caddy安装和回源验证；生成20位`xhttpPath`写入`paths.json`，安装Caddy官方Debian源和软件包，部署`fake-site/`到`/var/www/3x-fake-site`，安装Cloudflare源站证书到`/etc/caddy/3x-origin-*.pem`，为`directDomain`生成30天自签证书到`/etc/caddy/3x-direct-*.pem`，渲染`Caddyfile.template`并重载Caddy
+所有systemd任务直接执行Nu，依赖脚本保存在`/root/3x-setup`，不要删除该目录
 
-检查脚本验证Caddy服务、Caddyfile语法、Cloudflare源站证书、当前`directDomain`证书、伪装站文件、本机伪装站入口和`directDomain`证书入口；这个阶段不要求`directDomain`已经是公信证书，因为证书签发放在最后的`direct-tls-init.sh`
+- `jobs/cloudflare-ufw.nu`：通过`features/system.nu`下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
+- `jobs/fetch-apps.nu`：通过`features/apps.nu`精确匹配GitHub稳定release的asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
 
----
+直连TLS完全由Caddy终止并自动续期，无需证书同步timer或因续期重启Xray；`features/caddy/tls.nu`提供证书与私钥校验
 
-`remote/3x-panel-init.sh`和`remote/3x-panel-check.sh`负责安装3X-UI并设置面板；初始化脚本通过官方安装脚本非交互安装3X-UI，设置SQLite、面板端口、面板路径、用户名、密码、无面板SSL，监听`127.0.0.1`；随后显式启用并启动`x-ui.service`，保证VPS重启后3X-UI/Xray-core自动恢复。接着登录本机面板API，仅启用普通订阅，设置订阅监听、反代URI、加密订阅、流量信息显示、备注模板和Happy Eyeballs参数等并重启面板
+每日任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
 
----
+## 配置同步与日志
 
-`remote/3x-inbound-init.sh`和`remote/3x-inbound-check.sh`负责创建三条空入站；初始化脚本登录3x-ui API，先确认`/etc/caddy/3x-direct-*.pem`存在，然后创建Hysteria2、Reality和XHTTP三个入站；Hysteria2使用TLS文件证书和随机salamander密码，Reality通过3X-UI API生成X25519密钥并随机生成shortId，XHTTP只配置`127.0.0.1:xhttpPort`监听和传输参数，不再向`streamSettings.externalProxy`写入订阅主机
+`sync-config.nu`将`config.json`、`constants.json`和完整分发目录打包上传到唯一暂存目录，远端再次校验两个文件，只允许更改`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
 
-检查脚本读取入站列表，要求每个入站只有一条且关键字段符合预期，包括端口、协议、分享地址策略、排序、Reality目标、XHTTP路径和sniffing设置，并要求XHTTP的`externalProxy`缺失或为空；这个阶段不重启Xray，等待客户端创建后统一重启
+`workflows/sync.nu`显式执行`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`connectivity-check`→`direct-tls-check`，不再从部署流程中途运行到末尾；同步不申请证书，TLS检查根据正在使用的Caddyfile选择证书来源
 
----
+本地`sync-config.nu`和`update-all.nu`分别调用远端`main.nu sync`和`main.nu update`；日常同步只上传配置、常量与分发目录
 
-`remote/cf-host-init.sh`和`remote/cf-host-check.sh`负责通过3X-UI独立Host API配置XHTTP订阅入口；初始化脚本查找唯一的`Cloudflare`入站，先为普通CDN地址创建或更新独立H2、H3 Host，再按`cdnOptDomains`数组顺序为每个优选地址创建或更新同样的Host对，最后删除该XHTTP入站中配置未定义的其它Host组
+部署或同步失败不会自动重试已经执行的有副作用阶段。引导未完成或SSH端口尚未切换时，`get-log.nu`可能无法连接，需要通过初始SSH端口查看`/root/3x-setup/log/bootstrap.log`
 
-Host组使用包含协议后缀的固定ID，重复同步会原地替换对应组；从旧版单Host配置首次同步时会创建新的H2/H3 Host并删除旧Host。优选域名数量减少或清空时，多余组会被删除。在3X-UI GUI中手工添加的XHTTP Host也会在下次同步时删除
+## 本地验证
 
----
+运行`nu --no-config-file tests/run.nu`：解析全部Nu代码并检查Bash语法，验证工作流选择、配置字段稳定性和变更限制、Caddy模板渲染、API payload、Host组、订阅、代理测试配置、下载校验、失败计数与重置
 
-`remote/3x-client-init.sh`和`remote/3x-client-check.sh`负责按`config.json`同步客户；初始化脚本要求`clients`非空、`client`和`path`存在且不重复、`traffic`为非负整数；随后找到三条入站ID，读取当前3X-UI客户端，删除不在配置中或订阅ID、流量、重置周期不匹配的客户端，再为缺失客户端创建关联三条入站的新客户端，最后重启Xray并等待运行
+测试通过临时Nu进程验证阶段失败即停、stdout/stderr日志、`--from`和开关传递；通过临时目录中的命令替身验证更新任务的重置与真实flock冲突；还会打包解包远端目录，验证脱离本地模块、配置和当前工作目录后仍可列出阶段，并用临时配置验证真实入口的阶段调度与`--noTLS`传递
 
-检查脚本逐个验证客户端配置、入站关联和订阅链接。订阅链接包含`cdnDomain`普通地址和每个`cdnOptDomains[]`优选地址各自对应的1条H2和1条H3 XHTTP入口。检查脚本用本机临时Xray配置跑Reality和XHTTP的SOCKS代理端到端请求但不会验证HY2入站
-
----
-
-`remote/fetch-apps-init.sh`和`remote/fetch-apps-check.sh`负责代理客户端静态分发；初始化脚本把自身安装为`/usr/local/sbin/3x-fetch-apps`，在`/var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}`创建隐藏目录，并安装与Cloudflare任务使用相同`dailyTaskHour`和1小时随机延迟的`3x-fetch-apps.timer`
-
-更新器通过GitHub`releases/latest`API获取v2rayN和v2rayNG的最新稳定release，严格匹配目标assets；状态保存在`/var/lib/3x-fetch-apps/state.json`。asset发生变化或文件缺失、校验失败时才重新下载，临时文件通过大小和可用SHA-256 digest校验后才原子替换旧文件
-
-连续3个更新任务任务失败后会禁用该资源，旧文件和其他资源不受影响。更新、错误、禁用和重置事件写入`fetch-apps-update.log`；执行`sudo /usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`可手动恢复，`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名。检查脚本验证service、两个timer、全部资源状态、文件权限和本机CDN固定URL后进入TLS阶段
-
----
-
-`remote/direct-tls-init.sh`和`remote/direct-tls-check.sh`负责把`directDomain`切到公信证书；非`--noTLS`模式下，初始化脚本把Caddy全局配置改为`auto_https disable_redirects ignore_loaded_certs`，为`directDomain:realityTargetPort`写入ACME配置并禁用TLS-ALPN挑战，只走HTTP-01，重载Caddy后等待证书可用，再把Caddy证书目录里的`directDomain.crt`和`directDomain.key`复制到稳定路径`/etc/caddy/3x-direct-*.pem`，最后重启`x-ui`加载新证书。随后它会安装root拥有的`/usr/local/sbin/3x-sync-direct-tls`、`3x-direct-tls-sync.service`和每日timer；timer按`dailyTaskHour`及0到1小时随机延迟运行，仅当Caddy管理的证书和私钥均有效、匹配`directDomain`且与稳定路径不同，才原子替换两份文件并重启`x-ui`。`sudo /usr/local/sbin/3x-sync-direct-tls --check`只校验证书同步状态而不修改文件或重启服务
-
-`--noTLS`模式下，脚本只记录跳过公信TLS，不渲染ACME配置、不触发CA也不安装证书同步任务；检查脚本会验证Caddy和x-ui状态、Caddyfile、证书文件、端口监听、HTTP到HTTPS跳转、伪装站正文和失败单元。非`--noTLS`模式验证公信`directDomain`证书、Cloudflare Origin、Staging或FakeLE证书，并验证证书同步timer等
+测试依赖Nu、OpenSSL、tar、Bash、chmod和flock，所有测试数据写入临时目录，不修改系统配置或连接VPS
 
 ## 网络架构
 
@@ -129,25 +173,22 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
 	- direct
 		- client -> {directDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
-		- Xray -> 127.0.0.1:{FAKE_SITE_PORT}
 		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
-- Hysteria2 Direct Connection
-	- client -> {directDomain}:443/udp
-	- vps -> 0.0.0.0:443/udp
-	- Xray (Hysteria2 over TLS)
-- Reality Direct Connection
-	- client -> {directDomain}:443/tcp
-	- vps -> 0.0.0.0:443/tcp
-	- Xray (Reality)
+- XHTTP TLS Direct Connection
+	- H2: client -> {directDomain}/{xhttpPath}:443/tcp
+	- H3: client -> {directDomain}/{xhttpPath}:443/udp
+	- Caddy (TLS termination, H2/H3)
+	- Caddy -> 127.0.0.1:{directXhttpPort} (h2c)
+	- Xray (VLESS + XHTTP, encryption=none, flow empty)
 - XHTTP with Cloudflare CDN
 	- client -> {cdnDomain}/{xhttpPath}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
-	- Caddy -> 127.0.0.1:{xhttpPort}
-	- Xray (XHTTP)
+	- Caddy -> 127.0.0.1:{xhttpPort} (h2c)
+	- Xray (XHTTP + VLESS Encryption ML-KEM-768 xorpub + Vision)
 - directDomain cert
 	- noTLS：脚本生成自签测试证书，不访问CA
-	- TLS：direct-tls-init.sh触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy续期后，3x-direct-tls-sync.timer会把新证书同步给Xray并重启x-ui
+	- TLS：direct-tls-init.nu触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy自动续期并加载新证书
 - GFW detection: {cdnDomain}
 	- GFW -> {cdnDomain}/{*}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
@@ -155,20 +196,19 @@ Host组使用包含协议后缀的固定ID，重复同步会原地替换对应�
 	- Caddy -> 127.0.0.1:{FAKE_SITE_PORT}
 	- Caddy (fake site)
 - GFW detection: {directDomain}
-	- GFW -> {directDomain}:443
-	- vps -> 127.0.0.1:443
-	- Xray -> 127.0.0.1:{FAKE_SITE_PORT}
-	- Caddy (fake site)
+	- GFW -> {directDomain}:443/tcp or 443/udp
+	- Caddy (TLS termination, H1/H2/H3)
+	- Non-XHTTP paths -> /var/www/3x-fake-site
 
 ## 3X-UI面板设置
 
 3X-UI通过官方脚本安装，数据库类型为SQLite；面板端口来自`3xpanelPort`，面板路径来自`3xpanelUriPath`，面板用户名和密码来自`3xusername`与`3xpassword`
 
-面板SSL模式为无，因为公网不直接访问面板；面板监听地址强制设置为`127.0.0.1`，需要通过`ssh-tunnel.ps1`访问
+面板SSL模式为无，因为公网不直接访问面板；面板监听地址强制设置为`127.0.0.1`，需要通过`ssh-tunnel.nu`访问
 
 订阅功能启用，json订阅关闭；订阅服务监听`127.0.0.1:subscriptionPort`，普通路径为`/subscriptionPath/`，反向代理URI为`https://cdnDomain/subscriptionPath/`
 
-订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}`，订阅标题和公告写为“请勿分享！”
+订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{HOST}}|{{EMAIL}} {{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}`，通过分段避免空字段留下多余空格。开启`subInfoNodeEnable`，关闭`subShowIdentityOnAllLinks`：连接节点只显示Host备注，首个空节点单独显示`用户名 已用流量/剩余流量`；无限流量的剩余额度显示`∞`。该项由3X-UI原生生成`127.0.0.1:1080`的SOCKS占位链接，随订阅更新统计，不创建真实Xray监听。订阅标题和公告写为“请勿分享！”
 
 Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写入Happy Eyeballs设置，减少双栈解析和连接时的异常延迟
 
@@ -177,73 +217,45 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 - `remote/config.json`的clients决定需要批量创建的客户端
 - `client`：3X-UI客户端名
 - `path`：客户端订阅ID，作为订阅链接中的`{subscriptionID}`
-- 每个客户端会关联`QUIC`、`TCP`和`Cloudflare`三个入站
+- `password`：分发页解锁密码，八位数字字符串，可含前导零；缺失时自动生成，重建和同步时复用已有值
+- 每个客户端会关联`Direct`和`Cloudflare`两个入站；直连与每个CDN地址均生成独立的H2/H3节点
+- 配置`cdnEchConfigList`时，每个CDN地址额外生成ECH H2/H3节点，普通TLS节点及其Host组ID、排序和指纹保持不变
 - `traffic`：可选，每月流量上限，单位GB；缺省或0表示不限量
-
-## Hysteria2入站
-
-- 基础配置
-	- 备注：`QUIC`
-	- 协议：`hysteria`
-	- 地址：`0.0.0.0`
-	- 分享地址策略：`自定义`
-	- 自定义分享地址：`{directDomain}`
-	- 端口：`443`
-- 安全
-	- SNI：`{directDomain}`
-	- 数字证书：`/etc/caddy/3x-direct-cert.pem`和`/etc/caddy/3x-direct-key.pem`
-- 高级配置 > FinalMask
-	- UDP：`salamander`
-
-## VLESS Reality入站
-
-- 基础配置
-	- 备注：`TCP`
-	- 协议：`vless`
-	- 地址：`0.0.0.0`
-	- 分享地址策略：`自定义`
-	- 自定义分享地址：`{directDomain}`
-	- 端口：443
-- 协议
-	- 解密：`none`
-	- 加密：`none`
-- 传输 > 传输：`RAW`
-- 安全 > 安全：`Reality`
-	- 目标：`127.0.0.1:{realityTargetPort}`
-	- SNI：`{directDomain}`
-	- 指纹：`{fingerprint}`
-- 嗅探 > 启用：`Enabled`
-	- HTTP：`Enabled`
-	- TLS：`Enabled`
-	- QUIC：`Enabled`
-	- FAKEDNS：`Disabled`
 
 ## VLESS XHTTP入站
 
+`Direct`与`Cloudflare`均使用下列配置，分别由Caddy直连入口和Cloudflare回源入口反代
+
 - 基础配置
-	- 备注：`Cloudflare`
+	- 备注：`Direct`或`Cloudflare`
 	- 协议：`vless`
 	- 地址：`127.0.0.1`
-	- 分享地址策略：`入站监听地址`
-	- 端口：`{xhttpPort}`
+	- 分享地址策略：`入站监听地址`，公网地址、端口和TLS由Host组覆盖
+	- 端口：`Direct`为`{directXhttpPort}`，`Cloudflare`为`{xhttpPort}`
 - 协议
-	- 解密：`none`
-	- 加密：`none`
+	- `Direct`：解密与加密均为`none`，`disableFlow: true`，订阅与Xray客户端flow留空；公网加密由自己的Caddy TLS承担
+	- `Cloudflare`：由`getNewVlessEnc`生成`mlkem768_xorpub`密钥对，客户端流控为`xtls-rprx-vision`，保护经过Cloudflare的内层代理数据
+	- 面板客户保存的Vision偏好仅在CDN入站生效，直连入站显式禁用
+	- 不包含`fallbacks`字段，网站回落由Caddy按路径处理
 - 传输
 	- 传输：`XHTTP`
 	- 路径：`{xhttpPath}`
 	- 模式：`auto`
-- 安全 > 安全：`无`
-- 嗅探 > 启用：`Enabled`
-	- HTTP：`Enabled`
-	- TLS：`Enabled`
-	- QUIC：`Enabled`
-	- FAKEDNS：`Disabled`
+- 安全：`无`，本机后端使用h2c，公网TLS由Caddy终止
+- 嗅探：启用HTTP、TLS和QUIC，禁用FAKEDNS
 
 ## XHTTP主机
 
+- 直连Host组：`Direct h2`和`Direct h3`
+	- 入站：`Direct`
+	- 地址和SNI：`{directDomain}`
+	- 端口：`443`
+	- 安全：`tls`
+	- ALPN：分别仅为`h2`和`h3`
+	- 指纹：`{fingerprint}`
+
 - 对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
-	- 备注：`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`、`Cloudflare OPT 2 h2`、`Cloudflare OPT 2 h3`等
+	- 备注：统一为`Cloudflare h2`、`Cloudflare h3`，不同地址允许同名，Host组ID仍各自独立
 	- 基本
 		- 入站：`Cloudflare`
 		- 地址：`{cdnOptDomains[i]}`
@@ -253,7 +265,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 		- SNI：`{cdnDomain}`
 		- ALPN：H2 Host仅为`h2`，H3 Host仅为`h3`
 		- 指纹：`{fingerprint}`
-- 备注：`Cloudflare Vanilla h2`和`Cloudflare Vanilla h3`
+- 原生CDN地址的备注同样为`Cloudflare h2`和`Cloudflare h3`
 	- 基本
 		- 入站：`Cloudflare`
 		- 地址：`{cdnDomain}`
@@ -264,9 +276,21 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 		- ALPN：分别仅为`h2`和`h3`
 		- 指纹：`{fingerprint}`
 
+### Cloudflare ECH
+
+`cdnOptDomains`和`cdnEchConfigList`均配置在`remote/constants.json`，由`remote/constants.schema.json`校验。在该常量文件增加`"cdnEchConfigList": "https://1.1.1.1/dns-query"`可为原生及优选CDN地址追加ECH节点；删除该字段关闭ECH变体。DoH地址必须能由客户端直接访问，Xray按`cdnDomain`的HTTPS记录动态获取ECHConfigList并按TTL缓存，也支持Xray的固定Base64配置及`域名+DNS地址`格式
+
+Cloudflare边缘需启用ECH，并为`cdnDomain`提供含`ech`参数的HTTPS记录。ECH节点的SNI和HTTP Host仍是`cdnDomain`，连接地址仍可使用优选域名；外层SNI由Cloudflare的ECH配置决定。保留`fingerprint`设置不代表握手字节不变，ECH会引入内外层ClientHello
+
+普通Host组的`echConfigList`为空；ECH组在原ID末尾追加`ech`，备注统一为`Cloudflare ECH h2`、`Cloudflare ECH h3`，统一排在普通组后。所有CDN节点名称都不包含Vanilla、OPT、用户名或流量，直连仅显示`Direct h2`、`Direct h3`。3X-UI通过订阅链接的`ech`参数下发配置，客户端及其Xray核心需支持ECH与对应指纹组合，导入后应确认ECH设置未被丢弃
+
+ECH终止于Cloudflare，不改变Caddy源站证书、回源设置和Xray入站。Direct节点仍只使用普通TLS。连通性检查覆盖每个CDN地址的普通及ECH H2/H3链路；Xray获取ECH配置失败时应使连接失败，不能将普通TLS连通视为ECH测试成功
+
+已有部署需要先将两个CDN字段从`config.json`移到`constants.json`，更新远端相关脚本和两个schema，并按上文配置面板订阅备注模板及信息空节点，才能使用新字段及节点展示；`sync-config.nu`仅上传配置、常量及分发目录，不更新远端代码或面板全局设置。首次部署会完成这些设置
+
 ## Caddy配置
 
-`remote/Caddyfile.template`通过正则替换渲染，最终安装到`/etc/caddy/Caddyfile`
+`remote/templates/Caddyfile.template`由`remote/features/caddy/config.nu`通过字面占位符替换渲染，最终安装到`/etc/caddy/Caddyfile`
 
 全局配置在初始阶段是`auto_https disable_redirects`，避免Caddy自动处理不需要的HTTPS重定向；公信TLS阶段改为`auto_https disable_redirects ignore_loaded_certs`，让Caddy忽略已加载的文件证书并为`directDomain`走ACME签发
 
@@ -274,14 +298,6 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 `:fakeSitePort`只在本机或内部链路中提供伪装站文件，根目录为`/var/www/3x-fake-site`
 
-`directDomain:realityTargetPort`绑定`127.0.0.1`，提供Reality fallback要访问的HTTPS伪装站；初始阶段使用`/etc/caddy/3x-direct-*.pem`文件证书；公信TLS阶段临时改成ACME配置，签发成功后再把证书复制回稳定路径供Xray读取
+`directDomain:443`监听公网443/tcp与443/udp，支持H1/H2/H3；`/xhttpPath*`通过h2c反代到`127.0.0.1:directXhttpPort`，其余路径提供伪装站。初始阶段使用`/etc/caddy/3x-direct-*.pem`自签文件证书；公信TLS阶段切换为ACMEHTTP-01，之后由Caddy自动续期，不再向Xray复制证书
 
-`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
-
-## Hints
-
-日志是第一排查入口；`get-log.ps1`下载的每个阶段日志都在`log/`下，最近失败通常出现在链路中最后一个没有打印“完成”的文件里
-
-若其它本地脚本显示potential MITM或主机真实性提示，这些脚本会先自动尝试一次`get-log.ps1`；它在不忽略已有记录的前提下接受并写入此前未知的新host，只有成功下载日志后才重试原命令。若日志获取也报告已知host key变化，则不会覆盖冲突记录，应立即停止并重新核验服务器指纹
-
-本方案并不需要ECH，加了也没用
+`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`通过h2c反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载

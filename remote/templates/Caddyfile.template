@@ -1,0 +1,57 @@
+# 此文件会进行正则替换，不要手动编辑！
+
+{
+	{{AUTO_HTTPS_CONFIG}}
+	servers :443 {
+		protocols h1 h2 h3
+	}
+}
+
+:80 {
+	redir https://{host}{uri} permanent
+}
+
+:{{FAKE_SITE_PORT}} {
+	root * /var/www/3x-fake-site
+	file_server
+}
+
+{{DIRECT_DOMAIN}}:443 {
+	{{DIRECT_DOMAIN_TLS_CONFIG}}
+
+	handle /{{XHTTP_PATH}}* {
+		reverse_proxy 127.0.0.1:{{DIRECT_XHTTP_PORT}} {
+			flush_interval -1
+			transport http {
+				versions h2c
+			}
+		}
+	}
+
+	handle {
+		root * /var/www/3x-fake-site
+		file_server
+	}
+}
+
+:{{CDN_PORT}} {
+	tls /etc/caddy/3x-origin-cert.pem /etc/caddy/3x-origin-key.pem
+
+	handle /{{SUBSCRIPTION_URI_PATH}}/* {
+		reverse_proxy 127.0.0.1:{{SUBSCRIPTION_PORT}}
+	}
+
+	handle /{{XHTTP_PATH}}* {
+		reverse_proxy 127.0.0.1:{{XHTTP_PORT}} {
+			flush_interval -1
+			transport http {
+				versions h2c
+			}
+		}
+	}
+
+	handle {
+		root * /var/www/3x-fake-site
+		file_server
+	}
+}

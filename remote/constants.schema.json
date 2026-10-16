@@ -9,18 +9,6 @@
 			"type": "string",
 			"default": "constants.schema.json"
 		},
-		"username": {
-			"description": "服务器sudo用户名。没必要改，用新版OpenSSH不会产生特征",
-			"type": "string",
-			"default": "celestia",
-			"minLength": 1
-		},
-		"password": {
-			"description": "服务器sudo用户密码。没必要改，服务器没法通过这个密码登陆",
-			"type": "string",
-			"default": "Polaris",
-			"minLength": 1
-		},
 		"3xusername": {
 			"description": "3X-UI面板用户名。没必要改，3X-UI面板不会暴露于公网",
 			"type": "string",
@@ -46,8 +34,8 @@
 				]
 			}
 		},
-		"realityTargetPort": {
-			"description": "Reality目标端口",
+		"directXhttpPort": {
+			"description": "Caddy直连入口反代的Xray XHTTP内部端口",
 			"type": "integer",
 			"default": 8443,
 			"minimum": 1,
@@ -152,10 +140,33 @@
 			"minimum": 1
 		},
 		"fingerprint": {
-			"description": "Reality和XHTTP客户端使用的TLS指纹",
+			"description": "XHTTP客户端使用的TLS指纹",
 			"type": "string",
 			"default": "chrome",
 			"minLength": 1
+		},
+		"cdnOptDomains": {
+			"description": "（可选）Cloudflare优选域名列表",
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"description": "Cloudflare优选域名。需要能解析到Cloudflare anycast ip",
+				"type": "string",
+				"format": "hostname",
+				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+			},
+			"default": [
+				"www.shopify.com",
+				"time.is",
+				"japan.com",
+				"pubs.acs.org"
+			]
+		},
+		"cdnEchConfigList": {
+			"description": "（可选）为所有cdnDomain配置ECH，保留原普通TLS节点。建议填客户端可直达的DoH地址，如`https://1.1.1.1/dns-query`；也支持Xray的固定ECHConfigList和域名+DNS格式。删除本字段即可关闭",
+			"type": "string",
+			"minLength": 1,
+			"pattern": "^\\S+$"
 		},
 		"proxyClientsFilenames": {
 			"description": "代理客户端固定下载文件名",
@@ -193,12 +204,10 @@
 		}
 	},
 	"required": [
-		"username",
-		"password",
 		"3xusername",
 		"3xpassword",
 		"initialSshPort",
-		"realityTargetPort",
+		"directXhttpPort",
 		"fakeSitePort",
 		"xhttpPort",
 		"subscriptionPort",

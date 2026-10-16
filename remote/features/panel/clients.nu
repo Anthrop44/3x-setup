@@ -1,0 +1,112 @@
+use ../../lib/core.nu *
+use ../../lib/network.nu curl-text
+use api.nu *
+use hosts.nu host-payloads
+
+# 将客户配置转换为面板的订阅ID、字节配额和重置周期
+export def client-policy [client: record] {
+	let traffic = ($client.traffic? | default 0)
+	{email: $client.client, subId: $client.path, totalGB: ($traffic * 1073741824), reset: (if $traffic > 0 { 30 } else { 0 })}
+}
+
+# 返回已移除或订阅及配额策略发生变化的现有客户名
+export def stale-clients [configured: list, current: list] {
+	let expected = ($configured | each { client-policy $in })
+	$current | where {|client|
+		let matches = ($expected | where email == $client.email)
+		($matches | is-empty) or (($client | select email subId totalGB reset) != $matches.0)
+	} | get email | uniq
+}
+
+# 同步客户策略及入站关联，重启Xray并等待运行就绪
+export def apply [ctx: record] {
+	with-panel $ctx {|session|
+		let inbounds = (request $session /panel/api/inbounds/list)
+		let ids = ([Direct Cloudflare] | each {|remark| inbound $inbounds $remark | get id })
+		mut current = (request $session /panel/api/clients/list | default [])
+		let stale = (stale-clients $ctx.config.clients $current)
+		if ($stale | is-not-empty) {
+			request $session /panel/api/clients/bulkDel --data {emails: $stale, keepTraffic: false} | ignore
+			$current = (request $session /panel/api/clients/list | default [])
+		}
+		for client in $ctx.config.clients {
+			if ($current | any {|c| $c.email == $client.client and $c.subId == $client.path }) { continue }
+			# The panel suppresses this flow on Direct (disableFlow), while Cloudflare retains Vision
+			let policy = (client-policy $client | merge {auth: (token 24), flow: xtls-rprx-vision, security: auto, expiryTime: 0, limitIp: 0, enable: true, tgId: 0, comment: ''})
+			request $session /panel/api/clients/add --data {client: $policy, inboundIds: $ids} | ignore
+		}
+		request $session /panel/api/server/restartXrayService --post | ignore
+		retry 30 1sec {
+			let status = (request $session /panel/api/server/status)
+			ensure (($status.xray?.state? | default $status.state?) == running) 'Xray is not running'
+		}
+	}
+}
+
+# 将字符串、面板响应或链接列表统一为订阅链接列表
+export def subscription-links [value: any] {
+	let kind = ($value | describe)
+	if $kind == string { $value | lines | where {|s| $s != '' } } else if $kind starts-with record { $value.externalLinks? | default [] } else { $value }
+}
+
+# 校验代理链接；指定客户名时还校验公开订阅的首个流量空节点及纯节点名称
+export def validate-links [ctx: record, value: any, encryption: record, --client: string = ''] {
+	let all = (subscription-links $value)
+	let links = (if $client == '' { $all } else {
+		ensure ($all | is-not-empty) 'Missing traffic information node'
+		let info = ($all.0 | url parse)
+		ensure ($info.scheme == socks and $info.host == '127.0.0.1' and $info.port == '1080' and $info.username == '' and $info.password == '' and $info.query == '') 'Wrong traffic information node endpoint'
+		let remark = ($info.fragment | url decode)
+		ensure ($remark starts-with $"($client) ") 'Wrong traffic information node username'
+		let usage = ($remark | str substring (($client | str length) + 1).. | split row '/')
+		ensure (($usage | length) == 2 and ($usage | all {|part| ($part | str trim | is-not-empty) and $part !~ '[{}]' })) 'Wrong traffic information node usage'
+		$all | skip 1
+	})
+	let targets = ((host-payloads $ctx 0 --direct | each { insert encryption $encryption.Direct | insert flow '' }) | append (host-payloads $ctx 0 | each { insert encryption $encryption.Cloudflare | insert flow xtls-rprx-vision }))
+	ensure (($links | length) == ($targets | length)) 'Wrong subscription link count'
+	ensure ($encryption.Direct == none) 'Direct XHTTP must not use VLESS Encryption'
+	for target in $targets {
+		let matching = ($links | where {|link|
+			let url = ($link | url parse)
+			let ech = ($url.params | where key == ech | get value)
+			$url.scheme == vless and $url.host == $target.hosts.0 and $url.port == '443' and (($url.params | where key == alpn | get value) == $target.alpn) and (if $target.echConfigList == '' { $ech in [[] ['']] } else { $ech == [$target.echConfigList] })
+		})
+		ensure (($matching | length) == 1) $"Missing or duplicate XHTTP subscription: ($target.remark)"
+		let name = ($matching.0 | url parse | get fragment | url decode)
+		ensure (if $client == '' { $name starts-with $target.remark } else { $name == $target.remark }) 'Subscription name must match the Host remark'
+		let params = ($matching.0 | url parse | get params)
+		ensure (($params | where key == type | get value) == [xhttp] and ($params | where key == security | get value) == [tls] and ($params | where key == sni | get value) == [$target.sni]) 'Wrong XHTTP subscription transport or TLS settings'
+		ensure (($params | where key == fp | get value) == [$target.fingerprint]) 'Wrong XHTTP subscription TLS fingerprint'
+		ensure (($params | where key == encryption | get value) == [$target.encryption]) 'XHTTP subscription encryption does not match the inbound'
+		let flows = ($params | where key == flow | get value)
+		if $target.flow == '' {
+			ensure ($flows in [[] ['']]) 'Direct XHTTP subscription must not use Vision flow'
+		} else {
+			ensure ($flows == [$target.flow]) 'CDN XHTTP subscription is missing Vision flow'
+		}
+	}
+	ensure ($links | all {|link| $link =~ '^vless://[^@]+@[^:/?#]+:443([/?#]|$)' }) 'A subscription has an obsolete protocol or exposes an internal port'
+}
+
+# 检查客户配额、认证状态、入站关联和订阅链接
+export def verify [ctx: record] {
+	with-panel $ctx {|session|
+		let inbounds = (request $session /panel/api/inbounds/list)
+		let direct = (inbound $inbounds Direct | get settings)
+		let cf = (inbound $inbounds Cloudflare | get settings)
+		let ids = ([Direct Cloudflare] | each {|remark| inbound $inbounds $remark | get id })
+		for client in $ctx.config.clients {
+			let actual = (request $session $"/panel/api/clients/get/($client.client)")
+			let expected = (client-policy $client)
+			ensure (($actual.client | select email subId totalGB reset) == $expected) $"Wrong client policy: ($client.client)"
+			ensure ($actual.client.enable and ($actual.client.comment? | default '') == '' and ($actual.client.auth | str length) >= 16) 'Invalid client authentication or state'
+			ensure ($ids | all {|id| $id in $actual.inboundIds }) 'Client is missing an inbound'
+			let uuid = ($actual.client.uuid? | default $actual.client.id?)
+			ensure ($uuid | is-not-empty) 'Client UUID missing'
+			request $session $"/panel/api/clients/links/($client.client)" | ignore
+			validate-links $ctx (request $session $"/panel/api/clients/subLinks/($client.path)") {Direct: $direct.encryption, Cloudflare: $cf.encryption}
+			let body = (curl-text -- $"https://($ctx.config.cdnDomain)/($ctx.config.subscriptionPath)/($client.path)" | str trim | decode base64 | decode utf-8)
+			validate-links $ctx $body {Direct: $direct.encryption, Cloudflare: $cf.encryption} --client $client.client
+		}
+	}
+}
