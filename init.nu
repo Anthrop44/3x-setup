@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 const FILE = path self
-use remote/common.nu [ensure checked]
+use remote/lib/core.nu [ensure checked]
 use modules/setup-config.nu prepare-config
 use modules/generate-ssh-key.nu initialize-key
 use modules/client-files.nu export-client-files

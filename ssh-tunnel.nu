@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 const FILE = path self
-use remote/common.nu ensure
+use remote/lib/core.nu ensure
 use modules/ssh.nu [ssh-options ssh-target]
 
 def main [--startup-timeout-seconds: int = 10] {

@@ -1,4 +1,4 @@
-use ../remote/common.nu [ensure checked]
+use ../remote/lib/core.nu [ensure checked]
 
 export def shell-quote [value: string] {
 	"'" + ($value | str replace --all "'" "'\"'\"'") + "'"

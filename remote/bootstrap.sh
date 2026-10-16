@@ -12,4 +12,4 @@ curl -fsSL https://apt.fury.io/nushell/gpg.key | sudo gpg --batch --yes --dearmo
 echo "deb https://apt.fury.io/nushell/ /" | sudo tee /etc/apt/sources.list.d/fury.list
 sudo apt update
 sudo apt install -y nushell
-exec nu --no-config-file ./root-init.nu "$@"
+exec nu --no-config-file ./main.nu deploy "$@"

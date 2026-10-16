@@ -1,4 +1,4 @@
-use ../remote/common.nu [ensure capture token]
+use ../remote/lib/core.nu [ensure capture token]
 
 # OpenSSL supplies PBKDF2, AES and HMAC; orchestration stays in Nu
 export def encrypt-page [plaintext: string, password: string] {

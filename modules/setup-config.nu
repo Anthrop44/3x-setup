@@ -1,5 +1,5 @@
-use ../remote/common.nu [ensure token write-json]
-use ../remote/schema.nu validate-config
+use ../remote/lib/core.nu [ensure token write-json]
+use ../remote/lib/config.nu validate-config
 
 export def prepare-config [project: string, --initial] {
 	let remote = ($project | path join remote)

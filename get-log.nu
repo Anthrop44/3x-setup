@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 const FILE = path self
-use remote/common.nu [checked ensure]
+use remote/lib/core.nu [checked ensure]
 use modules/ssh.nu [remote-nu ssh-options ssh-target scp-target]
 
 def main [] {

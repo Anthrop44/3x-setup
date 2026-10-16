@@ -21,7 +21,7 @@
 
 `modules/setup-config.nu`读取schema、补齐`sshPort`、`subscriptionPath`、`distributionPath`、`clients[].path`和`clients[].password`，检查端口、域名、客户名、路径和文件名冲突，已有字段保持不变；密码为八位数字字符串，缺失时生成并保存到`remote/config.json`，重建或同步时复用；配置同步不生成缺失的初始订阅路径或SSH端口
 
-`remote/schema.nu`实现这两个schema使用的断言：类型、required、additionalProperties、oneOf、not、enum、pattern、长度、数值范围和uniqueItems；format是注解，IP与域名格式由schema中的pattern验证
+`remote/lib/config.nu`统一管理远端配置和资源路径，并实现这两个schema使用的断言：类型、required、additionalProperties、oneOf、not、enum、pattern、长度、数值范围和uniqueItems；format是注解，IP与域名格式由schema中的pattern验证
 
 `modules/generate-ssh-key.nu`生成或导出Ed25519部署公钥，支持已有Ed25519-SK密钥；私钥缺失或已有公钥不匹配时拒绝覆盖
 
@@ -29,23 +29,97 @@
 
 `modules/ssh.nu`负责SSH目标、IPv6和远端命令引用；维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
 
+## 远端目录与调用边界
+
+```text
+remote/
+├── bootstrap.sh              # 安装Nu后进入main.nu deploy
+├── main.nu                   # deploy、sync、update、check、list-stages
+├── workflows/
+│   ├── stages.nu             # 阶段名称、说明、实现位置与函数的唯一登记表
+│   ├── deploy.nu             # 首次部署步骤
+│   ├── sync.nu               # 配置同步步骤与分发目录替换
+│   └── update.nu             # APT与3X-UI更新
+├── features/
+│   ├── system.nu             # 依赖、公钥、SSH、防火墙、BBR及检查
+│   ├── caddy/
+│   │   ├── mod.nu            # 导出安装与基础检查
+│   │   ├── setup.nu
+│   │   ├── config.nu         # Caddyfile渲染与安装
+│   │   └── tls.nu            # 证书启用与检查
+│   ├── panel/
+│   │   ├── mod.nu            # 导出面板安装与检查
+│   │   ├── setup.nu
+│   │   ├── api.nu            # Cookie、CSRF会话与API请求
+│   │   ├── inbounds.nu
+│   │   ├── hosts.nu          # 直连与CDN的Host组
+│   │   ├── clients.nu
+│   │   └── encryption.nu
+│   └── apps.nu               # 应用分发、下载、状态和检查
+├── checks/connectivity.nu    # 跨Caddy、Xray与CDN的端到端检查
+├── jobs/                     # systemd入口，只负责参数、权限与锁
+│   ├── cloudflare-ufw.nu
+│   └── fetch-apps.nu
+├── lib/
+│   ├── core.nu               # 断言、进程执行、JSON、临时目录与重试
+│   ├── config.nu             # 配置校验、context与路径
+│   ├── runner.nu             # 阶段子进程、日志、耗时与失败即停
+│   ├── systemd.nu
+│   └── network.nu
+├── templates/Caddyfile.template
+├── config.json / config.schema.json
+├── constants.json / constants.schema.json
+├── cert.pem / key.pem / id_ed25519.pub
+└── fake-site/
+```
+
+查找业务逻辑从`features/`开始，同一业务的安装或同步函数`apply`与检查函数`verify`放在一起；跨业务链路检查放在`checks/`
+
+调用方向为`main.nu`→`workflows/`→`features/`与`checks/`→`lib/`，定时任务从`jobs/`进入相同业务模块；业务模块不调度工作流，公共库不导入业务模块
+
+工作流只排列需要执行的阶段名，`workflows/stages.nu`统一关联实现函数与源文件；增加部署阶段不会隐式改变同步流程
+
+所有上传文件仍位于`remote/`，本地与远端共用的辅助函数保存在`remote/lib/`，初次部署会完整打包该目录，包括嵌套模块和模板
+
 ## 远端执行
 
-`remote/bootstrap.sh`是唯一自有Bash脚本：以root安装curl/GnuPG/sudo等基础依赖，执行Nushell官方Fury源安装命令，再`exec nu --no-config-file ./root-init.nu`。无人值守APT增加`-y`，GnuPG增加`--batch --yes`
+`remote/bootstrap.sh`是唯一自有Bash脚本：以root安装curl/GnuPG/sudo等基础依赖，执行Nushell官方Fury源安装命令，再`exec nu --no-config-file ./main.nu deploy`。无人值守APT增加`-y`，GnuPG增加`--batch --yes`
 
 初始SSH命令通过`setsid --wait`启动Bash引导，断线后远端子进程继续执行；引导输出在`log/bootstrap.log`。3X-UI官方安装器仍以其上游发布的Bash格式运行
 
-`remote/root-init.nu`负责阶段调度，每个阶段在独立的无用户配置Nu进程中运行，stdout/stderr写入`log/{阶段}.log`，记录耗时、完成或失败；失败立即中止后续阶段
+`remote/main.nu`是统一入口，`workflows/deploy.nu`排列部署阶段，`lib/runner.nu`为每个阶段启动独立的无用户配置Nu进程，stdout/stderr写入`log/{阶段}.log`，记录耗时、完成或失败；失败立即中止后续阶段
 
-执行顺序：`root-init`→`system-init`→`service-check`→`caddy-init`→`caddy-check`→`3x-panel-init`→`3x-panel-check`→`3x-inbound-init`→`3x-inbound-check`→`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`fetch-apps-init`→`fetch-apps-check`→`direct-tls-init`→`direct-tls-check`
+执行顺序：`root-init`→`system-init`→`service-check`→`caddy-init`→`caddy-check`→`3x-panel-init`→`3x-panel-check`→`3x-inbound-init`→`3x-inbound-check`→`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`connectivity-check`→`fetch-apps-init`→`fetch-apps-check`→`direct-tls-init`→`direct-tls-check`
 
-`--noAPP`省略两个fetch-apps阶段，`--noTLS`仍执行TLS检查但不接触CA。故障排查可以显式使用`nu root-init.nu --from 阶段 --noAPP --noTLS`或`--stage 阶段`；这不是自动恢复机制，首次部署不幂等，不应盲目重跑已完成的初始化阶段
+在本地仓库中可以直接列出阶段，不需要root或用户配置：
+
+```nu
+nu remote/main.nu list-stages
+nu remote/main.nu list-stages --workflow sync
+nu remote/main.nu list-stages --noAPP --json
+```
+
+在VPS的`/root/3x-setup`中运行诊断命令：
+
+```nu
+nu main.nu check clients
+nu main.nu check connectivity
+nu main.nu check tls
+nu main.nu deploy --stage 3x-client-check
+nu main.nu deploy --from cf-host-init --noAPP --noTLS
+```
+
+`check`支持`system`、`caddy`、`panel`、`inbounds`、`hosts`、`clients`、`connectivity`、`apps`和`tls`，只执行检查逻辑；连通性检查会创建并清理临时测试进程
+
+`--noAPP`省略两个fetch-apps阶段，`--noTLS`仍执行TLS检查但不接触CA；`--from`和`--stage`是显式排障工具，不是自动恢复机制，首次部署不幂等，不应盲目重跑已完成的初始化阶段
 
 `root-init`安装依赖和root公钥，`system-init`优先加载`00-3x-setup.conf`，校验sshd实际配置后才重启；SSH只接受公钥，UFW只开放80/tcp、443/tcp、443/udp和SSH端口，CDN回源端口仅对Cloudflare网段开放，启用BBR
 
 `caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步`Direct`、`Cloudflare`两个本机XHTTP入站、H2/H3 Host组和客户。直连入站的`decryption`和`encryption`均为`none`，通过`disableFlow: true`禁用Vision；CDN入站通过`getNewVlessEnc`生成并选择`mlkem768_xorpub`，将私有`decryption`和公开`encryption`保存到面板入站设置，客户使用Vision流控；检查会验证两类策略、ML-KEM-768密钥长度和xorpub模式
 
-`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、直连无VLESS加密与无flow、CDN加密参数与Vision流控、Xray状态和监听地址；启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
+`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、直连无VLESS加密与无flow、CDN加密参数与Vision流控
+
+`connectivity-check`校验Xray状态和监听地址，启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
 
 `direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；按已安装Caddyfile选择当前证书来源，ACME启用后即使配置同步使用`--noTLS`也会检查公信证书、域名、证书私钥匹配和系统信任链，不再依赖初始自签证书的有效期
 
@@ -53,9 +127,10 @@
 
 所有systemd任务直接执行Nu，依赖脚本保存在`/root/3x-setup`，不要删除该目录
 
-- `cloudflare-ufw.nu`：下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
-- `fetch-apps.nu`：GitHub稳定release精确匹配asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
-直连TLS完全由Caddy终止并自动续期，无需证书同步timer或因续期重启Xray；`direct-tls-common.nu`提供证书与私钥校验
+- `jobs/cloudflare-ufw.nu`：通过`features/system.nu`下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
+- `jobs/fetch-apps.nu`：通过`features/apps.nu`精确匹配GitHub稳定release的asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
+
+直连TLS完全由Caddy终止并自动续期，无需证书同步timer或因续期重启Xray；`features/caddy/tls.nu`提供证书与私钥校验
 
 每日任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
 
@@ -63,11 +138,19 @@
 
 `sync-config.nu`将配置和完整分发目录打包上传到唯一暂存目录，远端再次校验配置，只允许更改客户和优选域名；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
 
+`workflows/sync.nu`显式执行`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`connectivity-check`→`direct-tls-check`，不再从部署流程中途运行到末尾；同步不申请证书，TLS检查根据正在使用的Caddyfile选择证书来源
+
+本地`sync-config.nu`和`update-all.nu`分别调用远端`main.nu sync`和`main.nu update`；日常同步只上传配置与分发目录
+
 部署或同步失败不会自动重试已经执行的有副作用阶段。引导未完成或SSH端口尚未切换时，`get-log.nu`可能无法连接，需要通过初始SSH端口查看`/root/3x-setup/log/bootstrap.log`
 
 ## 本地验证
 
-运行`nu --no-config-file tests/run.nu`：解析全部Nu代码，使用临时配置和密钥检查schema、字段稳定性、加密回环、API payload、Host组、订阅、下载校验、失败计数和重置；有本机sshd时还检查SSH配置优先级及冲突拒绝。不会修改系统SSH配置或连接VPS
+运行`nu --no-config-file tests/run.nu`：解析全部Nu代码并检查Bash语法，验证工作流选择、配置字段稳定性和变更限制、Caddy模板渲染、API payload、Host组、订阅、代理测试配置、下载校验、失败计数与重置
+
+测试通过临时Nu进程验证阶段失败即停、stdout/stderr日志、`--from`和开关传递；通过临时目录中的命令替身验证更新任务的重置与真实flock冲突；还会打包解包远端目录，验证脱离本地模块、配置和当前工作目录后仍可列出阶段，并用临时配置验证真实入口的阶段调度与`--noTLS`传递
+
+测试依赖Nu、OpenSSL、tar、Bash、chmod和flock，所有测试数据写入临时目录，不修改系统配置或连接VPS
 
 ## 网络架构
 
@@ -194,7 +277,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 ## Caddy配置
 
-`remote/Caddyfile.template`通过字面占位符替换渲染，最终安装到`/etc/caddy/Caddyfile`
+`remote/templates/Caddyfile.template`由`remote/features/caddy/config.nu`通过字面占位符替换渲染，最终安装到`/etc/caddy/Caddyfile`
 
 全局配置在初始阶段是`auto_https disable_redirects`，避免Caddy自动处理不需要的HTTPS重定向；公信TLS阶段改为`auto_https disable_redirects ignore_loaded_certs`，让Caddy忽略已加载的文件证书并为`directDomain`走ACME签发
 

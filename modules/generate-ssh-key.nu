@@ -1,4 +1,4 @@
-use ../remote/common.nu [ensure capture checked]
+use ../remote/lib/core.nu [ensure capture checked]
 
 def fingerprint [path: string] {
 	let line = (capture -- ssh-keygen -l -f $path -E sha256 | str trim)
