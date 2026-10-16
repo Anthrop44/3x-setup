@@ -30,11 +30,10 @@ export def export-client-files [project: string, config: record, constants: reco
 		ensure (not ($content =~ '\{(?:cdnDomain|directDomain|subscriptionPath|proxyClientsSuffix|clientPath|proxyClientsFilenames\.)')) 'Unresolved distribution template placeholder'
 		let matches = ($content | parse --regex '(?s)<main id="encrypted">(?P<body>.*?)</main>')
 		ensure (($matches | length) == 1) 'Template must contain one main#encrypted element'
-		let digits = (random int 1000..9999 | into string)
-		let encrypted = (encrypt-page $matches.0.body $digits)
+		let encrypted = (encrypt-page $matches.0.body $client.password)
 		let tag = $'<main id="encrypted" data-salt="($encrypted.salt)" data-iv="($encrypted.iv)" data-ciphertext="($encrypted.ciphertext)" data-tag="($encrypted.tag)"></main>'
-		$content | str replace $'<main id="encrypted">($matches.0.body)</main>' $tag | str replace '<span id="four_digits"></span>' $'<span id="four_digits">($digits)</span>' | save --force ($dir | path join $"($client.path).html")
-		$rows = ($rows | append {clients: $client.client, distributionURL: $"https://($config.cdnDomain)/($config.distributionPath)/($client.path).html"})
+		$content | str replace $'<main id="encrypted">($matches.0.body)</main>' $tag | save --force ($dir | path join $"($client.path).html")
+		$rows = ($rows | append {clients: $client.client, distributionURL: $"https://($config.cdnDomain)/($config.distributionPath)/($client.path).html", Password: $client.password})
 	}
 	$rows | to tsv | save --force ($project | path join clients.tsv)
 }

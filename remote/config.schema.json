@@ -72,6 +72,13 @@
 						"type": "integer",
 						"minimum": 0
 					},
+					"password": {
+						"description": "（缺失时自动生成，重建时复用）分发页解锁密码，八位数字字符串，可含前导零",
+						"type": "string",
+						"minLength": 8,
+						"maxLength": 8,
+						"pattern": "^[0-9]{8}$"
+					},
 					"path": {
 						"description": "（自动生成，请勿手动设置）客户订阅路径",
 						"type": "string",

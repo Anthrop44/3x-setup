@@ -12,8 +12,8 @@
 <body>
 	<dialog id="unlock-dialog"><p>Please use an updated secure browser like Firefox, Edge, or Chrome and enable JavaScript before continuing.</p>
 		<form id="unlock-form">
-			<label for="input">Enter <span id="four_digits"></span> to unlock</label>
-			<input id="input" type="text" />
+			<label for="input">Enter your 8-digit password to unlock</label>
+			<input id="input" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required="required" />
 			<button type="submit">Unlock</button>
 		</form>
 	</dialog>
@@ -103,7 +103,7 @@
 		}
 
 		/**
-		 * 使用输入的四位数解密正文
+		 * 使用输入的八位数字密码解密正文
 		 * @param {SubmitEvent} event 表单提交事件
 		 * @returns {Promise} 完成后无返回值
 		 */
@@ -124,13 +124,13 @@
 				authenticated.set(iv);
 				authenticated.set(ciphertext, iv.length);
 				if (!(await crypto.subtle.verify("HMAC", macKey, base64ToBytes(encrypted.dataset.tag), authenticated))) {
-					throw new Error("Invalid unlock code or damaged page");
+					throw new Error("Invalid password or damaged page");
 				}
 				const plaintext = await crypto.subtle.decrypt({name: "AES-CBC", iv}, key, ciphertext);
 				encrypted.innerHTML = new TextDecoder().decode(plaintext);
 				dialog.close();
 			} catch {
-				input.setCustomValidity("Incorrect code");
+				input.setCustomValidity("Incorrect password");
 				input.reportValidity();
 			}
 		}

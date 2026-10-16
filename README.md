@@ -119,7 +119,7 @@ Install [Nushell](https://www.nushell.sh/book/installation.html) 0.116.1 or newe
 nu init.nu
 ```
 
-`init.nu` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The `clients.tsv` file it generates contains the subscription distribution page URL that each client should receive — just send the listed URL directly to your clients. The entire server initialization process usually takes 5 to 20 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
+`init.nu` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The generated `clients.tsv` contains each client's distribution page URL and an eight-digit unlock password in the `Password` column. Send each client their URL and password. Passwords are automatically saved as `clients[].password` in `remote/config.json` and reused during rebuilds and synchronization; pages do not display plaintext passwords. The entire server initialization process usually takes 5 to 15 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
 ## Updating Client Information and Cloudflare Optimized Domains
 

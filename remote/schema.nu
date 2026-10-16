@@ -70,5 +70,6 @@ export def validate-config [config: record, constants: record, --complete] {
 	if $complete {
 		for key in [sshPort subscriptionPath distributionPath] { ensure ($key in $config) $"Missing ($key); run init.nu first" }
 		ensure ($config.clients | all {|c| 'path' in $c }) 'Missing client subscription path'
+		ensure ($config.clients | all {|c| 'password' in $c }) 'Missing client distribution password'
 	}
 }

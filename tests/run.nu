@@ -26,10 +26,13 @@ def rejects [body: closure] {
 def main [] {
 	for path in (glob ($ROOT | path join '**/*.nu')) { ensure (nu-check --debug $path) $"Invalid Nu syntax: ($path)" }
 	let constants = (open ($ROOT | path join remote constants.json))
-	let config = {ip: '192.0.2.1', cdnDomain: cdn.example.com, directDomain: direct.example.com, cdnPort: 23456, clients: [{client: alice} {client: bob, traffic: 20}], cdnOptDomains: [opt.example.com]}
+	let config = {ip: '192.0.2.1', cdnDomain: cdn.example.com, directDomain: direct.example.com, cdnPort: 23456, clients: [{client: alice} {client: bob, traffic: 20, password: '01234567'}], cdnOptDomains: [opt.example.com]}
 	validate-config $config $constants
 	validate-config ($config | update ip '[2001:db8::1]') $constants
 	for bad in [($config | update clients []) ($config | update ip '999.0.0.1') ($config | insert unknown true) ($config | insert sshPort 23456) ($config | update clients [{client: CON}]) ($config | update clients [{client: alice} {client: ALICE}]) ($config | update cdnOptDomains [CDN.example.com]) ($config | update clients [{client: alice, traffic: -1}])] { rejects { validate-config $bad $constants } }
+	for password in ['1234' '1234567' '123456789' '1234567x' '１２３４５６７８' 12345678 null ''] {
+		rejects { validate-config ($config | update clients.0 {client: alice, password: $password}) $constants }
+	}
 	rejects { validate-config $config ($constants | update proxyClientsFilenames.v2rayNWindowsX64 '../escape.zip') }
 	ensure ((deployment-stages | length) == 17) 'Missing deployment stages'
 	ensure ((deployment-stages --noAPP | length) == 15) '--noAPP does not skip both app stages'
@@ -49,14 +52,39 @@ def main [] {
 		write-json ($temp | path join remote constants.json) $constants
 		let setup = (prepare-config $temp --initial)
 		let again = (prepare-config $temp)
-		ensure ($setup == $again) 'Preparation changed existing subscription fields'
+		ensure ($setup == $again) 'Synchronization changed existing generated fields'
+		ensure ($setup == (prepare-config $temp --initial)) 'Rebuild changed existing generated fields'
+		ensure ($setup.config.clients | all {|c| $c.password =~ '^[0-9]{8}$' }) 'Missing eight-digit client password'
+		ensure ($setup.config.clients.1.password == '01234567') 'Existing password lost its leading zero'
+		ensure ((open ($temp | path join remote config.json)) == $setup.config) 'Generated passwords were not saved to config.json'
 		validate-config $setup.config $constants --complete
+		rejects { validate-config ($setup.config | update clients.0 {|c| $c | reject password }) $constants --complete }
+		write-json ($temp | path join remote config.json) ($setup.config | update clients {|cfg| $cfg.clients | append {client: charlie} })
+		let added = (prepare-config $temp)
+		ensure (($added.config.clients | take 2) == $setup.config.clients and $added.config.clients.2.password =~ '^[0-9]{8}$') 'New client changed existing passwords or did not receive a password'
+		write-json ($temp | path join remote config.json) $setup.config
 		export-client-files $temp $setup.config $constants
 		let page = (open --raw ($temp | path join remote fake-site $setup.config.distributionPath $"($setup.config.clients.0.path).html"))
 		ensure (not ($page | str contains $"https://($config.cdnDomain)/($setup.config.subscriptionPath)/")) 'Plaintext subscription leaked into distribution page'
 		ensure ($page | str contains 'data-tag=') 'Missing page authentication'
-		let tsv = (open ($temp | path join clients.tsv))
+		let tsv = (open --raw ($temp | path join clients.tsv) | from tsv --no-infer)
 		ensure (($tsv | length) == 2 and $tsv.0.clients == alice) 'Incorrect client URL export'
+		for row in ($setup.config.clients | enumerate) {
+			let client = $row.item
+			let exported = ($tsv | get $row.index)
+			ensure ($exported.Password == $client.password and $exported.distributionURL == $"https://($config.cdnDomain)/($setup.config.distributionPath)/($client.path).html") 'Incorrect client password or URL export'
+			let html = (open --raw ($temp | path join remote fake-site $setup.config.distributionPath $"($client.path).html"))
+			ensure (not ($html | str contains $client.password) and not ($html | str contains 'four_digits')) 'Plaintext password leaked into distribution page'
+			let payload = ($html | parse --regex 'data-salt="(?P<salt>[^"]+)" data-iv="(?P<iv>[^"]+)" data-ciphertext="(?P<ciphertext>[^"]+)" data-tag="(?P<tag>[^"]+)"' | first)
+			let keys = (capture -- openssl kdf -keylen 64 -kdfopt digest:SHA256 -kdfopt $"pass:($exported.Password)" -kdfopt $"hexsalt:($payload.salt | decode base64 | encode hex)" -kdfopt iter:100000 PBKDF2 | str trim | str replace --all ':' '')
+			let decoded = ($payload.ciphertext | decode base64 | ^openssl enc -d -aes-256-cbc -K ($keys | str substring 0..<64) -iv ($payload.iv | decode base64 | encode hex) | complete)
+			ensure ($decoded.exit_code == 0 and ($decoded.stdout | str contains $"https://($config.cdnDomain)/($setup.config.subscriptionPath)/($client.path)")) 'Exported password cannot decrypt the corresponding page'
+			let signed = ([($payload.iv | decode base64) ($payload.ciphertext | decode base64)] | bytes collect)
+			let tag = ($signed | ^openssl dgst -sha256 -mac HMAC -macopt $"hexkey:($keys | str substring 64..<128)" -binary | complete)
+			ensure ($tag.exit_code == 0 and ($tag.stdout | encode base64) == $payload.tag) 'Exported password cannot authenticate the corresponding page'
+		}
+		export-client-files $temp $again.config $constants
+		ensure ((open --raw ($temp | path join clients.tsv) | from tsv --no-infer) == $tsv) 'Page regeneration changed exported passwords'
 		initialize-key $temp
 		let original = (open --raw ($temp | path join id_ed25519))
 		initialize-key $temp
@@ -125,8 +153,8 @@ def main [] {
 		print 'PASS configuration stability, distribution generation, SSH keys, Caddy, API payloads and subscription validation'
 
 		let plaintext = 'Subscription test: 中文 <>&'
-		let encrypted = (encrypt-page $plaintext '1234')
-		let keys = (capture -- openssl kdf -keylen 64 -kdfopt digest:SHA256 -kdfopt pass:1234 -kdfopt $"hexsalt:($encrypted.salt | decode base64 | encode hex)" -kdfopt iter:100000 PBKDF2 | str trim | str replace --all ':' '')
+		let encrypted = (encrypt-page $plaintext '01234567')
+		let keys = (capture -- openssl kdf -keylen 64 -kdfopt digest:SHA256 -kdfopt pass:01234567 -kdfopt $"hexsalt:($encrypted.salt | decode base64 | encode hex)" -kdfopt iter:100000 PBKDF2 | str trim | str replace --all ':' '')
 		let decrypted = ($encrypted.ciphertext | decode base64 | ^openssl enc -d -aes-256-cbc -K ($keys | str substring 0..<64) -iv ($encrypted.iv | decode base64 | encode hex) | complete)
 		ensure ($decrypted.exit_code == 0 and $decrypted.stdout == $plaintext) 'Page encryption round trip failed'
 		let signed = ([($encrypted.iv | decode base64) ($encrypted.ciphertext | decode base64)] | bytes collect)
