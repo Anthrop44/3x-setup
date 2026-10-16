@@ -65,7 +65,7 @@ export def validate-config [config: record, constants: record, --complete] {
 	let filenames = ($constants.proxyClientsFilenames | values)
 	ensure (($filenames | each { str lowercase } | uniq | length) == ($filenames | length)) 'Duplicate proxy client filename'
 	for name in $filenames { ensure ($name =~ '^[A-Za-z0-9][A-Za-z0-9._-]*$') 'Unsafe proxy client filename' }
-	let ports = ([$constants.realityTargetPort $constants.fakeSitePort $constants.xhttpPort $constants.subscriptionPort $constants.'3xpanelPort' $config.cdnPort 80 443] | append (if 'sshPort' in $config { [$config.sshPort] } else { [] }))
+	let ports = ([$constants.directXhttpPort $constants.fakeSitePort $constants.xhttpPort $constants.subscriptionPort $constants.'3xpanelPort' $config.cdnPort 80 443] | append (if 'sshPort' in $config { [$config.sshPort] } else { [] }))
 	ensure (($ports | uniq | length) == ($ports | length)) 'Deployment ports must be unique'
 	if $complete {
 		for key in [sshPort subscriptionPath distributionPath] { ensure ($key in $config) $"Missing ($key); run init.nu first" }

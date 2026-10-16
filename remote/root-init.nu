@@ -43,7 +43,6 @@ def initialize [ctx: record] {
 	checked -- install -d -m 700 -o root -g root /root/.ssh
 	checked -- install -m 600 -o root -g root ($ctx.dir | path join id_ed25519.pub) /root/.ssh/authorized_keys
 	install-command 3x-fetch-apps fetch-apps.nu
-	install-command 3x-sync-direct-tls direct-tls-sync.nu
 }
 
 def execute-stage [stage: string, ctx: record] {

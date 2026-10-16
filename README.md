@@ -5,8 +5,7 @@
 The ultimate best one-click proxy server deployment script based on Xray-core and 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
 This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
-- Hysteria2 direct connection
-- VLESS+Reality+Vision direct connection
+- VLESS+XHTTP+TLS direct connection
 - VLESS Encryption (ML-KEM-768, xorpub)+Vision+XHTTP+Cloudflare CDN
 
 This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13+ or Ubuntu 24.04+, as well as the local tools listed below.
@@ -163,9 +162,9 @@ This project is not an idempotent deployer. It must be executed on a freshly reb
 
 Do not leak private configurations like `remote/config.json`. **If leaked, rebuild the server immediately and change its IP address and domain names.**
 
-If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Note that due to the lack of a trusted certificate, the Hysteria2 inbound will not work under this mode. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
+If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Direct XHTTP nodes require a trusted certificate in production; local deployment checks explicitly trust the bootstrap certificate. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
 
-Regional ISPs may block QUIC traffic on certain IPs, which will make the Hysteria2 inbound unavailable. This is beyond our control.
+Regional ISPs may block QUIC traffic on certain IPs, which will make direct XHTTP H3 nodes unavailable. H2 nodes use TCP.
 
 Deployment and maintenance run as root in `/root/3x-setup`. After deployment, root SSH login requires public-key authentication; password and keyboard-interactive authentication are disabled. Your private key `./id_ed25519` (in the repository root) is the **only** method to log in to the proxy server. Please back up and store it securely.
 

@@ -3,7 +3,7 @@
 	"3xusername": "celestia",
 	"3xpassword": "Polaris",
 	"initialSshPort": 22,
-	"realityTargetPort": 8443,
+	"directXhttpPort": 8084,
 	"fakeSitePort": 8085,
 	"xhttpPort": 8087,
 	"subscriptionPort": 2054,

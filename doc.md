@@ -8,7 +8,7 @@
 
 - `nu init.nu`：首次部署；缺少`remote/config.json`时创建schema骨架并退出
 - `nu init.nu --prepare-only`：只完成本地校验、补齐字段、密钥准备与分发页生成，不连接服务器
-- `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；HY2无法使用生产可信证书
+- `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；本机直连检查显式信任初始自签证书
 - `nu init.nu --accept-new-host`：在清除重建服务器旧指纹后自动接受新指纹
 - `nu sync-config.nu`：同步`clients`和`cdnOptDomains`，其它部署参数必须保持不变
 - `nu get-log.nu`：下载所有阶段日志，已有非空`log/`轮转为`log0/`等目录
@@ -39,15 +39,15 @@
 
 执行顺序：`root-init`→`system-init`→`service-check`→`caddy-init`→`caddy-check`→`3x-panel-init`→`3x-panel-check`→`3x-inbound-init`→`3x-inbound-check`→`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`fetch-apps-init`→`fetch-apps-check`→`direct-tls-init`→`direct-tls-check`
 
-`--noAPP`省略两个fetch-apps阶段，`--noTLS`仍执行TLS检查但不接触CA、不安装证书同步timer。故障排查可以显式使用`nu root-init.nu --from 阶段 --noAPP --noTLS`或`--stage 阶段`；这不是自动恢复机制，首次部署不幂等，不应盲目重跑已完成的初始化阶段
+`--noAPP`省略两个fetch-apps阶段，`--noTLS`仍执行TLS检查但不接触CA。故障排查可以显式使用`nu root-init.nu --from 阶段 --noAPP --noTLS`或`--stage 阶段`；这不是自动恢复机制，首次部署不幂等，不应盲目重跑已完成的初始化阶段
 
 `root-init`安装依赖和root公钥，`system-init`优先加载`00-3x-setup.conf`，校验sshd实际配置后才重启；SSH只接受公钥，UFW只开放80/tcp、443/tcp、443/udp和SSH端口，CDN回源端口仅对Cloudflare网段开放，启用BBR
 
-`caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步三个入站、H2/H3 Host组和客户。XHTTP入站通过`getNewVlessEnc`生成并选择`mlkem768_xorpub`，将私有`decryption`和公开`encryption`保存到面板入站设置，客户使用Vision流控；检查会验证ML-KEM-768密钥长度和xorpub模式
+`caddy-init`安装伪装站、Cloudflare源站证书与直连自签证书，生成XHTTP路径并渲染Caddyfile；`3x-panel-init`安装面板、启用本机订阅服务和Happy Eyeballs；随后通过CSRF/Cookie会话同步`Direct`、`Cloudflare`两个本机XHTTP入站、H2/H3 Host组和客户。直连入站的`decryption`和`encryption`均为`none`，通过`disableFlow: true`禁用Vision；CDN入站通过`getNewVlessEnc`生成并选择`mlkem768_xorpub`，将私有`decryption`和公开`encryption`保存到面板入站设置，客户使用Vision流控；检查会验证两类策略、ML-KEM-768密钥长度和xorpub模式
 
-`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、XHTTP加密参数与Vision流控、Xray状态和监听地址；启动临时Xray/SOCKS实例执行Reality、XHTTP本机回环与Cloudflare公网H2/H3端到端测试，XHTTP测试使用入站的公开加密参数，结束或失败时清理临时进程。HY2只检查配置与UDP监听，不执行端到端测试
+`3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、直连无VLESS加密与无flow、CDN加密参数与Vision流控、Xray状态和监听地址；启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
 
-`direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；生产模式还检查证书有效期、域名、证书私钥匹配和系统信任链
+`direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；按已安装Caddyfile选择当前证书来源，ACME启用后即使配置同步使用`--noTLS`也会检查公信证书、域名、证书私钥匹配和系统信任链，不再依赖初始自签证书的有效期
 
 ## 定时任务
 
@@ -55,7 +55,7 @@
 
 - `cloudflare-ufw.nu`：下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
 - `fetch-apps.nu`：GitHub稳定release精确匹配asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
-- `direct-tls-sync.nu`：校验Caddy公信证书和私钥后同步至`/etc/caddy/3x-direct-*.pem`，内容变化时才重启x-ui；`/usr/local/sbin/3x-sync-direct-tls --check`只验证同步状态
+直连TLS完全由Caddy终止并自动续期，无需证书同步timer或因续期重启Xray；`direct-tls-common.nu`提供证书与私钥校验
 
 每日任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
 
@@ -90,25 +90,22 @@
 		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
 	- direct
 		- client -> {directDomain}/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}:443
-		- Xray -> 127.0.0.1:{FAKE_SITE_PORT}
 		- Caddy -> /var/www/3x-fake-site/{subscriptionPath}{proxyClientsSuffix}/{proxyClientFilename}
-- Hysteria2 Direct Connection
-	- client -> {directDomain}:443/udp
-	- vps -> 0.0.0.0:443/udp
-	- Xray (Hysteria2 over TLS)
-- Reality Direct Connection
-	- client -> {directDomain}:443/tcp
-	- vps -> 0.0.0.0:443/tcp
-	- Xray (Reality)
+- XHTTP TLS Direct Connection
+	- H2: client -> {directDomain}/{xhttpPath}:443/tcp
+	- H3: client -> {directDomain}/{xhttpPath}:443/udp
+	- Caddy (TLS termination, H2/H3)
+	- Caddy -> 127.0.0.1:{directXhttpPort} (h2c)
+	- Xray (VLESS + XHTTP, encryption=none, flow empty)
 - XHTTP with Cloudflare CDN
 	- client -> {cdnDomain}/{xhttpPath}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
-	- Caddy -> 127.0.0.1:{xhttpPort}
+	- Caddy -> 127.0.0.1:{xhttpPort} (h2c)
 	- Xray (XHTTP + VLESS Encryption ML-KEM-768 xorpub + Vision)
 - directDomain cert
 	- noTLS：脚本生成自签测试证书，不访问CA
-	- TLS：direct-tls-init.nu触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy续期后，3x-direct-tls-sync.timer会把新证书同步给Xray并重启x-ui
+	- TLS：direct-tls-init.nu触发ACMEHTTP-01，为{directDomain}申请公信证书；Caddy自动续期并加载新证书
 - GFW detection: {cdnDomain}
 	- GFW -> {cdnDomain}/{*}:443
 	- Cloudflare cdn -> ip:{CDN_PORT}
@@ -116,10 +113,9 @@
 	- Caddy -> 127.0.0.1:{FAKE_SITE_PORT}
 	- Caddy (fake site)
 - GFW detection: {directDomain}
-	- GFW -> {directDomain}:443
-	- vps -> 127.0.0.1:443
-	- Xray -> 127.0.0.1:{FAKE_SITE_PORT}
-	- Caddy (fake site)
+	- GFW -> {directDomain}:443/tcp or 443/udp
+	- Caddy (TLS termination, H1/H2/H3)
+	- Non-XHTTP paths -> /var/www/3x-fake-site
 
 ## 3X-UI面板设置
 
@@ -139,70 +135,40 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 - `client`：3X-UI客户端名
 - `path`：客户端订阅ID，作为订阅链接中的`{subscriptionID}`
 - `password`：分发页解锁密码，八位数字字符串，可含前导零；缺失时自动生成，重建和同步时复用已有值
-- 每个客户端会关联`QUIC`、`TCP`和`Cloudflare`三个入站
+- 每个客户端会关联`Direct`和`Cloudflare`两个入站；直连与每个CDN地址均生成独立的H2/H3节点
 - `traffic`：可选，每月流量上限，单位GB；缺省或0表示不限量
-
-## Hysteria2入站
-
-- 基础配置
-	- 备注：`QUIC`
-	- 协议：`hysteria`
-	- 地址：`0.0.0.0`
-	- 分享地址策略：`自定义`
-	- 自定义分享地址：`{directDomain}`
-	- 端口：`443`
-- 安全
-	- SNI：`{directDomain}`
-	- 数字证书：`/etc/caddy/3x-direct-cert.pem`和`/etc/caddy/3x-direct-key.pem`
-- 高级配置 > FinalMask
-	- UDP：`salamander`
-
-## VLESS Reality入站
-
-- 基础配置
-	- 备注：`TCP`
-	- 协议：`vless`
-	- 地址：`0.0.0.0`
-	- 分享地址策略：`自定义`
-	- 自定义分享地址：`{directDomain}`
-	- 端口：443
-- 协议
-	- 解密：`none`
-	- 加密：`none`
-- 传输 > 传输：`RAW`
-- 安全 > 安全：`Reality`
-	- 目标：`127.0.0.1:{realityTargetPort}`
-	- SNI：`{directDomain}`
-	- 指纹：`{fingerprint}`
-- 嗅探 > 启用：`Enabled`
-	- HTTP：`Enabled`
-	- TLS：`Enabled`
-	- QUIC：`Enabled`
-	- FAKEDNS：`Disabled`
 
 ## VLESS XHTTP入站
 
+`Direct`与`Cloudflare`均使用下列配置，分别由Caddy直连入口和Cloudflare回源入口反代
+
 - 基础配置
-	- 备注：`Cloudflare`
+	- 备注：`Direct`或`Cloudflare`
 	- 协议：`vless`
 	- 地址：`127.0.0.1`
-	- 分享地址策略：`入站监听地址`
-	- 端口：`{xhttpPort}`
+	- 分享地址策略：`入站监听地址`，公网地址、端口和TLS由Host组覆盖
+	- 端口：`Direct`为`{directXhttpPort}`，`Cloudflare`为`{xhttpPort}`
 - 协议
-	- 解密：`none`
-	- 加密：`none`
+	- `Direct`：解密与加密均为`none`，`disableFlow: true`，订阅与Xray客户端flow留空；公网加密由自己的Caddy TLS承担
+	- `Cloudflare`：由`getNewVlessEnc`生成`mlkem768_xorpub`密钥对，客户端流控为`xtls-rprx-vision`，保护经过Cloudflare的内层代理数据
+	- 面板客户保存的Vision偏好仅在CDN入站生效，直连入站显式禁用
+	- 不包含`fallbacks`字段，网站回落由Caddy按路径处理
 - 传输
 	- 传输：`XHTTP`
 	- 路径：`{xhttpPath}`
 	- 模式：`auto`
-- 安全 > 安全：`无`
-- 嗅探 > 启用：`Enabled`
-	- HTTP：`Enabled`
-	- TLS：`Enabled`
-	- QUIC：`Enabled`
-	- FAKEDNS：`Disabled`
+- 安全：`无`，本机后端使用h2c，公网TLS由Caddy终止
+- 嗅探：启用HTTP、TLS和QUIC，禁用FAKEDNS
 
 ## XHTTP主机
+
+- 直连Host组：`Direct h2`和`Direct h3`
+	- 入站：`Direct`
+	- 地址和SNI：`{directDomain}`
+	- 端口：`443`
+	- 安全：`tls`
+	- ALPN：分别仅为`h2`和`h3`
+	- 指纹：`{fingerprint}`
 
 - 对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
 	- 备注：`Cloudflare OPT 1 h2`、`Cloudflare OPT 1 h3`、`Cloudflare OPT 2 h2`、`Cloudflare OPT 2 h3`等
@@ -236,6 +202,6 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 `:fakeSitePort`只在本机或内部链路中提供伪装站文件，根目录为`/var/www/3x-fake-site`
 
-`directDomain:realityTargetPort`绑定`127.0.0.1`，提供Reality fallback要访问的HTTPS伪装站；初始阶段使用`/etc/caddy/3x-direct-*.pem`文件证书；公信TLS阶段临时改成ACME配置，签发成功后再把证书复制回稳定路径供Xray读取
+`directDomain:443`监听公网443/tcp与443/udp，支持H1/H2/H3；`/xhttpPath*`通过h2c反代到`127.0.0.1:directXhttpPort`，其余路径提供伪装站。初始阶段使用`/etc/caddy/3x-direct-*.pem`自签文件证书；公信TLS阶段切换为ACMEHTTP-01，之后由Caddy自动续期，不再向Xray复制证书
 
-`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
+`:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`通过h2c反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载

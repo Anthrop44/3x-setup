@@ -1,14 +1,13 @@
 use common.nu *
 use caddyfile-common.nu install-caddyfile
-use direct-tls-sync.nu sync-certificate
+use direct-tls-common.nu [certificate-files validate-certificate]
 
 export def apply [ctx: record] {
-	if $ctx.noTLS { print 'Skipping ACME and certificate sync (--noTLS)'; return }
+	if $ctx.noTLS { print 'Skipping ACME (--noTLS)'; return }
 	install-caddyfile $ctx --acme
+	let files = (certificate-files $ctx.config.directDomain)
 	retry 60 5sec {
-		curl-text -- --max-time 20 --resolve $"($ctx.config.directDomain):($ctx.constants.realityTargetPort):127.0.0.1" $"https://($ctx.config.directDomain):($ctx.constants.realityTargetPort)/" | ignore
-		sync-certificate $ctx.config.directDomain
+		curl-text -- --max-time 20 --resolve $"($ctx.config.directDomain):443:127.0.0.1" $"https://($ctx.config.directDomain)/" | ignore
+		validate-certificate $files.cert $files.key $ctx.config.directDomain --public
 	}
-	install-timer 3x-direct-tls-sync '/usr/local/sbin/3x-sync-direct-tls --sync' $ctx.constants.dailyTaskHour
-	checked -- systemctl start 3x-direct-tls-sync.service
 }

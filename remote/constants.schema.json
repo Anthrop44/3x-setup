@@ -34,8 +34,8 @@
 				]
 			}
 		},
-		"realityTargetPort": {
-			"description": "Reality目标端口",
+		"directXhttpPort": {
+			"description": "Caddy直连入口反代的Xray XHTTP内部端口",
 			"type": "integer",
 			"default": 8443,
 			"minimum": 1,
@@ -140,7 +140,7 @@
 			"minimum": 1
 		},
 		"fingerprint": {
-			"description": "Reality和XHTTP客户端使用的TLS指纹",
+			"description": "XHTTP客户端使用的TLS指纹",
 			"type": "string",
 			"default": "chrome",
 			"minLength": 1
@@ -184,7 +184,7 @@
 		"3xusername",
 		"3xpassword",
 		"initialSshPort",
-		"realityTargetPort",
+		"directXhttpPort",
 		"fakeSitePort",
 		"xhttpPort",
 		"subscriptionPort",

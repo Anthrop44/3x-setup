@@ -13,7 +13,7 @@ export def render-caddyfile [ctx: record, --acme] {
 		XHTTP_PATH: $paths.xhttpPath
 		XHTTP_PORT: $ctx.constants.xhttpPort
 		FAKE_SITE_PORT: $ctx.constants.fakeSitePort
-		REALITY_TARGET_PORT: $ctx.constants.realityTargetPort
+		DIRECT_XHTTP_PORT: $ctx.constants.directXhttpPort
 		DIRECT_DOMAIN_TLS_CONFIG: $tls
 	}
 	mut content = (open --raw ($ctx.dir | path join Caddyfile.template))

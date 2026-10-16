@@ -13,7 +13,7 @@ export def prepare-config [project: string, --initial] {
 		if 'password' in $client { $client } else { $client | insert password (random int 0..99999999 | into string | fill --alignment right --character '0' --width 8) }
 	} })
 	if $initial and 'sshPort' not-in $config {
-		let ports = [$constants.realityTargetPort $constants.fakeSitePort $constants.xhttpPort $constants.subscriptionPort $constants.'3xpanelPort' $config.cdnPort]
+		let ports = [$constants.directXhttpPort $constants.fakeSitePort $constants.xhttpPort $constants.subscriptionPort $constants.'3xpanelPort' $config.cdnPort]
 		mut selected = (random int 10001..65535)
 		while $selected in $ports { $selected = (random int 10001..65535) }
 		$config = ($config | insert sshPort $selected)

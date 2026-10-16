@@ -3,8 +3,7 @@
 最好用的基于Xray-core和3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
 本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
-- Hysteria2直连
-- VLESS+Reality+Vision直连
+- VLESS+XHTTP+TLS直连
 - VLESS Encryption（ML-KEM-768，xorpub）+Vision+XHTTP+Cloudflare CDN
 
 本方案需要一台专用代理服务器，内存至少1GB、使用新版Debian或Ubuntu操作系统，有独立ip。如果你不知道怎么挑服务器商，可以访问<https://www.nodeseek.com/>（我与该网站无任何关系）
@@ -161,9 +160,9 @@ nu update-all.nu
 
 不要泄露`remote/config.json`等私有配置。**一旦泄露，请立刻重建服务器并更换ip和域名**
 
-如果要用同一个域名多次重建服务器测试本脚本，请优先使用`nu init.nu --noTLS`临时使用自签证书以避免触发CA rate limit发不出证书。由于没有公信证书，这种情况下Hysteria2入站不可用。自签证书仅用于测试，**绝对不要长期使用！测试完成后必须立刻重建服务器！**
+如果要用同一个域名多次重建服务器测试本脚本，请优先使用`nu init.nu --noTLS`临时使用自签证书以避免触发CA rate limit发不出证书。直连XHTTP节点在生产环境需要公信证书，部署中的本机检查会显式信任初始自签证书。自签证书仅用于测试，**绝对不要长期使用！测试完成后必须立刻重建服务器！**
 
-地区运营商可能会阻断部分ip的QUIC，这会导致Hysteria2入站不可用，属不可抗力
+地区运营商可能会阻断部分ip的QUIC，这会导致直连XHTTP H3节点不可用，H2节点使用TCP
 
 部署及维护均以root运行，工作目录为`/root/3x-setup`。部署完成后，root只允许SSH公钥认证，密码及交互式认证均禁用；您在仓库根目录下的私钥`./id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
 
