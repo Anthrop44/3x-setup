@@ -25,7 +25,7 @@
 
 `modules/generate-ssh-key.nu`生成或导出Ed25519部署公钥，支持已有Ed25519-SK密钥；私钥缺失或已有公钥不匹配时拒绝覆盖
 
-`modules/client-files.nu`读取XHTML/CSS模板，使用各客户的`password`加密并导出分发页，`clients.tsv`的`Password`列保存对应密码；页面正文使用OpenSSL的PBKDF2-SHA256（100000次、64字节密钥）、AES-256-CBC与HMAC-SHA256加密认证，前32字节用于AES、后32字节用于HMAC，HMAC覆盖IV和密文；浏览器通过WebCrypto先验签再解密。HTML不包含明文密码，用户需输入八位数字密码解锁
+`modules/client-files.nu`读取`modules/template.html`和CSS模板，使用各客户的`password`加密并导出分发页，`clients.tsv`的`Password`列保存对应密码；页面正文使用OpenSSL的PBKDF2-SHA256（100000次、64字节密钥）、AES-256-CBC与HMAC-SHA256加密认证，前32字节用于AES、后32字节用于HMAC，HMAC覆盖IV和密文；浏览器通过WebCrypto先验签再解密。HTML不包含明文密码，用户需输入八位数字密码解锁
 
 `modules/ssh.nu`负责使用`directDomain`构造SSH/SCP目标和远端命令引用；首次部署和所有维护连接均使用该域名，需要提前将其解析到服务器并关闭Cloudflare代理。维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
 

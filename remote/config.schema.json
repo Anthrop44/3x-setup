@@ -65,7 +65,7 @@
 			}
 		},
 		"sshPort": {
-			"description": "（自动生成，请勿手动设置）新ssh端口号",
+			"description": "（自动生成高位端口号，请勿手动设置）新ssh端口号",
 			"type": "integer",
 			"minimum": 10001,
 			"maximum": 65535

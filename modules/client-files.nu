@@ -18,7 +18,7 @@ export def encrypt-page [plaintext: string, password: string] {
 
 # 为每位客户生成加密分发页，并导出包含链接和密码的clients.tsv
 export def export-client-files [project: string, config: record, constants: record] {
-	let template = (open --raw ($project | path join modules template.xhtml) | str replace --all "\r\n" "\n")
+	let template = (open --raw ($project | path join modules template.html) | str replace --all "\r\n" "\n")
 	let dir = ($project | path join remote fake-site $config.distributionPath)
 	rm --recursive --force $dir
 	mkdir $dir
