@@ -82,7 +82,7 @@ export def validate-config [config: record, constants: record, --complete] {
 		let values = ($config.clients | each {|c| $c | get --optional $key } | compact | each { str lowercase })
 		ensure (($values | uniq | length) == ($values | length)) $"Duplicate client ($key)"
 	}
-	let domains = ([$config.cdnDomain] | append ($config.cdnOptDomains? | default []) | each { str lowercase })
+	let domains = ([$config.cdnDomain] | append ($constants.cdnOptDomains? | default []) | each { str lowercase })
 	ensure (($domains | uniq | length) == ($domains | length)) 'cdnOptDomains must be unique and exclude cdnDomain'
 	let filenames = ($constants.proxyClientsFilenames | values)
 	ensure (($filenames | each { str lowercase } | uniq | length) == ($filenames | length)) 'Duplicate proxy client filename'

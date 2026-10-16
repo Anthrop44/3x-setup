@@ -25,29 +25,6 @@
 			"minimum": 10001,
 			"maximum": 65535
 		},
-		"cdnOptDomains": {
-			"description": "（可选）Cloudflare优选域名列表",
-			"type": "array",
-			"uniqueItems": true,
-			"items": {
-				"description": "Cloudflare优选域名。需要能解析到Cloudflare anycast ip",
-				"type": "string",
-				"format": "hostname",
-				"default": [
-					"www.shopify.com",
-					"time.is",
-					"japan.com",
-					"pubs.acs.org"
-				],
-				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
-			}
-		},
-		"cdnEchConfigList": {
-			"description": "（可选）为所有cdnDomain配置ECH，保留原普通TLS节点。建议填客户端可直达的DoH地址，如`https://1.1.1.1/dns-query`；也支持Xray的固定ECHConfigList和域名+DNS格式。删除本字段即可关闭",
-			"type": "string",
-			"minLength": 1,
-			"pattern": "^\\S+$"
-		},
 		"clients": {
 			"description": "客户端列表",
 			"type": "array",
@@ -62,12 +39,12 @@
 						"pattern": "^(?!(?:[Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])$)[A-Za-z0-9-]+$"
 					},
 					"traffic": {
-						"description": "每月流量上限（GB）",
+						"description": "每月流量上限（GB），不写即不限制",
 						"type": "integer",
 						"minimum": 0
 					},
 					"password": {
-						"description": "（缺失时自动生成，重建时复用）分发页解锁密码，八位数字字符串，可含前导零",
+						"description": "（自动生成，请勿手动设置）分发页解锁密码",
 						"type": "string",
 						"minLength": 8,
 						"maxLength": 8,

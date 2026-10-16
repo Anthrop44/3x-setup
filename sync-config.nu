@@ -14,7 +14,7 @@ def main [] {
 	let upload = ($project | path join $"sync-(random uuid).tar")
 	let staging = $"/root/3x-sync-(random uuid)"
 	try {
-		checked -- tar -cf $upload -C ($project | path join remote) config.json $"fake-site/($config.distributionPath)"
+		checked -- tar -cf $upload -C ($project | path join remote) config.json constants.json $"fake-site/($config.distributionPath)"
 		ssh-run $project $config (remote-nu $"mkdir ($staging)")
 		checked -- scp -i ($project | path join id_ed25519) -P $config.sshPort $upload (scp-target $config $"($staging)/upload.tar")
 		ssh-run $project $config (remote-nu $"^systemd-run --quiet --wait --collect --unit=3x-sync-(random uuid) /usr/bin/nu --no-config-file /root/3x-setup/main.nu sync ($staging); exit $env.LAST_EXIT_CODE")

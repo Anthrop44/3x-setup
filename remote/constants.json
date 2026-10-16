@@ -14,6 +14,13 @@
 	"dailyTaskHour": 4,
 	"subUpdates": 1,
 	"fingerprint": "chrome",
+	"cdnOptDomains": [
+		"www.shopify.com",
+		"time.is",
+		"japan.com",
+		"pubs.acs.org"
+	],
+	"cdnEchConfigList": "https://1.1.1.1/dns-query",
 	"proxyClientsFilenames": {
 		"v2rayNWindowsX64": "v2rayN-windows-64.zip",
 		"v2rayNGAndroidArm64": "v2rayNG_latest-fdroid_arm64-v8a.apk",

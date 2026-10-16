@@ -7,7 +7,7 @@ use ../features/panel/api.nu *
 export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: int, --direct, --alpn: string = '', --ech, --address: string = ''] {
 	let tls = ($alpn != '')
 	ensure (not $tls or $alpn in [h2 h3]) 'XHTTP testing requires h2 or h3'
-	ensure (not $ech or ($tls and not $direct and ($ctx.config.cdnEchConfigList? | default '' | is-not-empty))) 'ECH testing requires CDN TLS and cdnEchConfigList'
+	ensure (not $ech or ($tls and not $direct and ($ctx.constants.cdnEchConfigList? | default '' | is-not-empty))) 'ECH testing requires CDN TLS and cdnEchConfigList'
 	ensure ($address == '' or $tls) 'A public test address requires TLS'
 	let paths = (open $ctx.paths.state)
 	let domain = (if $direct { $ctx.config.directDomain } else { $ctx.config.cdnDomain })
@@ -15,7 +15,7 @@ export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: i
 		# Direct TLS tests also run before ACME, so trust the bootstrap certificate alongside system roots
 		{tlsSettings: ({serverName: $domain, fingerprint: $ctx.constants.fingerprint, alpn: [$alpn]} | merge (if $direct {
 			{certificates: [{certificateFile: /etc/caddy/3x-direct-cert.pem, usage: verify}]}
-		} else if $ech { {echConfigList: $ctx.config.cdnEchConfigList} } else { {} }))}
+		} else if $ech { {echConfigList: $ctx.constants.cdnEchConfigList} } else { {} }))}
 	} else { {} }))
 	let user = {id: $uuid, encryption: (if $direct { 'none' } else { $xhttp.encryption }), flow: (if $direct { '' } else { 'xtls-rprx-vision' })}
 	let address = (if $address != '' { $address } else if $tls and not $direct { $domain } else { '127.0.0.1' })
@@ -65,8 +65,8 @@ export def verify [ctx: record] {
 			let protection = (if $target.direct { 'plain VLESS (TLS at Caddy)' } else { 'ML-KEM-768 (xorpub) + Vision' })
 			proxy-test $ctx $uuid $target.settings --direct=$target.direct
 			print $"XHTTP ($target.remark) ($protection) loopback proxy test passed"
-			let addresses = (if $target.direct { [''] } else { [$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []) })
-			let variants = (if not $target.direct and ($ctx.config.cdnEchConfigList? | default '' | is-not-empty) { [false true] } else { [false] })
+			let addresses = (if $target.direct { [''] } else { [$ctx.config.cdnDomain] | append ($ctx.constants.cdnOptDomains? | default []) })
+			let variants = (if not $target.direct and ($ctx.constants.cdnEchConfigList? | default '' | is-not-empty) { [false true] } else { [false] })
 			for address in $addresses {
 				for ech in $variants {
 					for alpn in [h2 h3] {

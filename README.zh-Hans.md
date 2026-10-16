@@ -137,15 +137,14 @@ nu init.nu
 
 ## 更新客户信息和Cloudflare优选域名
 
-若要更改客户信息或增删Cloudflare优选域名，请编辑`remote/config.json`中的`clients`和`cdnOptDomains`后执行：
+若要更改客户信息，请编辑`remote/config.json`中的`clients`，然后执行：
 
 ```nu
 nu sync-config.nu
 ```
 
-脚本会上传新的`remote/config.json`并同步客户端信息和Cloudflare优选域名，重启Xray，并重新导出`clients.tsv`
+脚本会上传`remote/config.json`和`remote/constants.json`并同步客户端信息和Cloudflare优选域名，重启Xray，并重新导出`clients.tsv`；仅允许更改配置中的`clients`及常量中的`cdnOptDomains`和`cdnEchConfigList`
 
-如需保留普通TLS节点并为每个CDN地址追加ECH H2/H3节点，在`remote/config.json`加入`"cdnEchConfigList": "https://1.1.1.1/dns-query"`即可；删除本字段关闭ECH变体。DoH地址需能由客户端直接访问，CDN域名的Cloudflare HTTPS记录需包含ECH配置。ECH节点保留TLS指纹偏好，Direct节点不变。客户端及其Xray核心需支持ECH，并保留订阅中的`ech`参数，详见`doc.md`。已有部署需先更新远端脚本和schema，仅同步配置不会上传代码
 
 **`init.nu`和`sync-config.nu`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 

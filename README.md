@@ -137,19 +137,18 @@ Once Nushell is installed, start deployment:
 nu init.nu
 ```
 
-`init.nu` will automatically generate key pairs and encrypted distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The generated `clients.tsv` contains each client's distribution page URL and an eight-digit unlock password in the `Password` column. Send each client their URL and password. Passwords are automatically saved as `clients[].password` in `remote/config.json` and reused during rebuilds and synchronization; pages do not display plaintext passwords. The entire server initialization process usually takes 5 to 15 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
+`init.nu` will automatically generate key pairs and subscription link distribution pages, upload all remote files, and trigger the remote initialization. If a password is required, simply follow the terminal prompts. The generated `clients.tsv` contains each client's distribution page URL and an eight-digit unlock password in the `Password` column. Send each client their URL and password. Passwords are automatically saved as `clients[].password` in `remote/config.json` and reused during rebuilds and synchronization; pages do not display plaintext passwords. The entire server initialization process usually takes 5 to 15 minutes, depending on the server configuration. However, disconnecting the SSH connection after initiating remote execution will not interrupt the process, so there is no need to keep the terminal open and wait.
 
 ## Updating Client Information and Cloudflare Optimized Domains
 
-To change client information or add or remove Cloudflare optimized domains, edit `clients` and `cdnOptDomains` in `remote/config.json`, then run:
+To change client information, edit `clients` in `remote/config.json`, then run:
 
 ```nu
 nu sync-config.nu
 ```
 
-The script will upload the new `remote/config.json`, synchronize client information and Cloudflare optimized domains, restart Xray, and re-export `clients.tsv`.
+The script will upload `remote/config.json` and `remote/constants.json`, synchronize client information and Cloudflare optimized domains, restart Xray, and re-export `clients.tsv`. Only `clients` in the config and `cdnOptDomains` / `cdnEchConfigList` in the constants may change during synchronization.
 
-To retain ordinary TLS nodes and add ECH H2/H3 variants for every CDN address, set `"cdnEchConfigList": "https://1.1.1.1/dns-query"` in `remote/config.json`. The DoH endpoint must be reachable directly from clients, and the CDN domain must publish a Cloudflare HTTPS record containing ECH configuration. Remove this optional field to disable the variants. ECH keeps the configured TLS fingerprint preference; Direct nodes remain unchanged. Clients and their Xray cores must support ECH and preserve the subscription's `ech` parameter. See `doc.md` for details. Existing deployments must update their remote scripts and schema before using this field; configuration sync alone does not upload code.
 
 **`init.nu` and `sync-config.nu` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 

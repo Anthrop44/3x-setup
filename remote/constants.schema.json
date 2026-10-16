@@ -145,6 +145,29 @@
 			"default": "chrome",
 			"minLength": 1
 		},
+		"cdnOptDomains": {
+			"description": "（可选）Cloudflare优选域名列表",
+			"type": "array",
+			"uniqueItems": true,
+			"items": {
+				"description": "Cloudflare优选域名。需要能解析到Cloudflare anycast ip",
+				"type": "string",
+				"format": "hostname",
+				"pattern": "^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+			},
+			"default": [
+				"www.shopify.com",
+				"time.is",
+				"japan.com",
+				"pubs.acs.org"
+			]
+		},
+		"cdnEchConfigList": {
+			"description": "（可选）为所有cdnDomain配置ECH，保留原普通TLS节点。建议填客户端可直达的DoH地址，如`https://1.1.1.1/dns-query`；也支持Xray的固定ECHConfigList和域名+DNS格式。删除本字段即可关闭",
+			"type": "string",
+			"minLength": 1,
+			"pattern": "^\\S+$"
+		},
 		"proxyClientsFilenames": {
 			"description": "代理客户端固定下载文件名",
 			"type": "object",

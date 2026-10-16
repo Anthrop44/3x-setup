@@ -10,7 +10,7 @@
 - `nu init.nu --prepare-only`：只完成本地校验、补齐字段、密钥准备与分发页生成，不连接服务器
 - `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；本机直连检查显式信任初始自签证书
 - `nu init.nu --accept-new-host`：在清除重建服务器旧指纹后自动接受新指纹
-- `nu sync-config.nu`：同步`clients`、`cdnOptDomains`和`cdnEchConfigList`，其它部署参数必须保持不变
+- `nu sync-config.nu`：同步`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`，其它部署参数必须保持不变
 - `nu get-log.nu`：下载所有阶段日志，已有非空`log/`轮转为`log0/`等目录
 - `nu ssh-tunnel.nu --startup-timeout-seconds 60`：保留终端交互认证，访问仅本机监听的面板
 - `nu update-all.nu`：更新APT软件与3X-UI，并触发已安装的代理客户端更新器
@@ -136,11 +136,11 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 
 ## 配置同步与日志
 
-`sync-config.nu`将配置和完整分发目录打包上传到唯一暂存目录，远端再次校验配置，只允许更改客户、优选域名和`cdnEchConfigList`；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
+`sync-config.nu`将`config.json`、`constants.json`和完整分发目录打包上传到唯一暂存目录，远端再次校验两个文件，只允许更改`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
 
 `workflows/sync.nu`显式执行`cf-host-init`→`cf-host-check`→`3x-client-init`→`3x-client-check`→`connectivity-check`→`direct-tls-check`，不再从部署流程中途运行到末尾；同步不申请证书，TLS检查根据正在使用的Caddyfile选择证书来源
 
-本地`sync-config.nu`和`update-all.nu`分别调用远端`main.nu sync`和`main.nu update`；日常同步只上传配置与分发目录
+本地`sync-config.nu`和`update-all.nu`分别调用远端`main.nu sync`和`main.nu update`；日常同步只上传配置、常量与分发目录
 
 部署或同步失败不会自动重试已经执行的有副作用阶段。引导未完成或SSH端口尚未切换时，`get-log.nu`可能无法连接，需要通过初始SSH端口查看`/root/3x-setup/log/bootstrap.log`
 
@@ -278,7 +278,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 
 ### Cloudflare ECH
 
-在`remote/config.json`增加`"cdnEchConfigList": "https://1.1.1.1/dns-query"`可为原生及优选CDN地址追加ECH节点；删除该字段关闭ECH变体。DoH地址必须能由客户端直接访问，Xray按`cdnDomain`的HTTPS记录动态获取ECHConfigList并按TTL缓存，也支持Xray的固定Base64配置及`域名+DNS地址`格式
+`cdnOptDomains`和`cdnEchConfigList`均配置在`remote/constants.json`，由`remote/constants.schema.json`校验。在该常量文件增加`"cdnEchConfigList": "https://1.1.1.1/dns-query"`可为原生及优选CDN地址追加ECH节点；删除该字段关闭ECH变体。DoH地址必须能由客户端直接访问，Xray按`cdnDomain`的HTTPS记录动态获取ECHConfigList并按TTL缓存，也支持Xray的固定Base64配置及`域名+DNS地址`格式
 
 Cloudflare边缘需启用ECH，并为`cdnDomain`提供含`ech`参数的HTTPS记录。ECH节点的SNI和HTTP Host仍是`cdnDomain`，连接地址仍可使用优选域名；外层SNI由Cloudflare的ECH配置决定。保留`fingerprint`设置不代表握手字节不变，ECH会引入内外层ClientHello
 
@@ -286,7 +286,7 @@ Cloudflare边缘需启用ECH，并为`cdnDomain`提供含`ech`参数的HTTPS记�
 
 ECH终止于Cloudflare，不改变Caddy源站证书、回源设置和Xray入站。Direct节点仍只使用普通TLS。连通性检查覆盖每个CDN地址的普通及ECH H2/H3链路；Xray获取ECH配置失败时应使连接失败，不能将普通TLS连通视为ECH测试成功
 
-已有部署需要先更新远端相关脚本和schema，并按上文配置面板订阅备注模板及信息空节点，才能使用新字段及节点展示；`sync-config.nu`仅上传配置及分发目录，不更新远端代码或面板全局设置。首次部署会完成这些设置
+已有部署需要先将两个CDN字段从`config.json`移到`constants.json`，更新远端相关脚本和两个schema，并按上文配置面板订阅备注模板及信息空节点，才能使用新字段及节点展示；`sync-config.nu`仅上传配置、常量及分发目录，不更新远端代码或面板全局设置。首次部署会完成这些设置
 
 ## Caddy配置
 

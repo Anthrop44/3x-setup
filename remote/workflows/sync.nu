@@ -10,8 +10,9 @@ export def steps [] {
 }
 
 # 确保已有部署仅修改客户、CDN优选域名和ECH订阅设置
-export def validate-changes [current: record, proposed: record] {
-	ensure (($current | reject --optional clients cdnOptDomains cdnEchConfigList) == ($proposed | reject --optional clients cdnOptDomains cdnEchConfigList)) 'Only clients and cdnOptDomains and cdnEchConfigList may be changed on an existing deployment'
+export def validate-changes [current: record, proposed: record, current_constants: record, proposed_constants: record] {
+	ensure (($current | reject --optional clients) == ($proposed | reject --optional clients)) 'Only clients may be changed in config.json on an existing deployment'
+	ensure (($current_constants | reject --optional cdnOptDomains cdnEchConfigList) == ($proposed_constants | reject --optional cdnOptDomains cdnEchConfigList)) 'Only cdnOptDomains and cdnEchConfigList may be changed in constants.json on an existing deployment'
 }
 
 # 校验上传配置并执行同步检查，成功后替换线上分发目录
@@ -20,12 +21,13 @@ export def execute [directory: string, staging: string] {
 	let paths = (project-paths $directory)
 	checked -- tar -xf ($staging | path join upload.tar) -C $staging
 	let config = (open ($staging | path join config.json))
-	let constants = (open $paths.constants)
+	let constants = (open ($staging | path join constants.json))
 	validate-config $config $constants --complete
-	validate-changes (open $paths.config) $config
+	validate-changes (open $paths.config) $config (open $paths.constants) $constants
 	let source_dir = ($staging | path join fake-site $config.distributionPath)
 	ensure ($source_dir | path join template.css | path exists) 'Distribution stylesheet missing'
 	cp --force ($staging | path join config.json) $paths.config
+	cp --force ($staging | path join constants.json) $paths.constants
 	# The local entry point starts this workflow in a transient systemd service.
 	run-workflow (context $directory true true) (steps)
 	let target = $"/var/www/3x-fake-site/($config.distributionPath)"
