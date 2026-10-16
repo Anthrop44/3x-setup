@@ -4,25 +4,27 @@ use ../lib/systemd.nu no-failed-units
 use ../features/panel/api.nu *
 
 # 生成用于回环或公网H2/H3链路测试的临时Xray代理配置
-export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: int, --direct, --alpn: string = ''] {
+export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: int, --direct, --alpn: string = '', --ech, --address: string = ''] {
 	let tls = ($alpn != '')
 	ensure (not $tls or $alpn in [h2 h3]) 'XHTTP testing requires h2 or h3'
+	ensure (not $ech or ($tls and not $direct and ($ctx.config.cdnEchConfigList? | default '' | is-not-empty))) 'ECH testing requires CDN TLS and cdnEchConfigList'
+	ensure ($address == '' or $tls) 'A public test address requires TLS'
 	let paths = (open $ctx.paths.state)
 	let domain = (if $direct { $ctx.config.directDomain } else { $ctx.config.cdnDomain })
 	let stream = ({network: xhttp, security: (if $tls { 'tls' } else { 'none' }), xhttpSettings: {path: $"/($paths.xhttpPath)", host: (if $tls { $domain } else { '' }), mode: auto}} | merge (if $tls {
 		# Direct TLS tests also run before ACME, so trust the bootstrap certificate alongside system roots
 		{tlsSettings: ({serverName: $domain, fingerprint: $ctx.constants.fingerprint, alpn: [$alpn]} | merge (if $direct {
 			{certificates: [{certificateFile: /etc/caddy/3x-direct-cert.pem, usage: verify}]}
-		} else { {} }))}
+		} else if $ech { {echConfigList: $ctx.config.cdnEchConfigList} } else { {} }))}
 	} else { {} }))
 	let user = {id: $uuid, encryption: (if $direct { 'none' } else { $xhttp.encryption }), flow: (if $direct { '' } else { 'xtls-rprx-vision' })}
-	let address = (if $tls and not $direct { $domain } else { '127.0.0.1' })
+	let address = (if $address != '' { $address } else if $tls and not $direct { $domain } else { '127.0.0.1' })
 	let port = (if $tls { 443 } else if $direct { $ctx.constants.directXhttpPort } else { $ctx.constants.xhttpPort })
 	{log: {loglevel: warning}, inbounds: [{tag: socks, listen: '127.0.0.1', port: $socks_port, protocol: socks, settings: {auth: noauth, udp: false}}], outbounds: [{tag: proxy, protocol: vless, settings: {vnext: [{address: $address, port: $port, users: [$user]}]}, streamSettings: $stream}]}
 }
 
 # 启动临时Xray并通过SOCKS测试代理链路，结束时清理测试任务
-def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: string = ''] {
+def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: string = '', --ech, --address: string = ''] {
 	let candidates = (glob /usr/local/x-ui/bin/xray* | where {|p| ($p | path type) == file })
 	ensure ($candidates | is-not-empty) 'Xray binary not found'
 	let binary = $candidates.0
@@ -30,7 +32,7 @@ def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: stri
 		let socks_port = (port)
 		let config = ($temp | path join test.json)
 		let log = ($temp | path join xray.log)
-		write-json $config (proxy-config $ctx $uuid $xhttp $socks_port --direct=$direct --alpn=$alpn)
+		write-json $config (proxy-config $ctx $uuid $xhttp $socks_port --direct=$direct --alpn=$alpn --ech=$ech --address=$address)
 		let id = (job spawn { ^$binary run -config $config out+err> $log })
 		try {
 			retry 20 1sec { ensure (listening $socks_port --local) 'Waiting for test SOCKS port' }
@@ -63,9 +65,15 @@ export def verify [ctx: record] {
 			let protection = (if $target.direct { 'plain VLESS (TLS at Caddy)' } else { 'ML-KEM-768 (xorpub) + Vision' })
 			proxy-test $ctx $uuid $target.settings --direct=$target.direct
 			print $"XHTTP ($target.remark) ($protection) loopback proxy test passed"
-			for alpn in [h2 h3] {
-				proxy-test $ctx $uuid $target.settings --direct=$target.direct --alpn=$alpn
-				print $"XHTTP ($target.remark) ($alpn) ($protection) end-to-end proxy test passed"
+			let addresses = (if $target.direct { [''] } else { [$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []) })
+			let variants = (if not $target.direct and ($ctx.config.cdnEchConfigList? | default '' | is-not-empty) { [false true] } else { [false] })
+			for address in $addresses {
+				for ech in $variants {
+					for alpn in [h2 h3] {
+						proxy-test $ctx $uuid $target.settings --direct=$target.direct --alpn=$alpn --ech=$ech --address=$address
+						print $"XHTTP ($target.remark) ($address) ($alpn) (if $ech { 'ECH' } else { 'TLS' }) ($protection) end-to-end proxy test passed"
+					}
+				}
 			}
 		}
 	}

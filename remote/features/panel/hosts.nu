@@ -1,16 +1,21 @@
 use ../../lib/core.nu ensure
 use api.nu *
 
-# 为直连或CDN域名生成公网443端口的H2/H3 Host组请求数据
+# 为直连或CDN域名生成H2/H3 Host组，可为CDN追加独立ECH组
 export def host-payloads [ctx: record, inbound_id: int, --direct] {
 	let domains = (if $direct { [$ctx.config.directDomain] } else { [$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []) })
-	$domains | enumerate | each {|item|
+	let hosts = ($domains | enumerate | each {|item|
 		[h2 h3] | enumerate | each {|protocol|
 			let prefix = (if $direct { '3xsetupxhttpdirect' } else if $item.index == 0 { '3xsetupxhttpcdn1' } else { $"3xsetupxhttpopt($item.index)" })
-			let remark = (if $direct { 'Direct' } else if $item.index == 0 { 'Cloudflare Vanilla' } else { $"Cloudflare OPT ($item.index)" })
-			{groupId: $"($prefix)($protocol.item)", inboundIds: [$inbound_id], hosts: [$item.item], sortOrder: ($item.index * 2 + $protocol.index), remark: $"($remark) ($protocol.item)", isDisabled: false, isHidden: false, port: 443, security: tls, sni: (if $direct { $ctx.config.directDomain } else { $ctx.config.cdnDomain }), alpn: [$protocol.item], fingerprint: $ctx.constants.fingerprint}
+			let remark = (if $direct { 'Direct' } else { 'Cloudflare' })
+			{groupId: $"($prefix)($protocol.item)", inboundIds: [$inbound_id], hosts: [$item.item], sortOrder: ($item.index * 2 + $protocol.index), remark: $"($remark) ($protocol.item)", isDisabled: false, isHidden: false, port: 443, security: tls, sni: (if $direct { $ctx.config.directDomain } else { $ctx.config.cdnDomain }), alpn: [$protocol.item], fingerprint: $ctx.constants.fingerprint, echConfigList: ''}
 		}
-	} | flatten
+	} | flatten)
+	let ech = ($ctx.config.cdnEchConfigList? | default '')
+	if $direct or $ech == '' { return $hosts }
+	$hosts | append ($hosts | each {|host|
+		$host | update groupId $"($host.groupId)ech" | update remark $"Cloudflare ECH ($host.alpn.0)" | update sortOrder ($host.sortOrder + ($hosts | length)) | update echConfigList $ech
+	})
 }
 
 # 创建或更新直连与CDN的Host组，并删除多余组

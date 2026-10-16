@@ -145,9 +145,13 @@ nu sync-config.nu
 
 脚本会上传新的`remote/config.json`并同步客户端信息和Cloudflare优选域名，重启Xray，并重新导出`clients.tsv`
 
+如需保留普通TLS节点并为每个CDN地址追加ECH H2/H3节点，在`remote/config.json`加入`"cdnEchConfigList": "https://1.1.1.1/dns-query"`即可；删除本字段关闭ECH变体。DoH地址需能由客户端直接访问，CDN域名的Cloudflare HTTPS记录需包含ECH配置。ECH节点保留TLS指纹偏好，Direct节点不变。客户端及其Xray核心需支持ECH，并保留订阅中的`ech`参数，详见`doc.md`。已有部署需先更新远端脚本和schema，仅同步配置不会上传代码
+
 **`init.nu`和`sync-config.nu`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 
 代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.nu`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS以root执行`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
+
+订阅中的连接节点统一显示为`Direct h2/h3`、`Cloudflare h2/h3`、`Cloudflare ECH h2/h3`，不同CDN地址允许同名。另有一个信息空节点显示`用户名 已用流量/剩余流量`，随订阅更新统计，无限流量的剩余额度显示`∞`
 
 ## 连接3X-UI面板
 
@@ -171,7 +175,7 @@ nu update-all.nu
 
 本方案可能无法在Windows 10的客户端上使用，因为Windows 10没有完整的TLS 1.3支持
 
-本方案测试时3X-UI版本是v3.5.0。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue
+本方案测试时3X-UI版本是v3.10.2，Xray-core版本是v26.10.10。未来若3X-UI API发生变更，可能会出问题，但最好不要为了使用本方案而固定3X-UI版本。万一遇到问题请发issue
 
 本项目不是幂等部署器，需要对重建后的干净服务器执行，不能用于已有业务的服务器
 

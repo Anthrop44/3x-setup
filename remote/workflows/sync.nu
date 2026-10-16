@@ -9,9 +9,9 @@ export def steps [] {
 	plan [cf-host-init cf-host-check 3x-client-init 3x-client-check connectivity-check direct-tls-check]
 }
 
-# 确保已有部署仅修改clients和cdnOptDomains字段
+# 确保已有部署仅修改客户、CDN优选域名和ECH订阅设置
 export def validate-changes [current: record, proposed: record] {
-	ensure (($current | reject --optional clients cdnOptDomains) == ($proposed | reject --optional clients cdnOptDomains)) 'Only clients and cdnOptDomains may be changed on an existing deployment'
+	ensure (($current | reject --optional clients cdnOptDomains cdnEchConfigList) == ($proposed | reject --optional clients cdnOptDomains cdnEchConfigList)) 'Only clients and cdnOptDomains and cdnEchConfigList may be changed on an existing deployment'
 }
 
 # 校验上传配置并执行同步检查，成功后替换线上分发目录

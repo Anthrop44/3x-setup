@@ -1,5 +1,7 @@
 use ../../lib/core.nu *
+use ../../lib/network.nu curl-text
 use api.nu *
+use hosts.nu host-payloads
 
 # 将客户配置转换为面板的订阅ID、字节配额和重置周期
 export def client-policy [client: record] {
@@ -47,29 +49,40 @@ export def subscription-links [value: any] {
 	if $kind == string { $value | lines | where {|s| $s != '' } } else if $kind starts-with record { $value.externalLinks? | default [] } else { $value }
 }
 
-# 校验各域名H2/H3订阅的数量、端口、TLS、加密和流控设置
-export def validate-links [ctx: record, value: any, encryption: record] {
-	let links = (subscription-links $value)
-	let domains = ([$ctx.config.cdnDomain] | append ($ctx.config.cdnOptDomains? | default []))
-	ensure (($links | length) == (2 + 2 * ($domains | length))) 'Wrong subscription link count'
+# 校验代理链接；指定客户名时还校验公开订阅的首个流量空节点及纯节点名称
+export def validate-links [ctx: record, value: any, encryption: record, --client: string = ''] {
+	let all = (subscription-links $value)
+	let links = (if $client == '' { $all } else {
+		ensure ($all | is-not-empty) 'Missing traffic information node'
+		let info = ($all.0 | url parse)
+		ensure ($info.scheme == socks and $info.host == '127.0.0.1' and $info.port == '1080' and $info.username == '' and $info.password == '' and $info.query == '') 'Wrong traffic information node endpoint'
+		let remark = ($info.fragment | url decode)
+		ensure ($remark starts-with $"($client) ") 'Wrong traffic information node username'
+		let usage = ($remark | str substring (($client | str length) + 1).. | split row '/')
+		ensure (($usage | length) == 2 and ($usage | all {|part| ($part | str trim | is-not-empty) and $part !~ '[{}]' })) 'Wrong traffic information node usage'
+		$all | skip 1
+	})
+	let targets = ((host-payloads $ctx 0 --direct | each { insert encryption $encryption.Direct | insert flow '' }) | append (host-payloads $ctx 0 | each { insert encryption $encryption.Cloudflare | insert flow xtls-rprx-vision }))
+	ensure (($links | length) == ($targets | length)) 'Wrong subscription link count'
 	ensure ($encryption.Direct == none) 'Direct XHTTP must not use VLESS Encryption'
-	let targets = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: ''}] | append ($domains | each {|domain| {domain: $domain, sni: $ctx.config.cdnDomain, encryption: $encryption.Cloudflare, flow: xtls-rprx-vision} }))
 	for target in $targets {
-		for alpn in [h2 h3] {
-			let matching = ($links | where {|link|
-				let url = ($link | url parse)
-				$url.scheme == vless and $url.host == $target.domain and $url.port == '443' and (($url.params | where key == alpn | get value) == [$alpn])
-			})
-			ensure (($matching | length) == 1) $"Missing or duplicate XHTTP subscription: ($target.domain)/($alpn)"
-			let params = ($matching.0 | url parse | get params)
-			ensure (($params | where key == type | get value) == [xhttp] and ($params | where key == security | get value) == [tls] and ($params | where key == sni | get value) == [$target.sni]) 'Wrong XHTTP subscription transport or TLS settings'
-			ensure (($params | where key == encryption | get value) == [$target.encryption]) 'XHTTP subscription encryption does not match the inbound'
-			let flows = ($params | where key == flow | get value)
-			if $target.flow == '' {
-				ensure ($flows in [[] ['']]) 'Direct XHTTP subscription must not use Vision flow'
-			} else {
-				ensure ($flows == [$target.flow]) 'CDN XHTTP subscription is missing Vision flow'
-			}
+		let matching = ($links | where {|link|
+			let url = ($link | url parse)
+			let ech = ($url.params | where key == ech | get value)
+			$url.scheme == vless and $url.host == $target.hosts.0 and $url.port == '443' and (($url.params | where key == alpn | get value) == $target.alpn) and (if $target.echConfigList == '' { $ech in [[] ['']] } else { $ech == [$target.echConfigList] })
+		})
+		ensure (($matching | length) == 1) $"Missing or duplicate XHTTP subscription: ($target.remark)"
+		let name = ($matching.0 | url parse | get fragment | url decode)
+		ensure (if $client == '' { $name starts-with $target.remark } else { $name == $target.remark }) 'Subscription name must match the Host remark'
+		let params = ($matching.0 | url parse | get params)
+		ensure (($params | where key == type | get value) == [xhttp] and ($params | where key == security | get value) == [tls] and ($params | where key == sni | get value) == [$target.sni]) 'Wrong XHTTP subscription transport or TLS settings'
+		ensure (($params | where key == fp | get value) == [$target.fingerprint]) 'Wrong XHTTP subscription TLS fingerprint'
+		ensure (($params | where key == encryption | get value) == [$target.encryption]) 'XHTTP subscription encryption does not match the inbound'
+		let flows = ($params | where key == flow | get value)
+		if $target.flow == '' {
+			ensure ($flows in [[] ['']]) 'Direct XHTTP subscription must not use Vision flow'
+		} else {
+			ensure ($flows == [$target.flow]) 'CDN XHTTP subscription is missing Vision flow'
 		}
 	}
 	ensure ($links | all {|link| $link =~ '^vless://[^@]+@[^:/?#]+:443([/?#]|$)' }) 'A subscription has an obsolete protocol or exposes an internal port'
@@ -92,6 +105,8 @@ export def verify [ctx: record] {
 			ensure ($uuid | is-not-empty) 'Client UUID missing'
 			request $session $"/panel/api/clients/links/($client.client)" | ignore
 			validate-links $ctx (request $session $"/panel/api/clients/subLinks/($client.path)") {Direct: $direct.encryption, Cloudflare: $cf.encryption}
+			let body = (curl-text -- $"https://($ctx.config.cdnDomain)/($ctx.config.subscriptionPath)/($client.path)" | str trim | decode base64 | decode utf-8)
+			validate-links $ctx $body {Direct: $direct.encryption, Cloudflare: $cf.encryption} --client $client.client
 		}
 	}
 }

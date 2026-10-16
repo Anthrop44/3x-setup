@@ -12,7 +12,8 @@ export def subscription-settings [ctx: record, current: record] {
 		subPath: $"/($ctx.config.subscriptionPath)/", subDomain: $ctx.config.cdnDomain
 		subURI: $"https://($ctx.config.cdnDomain)/($ctx.config.subscriptionPath)/"
 		subCertFile: '', subKeyFile: '', subEncrypt: true, subShowInfo: true, subEmailInRemark: true
-		remarkTemplate: '{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}'
+		remarkTemplate: '{{HOST}}|{{EMAIL}} {{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}'
+		subInfoNodeEnable: true, subShowIdentityOnAllLinks: false
 		remarkModel: (if ($current.remarkModel? | default '' | is-empty) { '-ieo' } else { $current.remarkModel })
 		subUpdates: $ctx.constants.subUpdates, subTitle: '请勿分享！', subSupportUrl: '', subProfileUrl: '', subAnnounce: '请勿分享！', subThemeDir: ''
 	}
@@ -64,7 +65,12 @@ export def verify [ctx: record] {
 	only-loopback $ctx.constants.'3xpanelPort'
 	only-loopback $ctx.constants.subscriptionPort
 	let rows = (retry 5 2sec { capture -- sqlite3 -cmd '.timeout 5000' -json /etc/x-ui/x-ui.db 'select key,value from settings;' | from json })
-	for entry in [{key: remarkTemplate, expected: '{{INBOUND}} {{EMAIL}} {{TRAFFIC_TOTAL}}'} {key: subUpdates, expected: ($ctx.constants.subUpdates | into string)}] {
+	for entry in [
+		{key: remarkTemplate, expected: '{{HOST}}|{{EMAIL}} {{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}'}
+		{key: subInfoNodeEnable, expected: 'true'}
+		{key: subShowIdentityOnAllLinks, expected: 'false'}
+		{key: subUpdates, expected: ($ctx.constants.subUpdates | into string)}
+	] {
 		let row = ($rows | where key == $entry.key)
 		ensure (($row | length) == 1 and $row.0.value == $entry.expected) $"Unexpected setting: ($entry.key)"
 	}

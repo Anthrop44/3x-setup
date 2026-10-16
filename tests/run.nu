@@ -11,6 +11,7 @@ use ../remote/features/panel/inbounds.nu inbound-payloads
 use ../remote/features/panel/hosts.nu host-payloads
 use ../remote/features/panel/clients.nu [client-policy stale-clients validate-links]
 use ../remote/features/panel/encryption.nu select-vless-encryption
+use ../remote/features/panel/setup.nu subscription-settings
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
@@ -136,14 +137,82 @@ def main [] {
 					if $alpn != '' { equal $target.port 443; equal $probe.outbounds.0.streamSettings.tlsSettings.alpn [$alpn] }
 				}
 			}
-			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: ''}] | append ([$ctx.config.cdnDomain] | append $ctx.config.cdnOptDomains | each {|domain| {domain: $domain, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision} }) | each {|target|
+			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: '', remark: Direct}] | append ([$ctx.config.cdnDomain] | append $ctx.config.cdnOptDomains | enumerate | each {|domain| {domain: $domain.item, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision, remark: Cloudflare} }) | each {|target|
 				[h2 h3] | each {|alpn|
-					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn} | url build-query)
-					$"vless://test-uuid@($target.domain):443?($query)"
+					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: $ctx.constants.fingerprint} | url build-query)
+					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
 				}
 			} | flatten)
 			validate-links $ctx $links {Direct: none, Cloudflare: $keys.encryption}
 			rejects { validate-links $ctx ($links | each { str replace ':443?' ':8443?' }) {Direct: none, Cloudflare: $keys.encryption} } 'Missing or duplicate'
+		}
+	}
+
+	test 'ECH adds CDN variants while preserving ordinary TLS and direct hosts' {
+		with-temp {|temp|
+			let original = (fixture $temp)
+			let ctx = ($original | upsert config.cdnEchConfigList 'https://1.1.1.1/dns-query')
+			validate-config $ctx.config $ctx.constants --complete
+			sync validate-changes $original.config $ctx.config
+			sync validate-changes $ctx.config $original.config
+			rejects { validate-config ($ctx.config | update cdnEchConfigList '') $ctx.constants } 'too short'
+			rejects { validate-config ($ctx.config | update cdnEchConfigList 'https://bad resolver/') $ctx.constants } 'invalid format'
+			let original_hosts = (host-payloads $original 2)
+			let hosts = (host-payloads $ctx 2)
+			equal ($hosts | length) 8
+			equal ($hosts | first 4) $original_hosts
+			equal ($hosts.groupId | uniq | length) 8
+			equal ($hosts | last 4 | get remark) ['Cloudflare ECH h2' 'Cloudflare ECH h3' 'Cloudflare ECH h2' 'Cloudflare ECH h3']
+			equal ($hosts | last 4 | get echConfigList | uniq) [$ctx.config.cdnEchConfigList]
+			equal ($hosts | last 4 | get sortOrder) [4 5 6 7]
+			equal ($hosts | last 4 | get sni | uniq) [$ctx.config.cdnDomain]
+			equal ($hosts | last 4 | get fingerprint | uniq) [$ctx.constants.fingerprint]
+			equal (host-payloads $ctx 1 --direct) (host-payloads $original 1 --direct)
+			let keys = (encryption)
+			let ordinary = ([{domain: $ctx.config.directDomain, encryption: none, flow: '', sni: $ctx.config.directDomain, remark: Direct}] | append ([$ctx.config.cdnDomain opt.example.com] | enumerate | each {|domain| {domain: $domain.item, encryption: $keys.encryption, flow: xtls-rprx-vision, sni: $ctx.config.cdnDomain, remark: Cloudflare} }) | each {|target|
+				[h2 h3] | each {|alpn|
+					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: chrome} | url build-query)
+					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
+				}
+			} | flatten)
+			let ech_links = ($ordinary | skip 2 | each {|link|
+				let query = ({ech: $ctx.config.cdnEchConfigList} | url build-query)
+				let parts = ($link | split row '#')
+				$"($parts.0)&($query)#($parts.1 | str replace 'Cloudflare ' 'Cloudflare ECH ')"
+			})
+			let links = ($ordinary | append $ech_links)
+			let enc = {Direct: none, Cloudflare: $keys.encryption}
+			validate-links $ctx $links $enc
+			let info = 'socks://127.0.0.1:1080#alice 1 GB/9 GB'
+			validate-links $ctx ([$info] | append $links) $enc --client alice
+			validate-links $ctx (['socks://127.0.0.1:1080#alice 1 GB/∞'] | append $links) $enc --client alice
+			rejects { validate-links $ctx $links $enc --client alice } 'information node endpoint'
+			rejects { validate-links $ctx ([$info $info] | append $links) $enc --client alice } 'Wrong subscription link count'
+			rejects { validate-links $ctx ([$info] | append ($links | each { str replace '#Direct h2' '#Direct h2 alice' })) $enc --client alice } 'Host remark'
+			rejects { validate-links $ctx (['socks://127.0.0.2:1080#alice 1 GB/9 GB'] | append $links) $enc --client alice } 'information node endpoint'
+			rejects { validate-links $ctx (['socks://127.0.0.1:1080#bob 1 GB/9 GB'] | append $links) $enc --client alice } 'node username'
+			rejects { validate-links $ctx (['socks://127.0.0.1:1080#alice {{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}'] | append $links) $enc --client alice } 'node usage'
+			let settings = (subscription-settings $ctx {subInfoNodeEnable: false, subShowIdentityOnAllLinks: true, unrelated: preserved})
+			equal $settings.unrelated preserved
+			equal $settings.subInfoNodeEnable true
+			equal $settings.subShowIdentityOnAllLinks false
+			equal ($settings.remarkTemplate | split row '|' | first) '{{HOST}}'
+			ensure ($settings.remarkTemplate | str contains '{{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}') 'Missing dynamic used/remaining traffic template'
+			rejects { validate-links $ctx ($links | each { str replace --regex '#.*$' '#Cloudflare' }) $enc } 'Host remark'
+			rejects { validate-links $ctx $ordinary $enc } 'Wrong subscription link count'
+			rejects { validate-links $ctx ($ordinary | append ($ordinary | skip 2)) $enc } 'Missing or duplicate'
+			rejects { validate-links $ctx ($links | each { str replace 'ech=' 'ignored=' }) $enc } 'Missing or duplicate'
+			rejects { validate-links $ctx ($links | each { str replace 'fp=chrome' 'fp=firefox' }) $enc } 'TLS fingerprint'
+			for alpn in [h2 h3] {
+				let probe = (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn --ech --address opt.example.com | get outbounds.0)
+				equal $probe.settings.vnext.0.address opt.example.com
+				equal $probe.settings.vnext.0.users.0.flow xtls-rprx-vision
+				equal $probe.streamSettings.tlsSettings {serverName: $ctx.config.cdnDomain, fingerprint: chrome, alpn: [$alpn], echConfigList: $ctx.config.cdnEchConfigList}
+				equal $probe.streamSettings.xhttpSettings.host $ctx.config.cdnDomain
+			}
+			rejects { proxy-config $ctx test-uuid $keys 12345 --ech } 'ECH testing requires'
+			rejects { proxy-config $ctx test-uuid $keys 12345 --ech --direct --alpn h2 } 'ECH testing requires'
+			rejects { proxy-config $original test-uuid $keys 12345 --ech --alpn h2 } 'ECH testing requires'
 		}
 	}
 
@@ -254,5 +323,5 @@ def main [] {
 			}
 		}
 	}
-	print 'All 9 test groups passed'
+	print 'All 10 test groups passed'
 }

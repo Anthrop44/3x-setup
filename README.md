@@ -149,9 +149,13 @@ nu sync-config.nu
 
 The script will upload the new `remote/config.json`, synchronize client information and Cloudflare optimized domains, restart Xray, and re-export `clients.tsv`.
 
+To retain ordinary TLS nodes and add ECH H2/H3 variants for every CDN address, set `"cdnEchConfigList": "https://1.1.1.1/dns-query"` in `remote/config.json`. The DoH endpoint must be reachable directly from clients, and the CDN domain must publish a Cloudflare HTTPS record containing ECH configuration. Remove this optional field to disable the variants. ECH keeps the configured TLS fingerprint preference; Direct nodes remain unchanged. Clients and their Xray cores must support ECH and preserve the subscription's `ech` parameter. See `doc.md` for details. Existing deployments must update their remote scripts and schema before using this field; configuration sync alone does not upload code.
+
 **`init.nu` and `sync-config.nu` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
 Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.nu`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
+
+Subscription node names are `Direct h2/h3`, `Cloudflare h2/h3`, and `Cloudflare ECH h2/h3`. Different CDN addresses may share a display name. A separate information placeholder shows `username used/remaining` traffic and refreshes with the subscription; unlimited remaining traffic is shown as `∞`.
 
 ## Connecting to the 3X-UI Panel
 
@@ -175,7 +179,7 @@ Please run this regularly or redeploy proxy server to stay up-to-date with upstr
 
 This solution may not work on Windows 10 clients, as Windows 10 lacks full TLS 1.3 support.
 
-This solution was tested using 3X-UI version v3.5.0. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
+This solution was tested using 3X-UI version v3.10.2 and Xray-core version v26.10.10. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
 
 This project is not an idempotent deployer. It must be executed on a freshly rebuilt, clean server and should not be used on servers running existing production services.
 
