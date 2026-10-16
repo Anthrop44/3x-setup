@@ -10,13 +10,13 @@ export def remote-nu [code: string] {
 	$"nu --no-config-file -c (shell-quote $code)"
 }
 
-# 构造root的SSH目标地址，去掉IPv6地址的方括号
+# 使用直连域名构造root的SSH目标地址
 export def ssh-target [config: record] {
-	$"root@($config.ip | str trim --char '[' | str trim --char ']')"
+	$"root@($config.directDomain)"
 }
 
-# 构造root的SCP目标路径，保留IPv6地址的方括号
-export def scp-target [config: record, path: string] { $"root@($config.ip):($path)" }
+# 使用直连域名构造root的SCP目标路径
+export def scp-target [config: record, path: string] { $"root@($config.directDomain):($path)" }
 
 # 返回部署私钥和配置端口对应的SSH参数
 export def ssh-options [project: string, config: record] {

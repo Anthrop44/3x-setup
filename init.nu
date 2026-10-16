@@ -40,7 +40,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 	let options = (if $accept_new_host { [-o StrictHostKeyChecking=accept-new] } else { [] })
 	let known_hosts = ($nu.home-dir | path join .ssh known_hosts)
 	if ($known_hosts | path exists) {
-		let host = ($config.ip | str trim --char '[' | str trim --char ']')
+		let host = $config.directDomain
 		for port in ([$initial_port $config.sshPort] | uniq) {
 			let entry = (if $port == 22 { $host } else { $"[($host)]:($port)" })
 			checked -- ssh-keygen -R $entry -f $known_hosts

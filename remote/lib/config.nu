@@ -23,7 +23,7 @@ export def context [directory: string, no_tls: bool, no_app: bool] {
 }
 
 # 校验仓库中两个schema使用的全部断言
-# format仅作注解，IP和域名格式另由schema中的显式pattern校验
+# format仅作注解，域名格式另由schema中的显式pattern校验
 export def validate-schema [value: any, schema: record, location: string = '$'] {
 	if 'type' in $schema {
 		let actual = ($value | describe)

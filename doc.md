@@ -21,13 +21,13 @@
 
 `modules/setup-config.nu`读取schema、补齐`sshPort`、`subscriptionPath`、`distributionPath`、`clients[].path`和`clients[].password`，检查端口、域名、客户名、路径和文件名冲突，已有字段保持不变；密码为八位数字字符串，缺失时生成并保存到`remote/config.json`，重建或同步时复用；配置同步不生成缺失的初始订阅路径或SSH端口
 
-`remote/lib/config.nu`统一管理远端配置和资源路径，并实现这两个schema使用的断言：类型、required、additionalProperties、oneOf、not、enum、pattern、长度、数值范围和uniqueItems；format是注解，IP与域名格式由schema中的pattern验证
+`remote/lib/config.nu`统一管理远端配置和资源路径，并实现这两个schema使用的断言：类型、required、additionalProperties、oneOf、not、enum、pattern、长度、数值范围和uniqueItems；format是注解，域名格式由schema中的pattern验证
 
 `modules/generate-ssh-key.nu`生成或导出Ed25519部署公钥，支持已有Ed25519-SK密钥；私钥缺失或已有公钥不匹配时拒绝覆盖
 
 `modules/client-files.nu`读取XHTML/CSS模板，使用各客户的`password`加密并导出分发页，`clients.tsv`的`Password`列保存对应密码；页面正文使用OpenSSL的PBKDF2-SHA256（100000次、64字节密钥）、AES-256-CBC与HMAC-SHA256加密认证，前32字节用于AES、后32字节用于HMAC，HMAC覆盖IV和密文；浏览器通过WebCrypto先验签再解密。HTML不包含明文密码，用户需输入八位数字密码解锁
 
-`modules/ssh.nu`负责SSH目标、IPv6和远端命令引用；维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
+`modules/ssh.nu`负责使用`directDomain`构造SSH/SCP目标和远端命令引用；首次部署和所有维护连接均使用该域名，需要提前将其解析到服务器并关闭Cloudflare代理。维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
 
 ## 远端目录与调用边界
 

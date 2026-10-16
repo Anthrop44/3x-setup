@@ -106,11 +106,28 @@ remote/
 - 伪装站应像一个正常静态网站，避免只放空白页或明显的测试文本
 - 部署时脚本会把整个`remote/fake-site/`复制到服务器，由Caddy在探测路径和fallback路径返回
 
-## 首次部署
+## 最小本地环境和部署
 
-在准备好以上所有文件后即可开始部署
+在准备好以上所有文件后，在本机[安装Nushell（一种跨平台的Shell，这样Windows、macOS和Linux都能用）](https://www.nushell.sh/zh-CN/book/installation.html)
 
-在本机[安装Nushell（一种跨平台的Shell，这样Windows、macOS和Linux都能用）](https://www.nushell.sh/zh-CN/book/installation.html)，版本至少为0.116.1，并确保OpenSSH、OpenSSL 3和tar在PATH中可用，然后执行：
+Windows用户请执行
+
+```ps1
+# Winget换源为教育网联合镜像站以便在中国大陆使用，如果你能连winget，这步可以跳过
+winget source remove winget
+winget source add winget https://mirrors.cernet.edu.cn/winget-source --trust-level trusted
+# 安装Nushell
+winget install nushell
+```
+
+macOS用户请执行
+```zsh
+brew install nushell
+```
+
+Linux用户自己看文档
+
+装好Nushell后就可以开始部署。执行：
 
 ```nu
 nu init.nu

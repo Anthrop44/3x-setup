@@ -8,7 +8,7 @@ This solution is based on the 3X-UI API to deploy multiple co-located masqueradi
 - VLESS+XHTTP+TLS direct connection
 - VLESS Encryption (ML-KEM-768, xorpub)+Vision+XHTTP+Cloudflare CDN
 
-This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and Debian 13+ or Ubuntu 24.04+, as well as the local tools listed below.
+This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and a recent version of Debian or Ubuntu. If you need help choosing a server provider, you can visit <https://www.nodeseek.com/> (I have no affiliation with this website).
 
 The following is a usage tutorial and does not explain the underlying principles in detail. Users with command-line experience can read the development documentation `doc.md`.
 
@@ -108,11 +108,30 @@ Prepare the static masquerade site: (If you don't know how, you can let an AI ge
 - The masquerade site should look like a normal static website. Avoid blank pages or obvious placeholder/test text.
 - During deployment, the script will copy the entire `remote/fake-site/` folder to the server. Caddy will then serve it on the probe and fallback paths.
 
-## First Deployment
+## Minimal Local Environment and Deployment
 
-Once all the files above are ready, you can begin the deployment.
+Once all the files above are ready, [install Nushell locally](https://www.nushell.sh/book/installation.html). Nushell is a cross-platform shell that works on Windows, macOS, and Linux.
 
-Install [Nushell](https://www.nushell.sh/book/installation.html) 0.116.1 or newer on your local machine, and make sure OpenSSH, OpenSSL 3 and tar are on PATH. Then run:
+On Windows, run:
+
+```ps1
+# Switch Winget to the CERNET mirror for use in mainland China.
+# Skip these two commands if you can already access the Winget source.
+winget source remove winget
+winget source add winget https://mirrors.cernet.edu.cn/winget-source --trust-level trusted
+# Install Nushell
+winget install nushell
+```
+
+On macOS, run:
+
+```zsh
+brew install nushell
+```
+
+On Linux, see <https://www.nushell.sh/book/installation.html>.
+
+Once Nushell is installed, start deployment:
 
 ```nu
 nu init.nu
@@ -132,7 +151,7 @@ The script will upload the new `remote/config.json`, synchronize client informat
 
 **`init.nu` and `sync-config.nu` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
-Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.nu`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. The remote bootstrap installs Nushell from the official Fury APT repository before starting deployment. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
+Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.nu`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
 
 ## Connecting to the 3X-UI Panel
 

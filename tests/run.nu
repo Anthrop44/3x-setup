@@ -14,6 +14,7 @@ use ../remote/features/panel/encryption.nu select-vless-encryption
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
+use ../modules/ssh.nu [ssh-target scp-target]
 
 # 断言实际值与预期值相等，否则显示差异并抛错
 def equal [actual: any, expected: any] {
@@ -39,7 +40,7 @@ def fixture [directory: string] {
 	cp ($ROOT | path join remote constants.json) $remote
 	cp ($ROOT | path join remote templates Caddyfile.template) ($remote | path join templates)
 	write-json ($remote | path join config.json) {
-		ip: '203.0.113.10', directDomain: direct.example.com, cdnDomain: cdn.example.com
+		directDomain: direct.example.com, cdnDomain: cdn.example.com
 		cdnPort: 15443, cdnOptDomains: [opt.example.com], clients: [{client: alice, traffic: 10}]
 	}
 	prepare-config $directory --initial | ignore
@@ -82,10 +83,13 @@ def main [] {
 		with-temp {|temp|
 			let ctx = (fixture $temp)
 			validate-config $ctx.config $ctx.constants --complete
+			equal (ssh-target $ctx.config) root@direct.example.com
+			equal (scp-target $ctx.config /root/3x-setup.tar) 'root@direct.example.com:/root/3x-setup.tar'
 			equal (prepare-config $temp | get config) $ctx.config
 			sync validate-changes $ctx.config ($ctx.config | upsert cdnOptDomains [] | upsert clients [{client: bob}])
 			rejects { sync validate-changes $ctx.config ($ctx.config | update cdnPort 16443) } 'Only clients and cdnOptDomains'
-			rejects { validate-config ($ctx.config | update ip invalid) $ctx.constants } 'must match exactly one'
+			rejects { validate-config ($ctx.config | update directDomain invalid) $ctx.constants } 'invalid format'
+			rejects { validate-config ($ctx.config | upsert ip '203.0.113.10') $ctx.constants } 'unknown property'
 			rejects { validate-config ($ctx.config | upsert unexpected true) $ctx.constants } 'unknown property'
 			rejects { validate-config ($ctx.config | update cdnPort 443) $ctx.constants } 'below minimum'
 			rejects { validate-config ($ctx.config | update clients [$ctx.config.clients.0 $ctx.config.clients.0]) $ctx.constants } 'duplicate items'
