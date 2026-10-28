@@ -121,6 +121,7 @@ winget install nushell
 ```
 
 macOS用户请执行
+
 ```zsh
 brew install nushell
 ```

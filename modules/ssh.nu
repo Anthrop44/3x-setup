@@ -18,9 +18,17 @@ export def ssh-target [config: record] {
 # 使用直连域名构造root的SCP目标路径
 export def scp-target [config: record, path: string] { $"root@($config.directDomain):($path)" }
 
-# 返回部署私钥和配置端口对应的SSH参数
-export def ssh-options [project: string, config: record] {
-	[-i ($project | path join id_ed25519) -p ($config.sshPort | into string)]
+# 返回部署私钥、端口和连接超时对应的SSH参数
+# 端口可覆盖，便于在sshd切换到新端口前后回退到初始端口
+# ServerAlive保证长时间静默的部署期间连接不被NAT或防火墙切断
+export def ssh-options [project: string, config: record, port?: int] {
+	[
+		-i ($project | path join id_ed25519)
+		-p (($port | default $config.sshPort) | into string)
+		-o ConnectTimeout=20
+		-o ServerAliveInterval=30
+		-o ServerAliveCountMax=10
+	]
 }
 
 # 每次入口执行最多尝试恢复一次未知主机连接，绝不接受已知主机的密钥变更

@@ -27,7 +27,7 @@
 
 `modules/client-files.nu`读取`modules/template.html`和CSS模板，使用各客户的`password`加密并导出分发页，`clients.tsv`的`Password`列保存对应密码；页面正文使用OpenSSL的PBKDF2-SHA256（100000次、64字节密钥）、AES-256-CBC与HMAC-SHA256加密认证，前32字节用于AES、后32字节用于HMAC，HMAC覆盖IV和密文；浏览器通过WebCrypto先验签再解密。HTML不包含明文密码，用户需输入八位数字密码解锁
 
-`modules/ssh.nu`负责使用`directDomain`构造SSH/SCP目标和远端命令引用；首次部署和所有维护连接均使用该域名，需要提前将其解析到服务器并关闭Cloudflare代理。维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
+`modules/ssh.nu`负责使用`directDomain`构造SSH/SCP目标和远端命令引用；首次部署和所有维护连接均使用该域名，需要提前将其解析到服务器并关闭Cloudflare代理。`ssh-options`统一带上20秒连接超时和30秒保活，部署静默期间连接不会被NAT或防火墙切断，端口可覆盖以支持回退到初始端口。维护连接使用OpenSSH默认主机验证，SSH返回255时最多尝试一次日志下载，成功后重试。日志下载采用`accept-new`，已有指纹冲突不会被覆盖
 
 ## 远端目录与调用边界
 
@@ -142,7 +142,7 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 
 本地`sync-config.nu`和`update-all.nu`分别调用远端`main.nu sync`和`main.nu update`；日常同步只上传配置、常量与分发目录
 
-部署或同步失败不会自动重试已经执行的有副作用阶段。引导未完成或SSH端口尚未切换时，`get-log.nu`可能无法连接，需要通过初始SSH端口查看`/root/3x-setup/log/bootstrap.log`
+部署或同步失败不会自动重试已经执行的有副作用阶段。`get-log.nu`先尝试`sshPort`，连不上时回退到`constants.json`的`initialSshPort`，因此引导未完成或SSH端口尚未切换时也能取到日志
 
 ## 本地验证
 

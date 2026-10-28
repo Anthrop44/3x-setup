@@ -4,7 +4,7 @@ use remote/lib/core.nu [ensure checked]
 use modules/setup-config.nu prepare-config
 use modules/generate-ssh-key.nu initialize-key
 use modules/client-files.nu export-client-files
-use modules/ssh.nu [shell-quote ssh-target scp-target]
+use modules/ssh.nu [ssh-target scp-target]
 
 # 部署到刚重建的Debian/Ubuntu服务器
 def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
@@ -37,7 +37,11 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 	let tar_path = ($project | path join 3x-setup.tar)
 	let key = ($project | path join id_ed25519)
 	let initial_port = $setup.constants.initialSshPort
-	let options = (if $accept_new_host { [-o StrictHostKeyChecking=accept-new] } else { [] })
+	# 连接超时避免端口不通时静默等待数分钟，ServerAlive保证静默部署期间连接不被中断
+	let options = (
+		[-o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=10]
+		| append (if $accept_new_host { [-o StrictHostKeyChecking=accept-new] } else { [] })
+	)
 	let known_hosts = ($nu.home-dir | path join .ssh known_hosts)
 	if ($known_hosts | path exists) {
 		let host = $config.directDomain
@@ -47,6 +51,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 		}
 	}
 	let flags = ([ (if $noTLS { '--noTLS' } else { '' }) (if $noAPP { '--noAPP' } else { '' }) ] | where {|s| $s != '' } | str join ' ')
+	print 'Uploading configuration and starting remote initialization (5-15 minutes; progress is written to /root/3x-setup/log/bootstrap.log)'
 	try {
 		checked -- tar -cf $tar_path -C $remote .
 		checked -- scp -i $key ...$options -P $initial_port $tar_path (scp-target $config /root/3x-setup.tar)
@@ -57,6 +62,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 		rm --force $tar_path
 	} catch {|err|
 		rm --force $tar_path
+		print --stderr 'If the connection dropped after upload, the remote initialization keeps running; check bootstrap.log before rerunning'
 		try { checked -- nu --no-config-file ($project | path join get-log.nu) } catch { print --stderr 'Log download failed; check bootstrap.log over the initial SSH port' }
 		error make {msg: $err.msg}
 	}
