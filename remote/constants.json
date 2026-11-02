@@ -26,6 +26,7 @@
 		"v2rayNGAndroidArm64": "v2rayNG_latest-fdroid_arm64-v8a.apk",
 		"v2rayNMacOSArm64": "v2rayN-macos-arm64.dmg",
 		"v2rayNLinuxX64Deb": "v2rayN-linux-64.deb",
-		"v2rayNLinuxX64Rpm": "v2rayN-linux-rhel-64.rpm"
+		"v2rayNLinuxX64Rpm": "v2rayN-linux-rhel-64.rpm",
+		"passwall2OpenWrtApk": "luci-app-passwall2.apk"
 	}
 }

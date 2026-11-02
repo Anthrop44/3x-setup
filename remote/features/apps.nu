@@ -10,6 +10,7 @@ export def resource-specs [filenames: record] {
 		{id: v2rayNMacOSArm64, repo: '2dust/v2rayN', assetPattern: '^v2rayN-macos-arm64[.]dmg$'}
 		{id: v2rayNLinuxX64Deb, repo: '2dust/v2rayN', assetPattern: '^v2rayN-linux-64[.]deb$'}
 		{id: v2rayNLinuxX64Rpm, repo: '2dust/v2rayN', assetPattern: '^v2rayN-linux-rhel-64[.]rpm$'}
+		{id: passwall2OpenWrtApk, repo: 'Openwrt-Passwall/openwrt-passwall2', assetPattern: '^luci-app-passwall2-[0-9]+[.][0-9]+[.][0-9]+-r[0-9]+[.]apk$'}
 	] | each {|r| $r | insert filename ($filenames | get $r.id) }
 }
 

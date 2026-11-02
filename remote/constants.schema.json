@@ -192,6 +192,10 @@
 				"v2rayNLinuxX64Rpm": {
 					"type": "string",
 					"default": "v2rayN-linux-rhel-64.rpm"
+				},
+				"passwall2OpenWrtApk": {
+					"type": "string",
+					"default": "luci-app-passwall2.apk"
 				}
 			},
 			"required": [
@@ -199,7 +203,8 @@
 				"v2rayNGAndroidArm64",
 				"v2rayNMacOSArm64",
 				"v2rayNLinuxX64Deb",
-				"v2rayNLinuxX64Rpm"
+				"v2rayNLinuxX64Rpm",
+				"passwall2OpenWrtApk"
 			],
 			"additionalProperties": false
 		}
