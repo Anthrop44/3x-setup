@@ -105,9 +105,8 @@ Then, based on `remote/config.schema.json`, use an IDE like VS Code with JSON LS
 ---
 
 Prepare the static masquerade site: (If you don't know how, you can let an AI generate it)
-- `remote/fake-site/index.html` must exist and start with `<!doctype html>`.
+- `remote/fake-site/index.html` must exist and start with `<!DOCTYPE html>`.
 - The masquerade site should look like a normal static website. Avoid blank pages or obvious placeholder/test text.
-- During deployment, the script will copy the entire `remote/fake-site/` folder to the server. Caddy will then serve it on the probe and fallback paths.
 
 ## Minimal Local Environment and Deployment
 
@@ -127,6 +126,13 @@ winget install nushell
 On macOS, run:
 
 ```zsh
+# Switch to the CERNET mirror for use in mainland China.
+# Skip if you can access the official Homebrew sources.
+echo 'export HOMEBREW_API_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles/api"' >> ~/.zshrc
+echo 'export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles"' >> ~/.zshrc
+export HOMEBREW_API_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles"
+# Install Nushell
 brew install nushell
 ```
 
@@ -185,9 +191,7 @@ Do not leak private configurations like `remote/config.json`. **If leaked, rebui
 
 If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Direct XHTTP nodes require a trusted certificate in production; local deployment checks explicitly trust the bootstrap certificate. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
 
-Regional ISPs may block QUIC traffic on certain IPs, which will make direct XHTTP H3 nodes unavailable. H2 nodes use TCP.
-
-Deployment and maintenance run as root in `/root/3x-setup`. After deployment, root SSH login requires public-key authentication; password and keyboard-interactive authentication are disabled. Your private key `./id_ed25519` (in the repository root) is the **only** method to log in to the proxy server. Please back up and store it securely.
+Your private key `./id_ed25519` (in the repository root) will be the **only** method to log in to the proxy server. Please back up and store it securely.
 
 ## Acknowledgements
 

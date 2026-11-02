@@ -21,7 +21,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 	for file in [
 		{name: cert.pem, prefix: '-----BEGIN CERTIFICATE-----', suffix: '-----END CERTIFICATE-----'}
 		{name: key.pem, prefix: '-----BEGIN PRIVATE KEY-----', suffix: '-----END PRIVATE KEY-----'}
-		{name: fake-site/index.html, prefix: '<!doctype html>', suffix: ''}
+		{name: fake-site/index.html, prefix: '<!DOCTYPE html>', suffix: ''}
 	] {
 		let content = (open --raw ($remote | path join $file.name))
 		ensure ($content starts-with $file.prefix) $"Invalid prefix: ($file.name)"

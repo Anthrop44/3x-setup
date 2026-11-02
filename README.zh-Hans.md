@@ -103,9 +103,8 @@ remote/
 ---
 
 准备静态伪装站：（若不会可让AI代写）
-- `remote/fake-site/index.html`必须存在且以`<!doctype html>`开头
-- 伪装站应像一个正常静态网站，避免只放空白页或明显的测试文本
-- 部署时脚本会把整个`remote/fake-site/`复制到服务器，由Caddy在探测路径和fallback路径返回
+- `remote/fake-site/index.html`必须存在且以`<!DOCTYPE html>`开头
+- 伪装站应像一个正常网站，避免只放空白页或明显的测试文本
 
 ## 最小本地环境和部署
 
@@ -124,6 +123,12 @@ winget install nushell
 macOS用户请执行
 
 ```zsh
+# 使用教育网联合镜像站以便在中国大陆使用，能访问Homebrew官方源时可跳过
+echo 'export HOMEBREW_API_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles/api"' >> ~/.zshrc
+echo 'export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles"' >> ~/.zshrc
+export HOMEBREW_API_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles/api"
+export HOMEBREW_BOTTLE_DOMAIN="https://mirrors.cernet.edu.cn/homebrew-bottles"
+# 安装Nushell
 brew install nushell
 ```
 
@@ -182,9 +187,7 @@ nu update-all.nu
 
 如果要用同一个域名多次重建服务器测试本脚本，请优先使用`nu init.nu --noTLS`临时使用自签证书以避免触发CA rate limit发不出证书。直连XHTTP节点在生产环境需要公信证书，部署中的本机检查会显式信任初始自签证书。自签证书仅用于测试，**绝对不要长期使用！测试完成后必须立刻重建服务器！**
 
-地区运营商可能会阻断部分ip的QUIC，这会导致直连XHTTP H3节点不可用，H2节点使用TCP
-
-部署及维护均以root运行，工作目录为`/root/3x-setup`。部署完成后，root只允许SSH公钥认证，密码及交互式认证均禁用；您在仓库根目录下的私钥`./id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
+您在仓库根目录下的私钥`./id_ed25519`将会是登陆代理服务器的**唯一**方式。请妥善备份和保存之
 
 ## 致谢
 
