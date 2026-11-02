@@ -4,9 +4,11 @@
 
 The ultimate best one-click proxy server deployment script based on Xray-core and 3X-UI. Achieve server security hardening, masquerade site setup, Xray inbound creation, 3X-UI client synchronization, and TLS certificate management all in a single command. 100% transparent, open-source, and auditable. **If you find this repo helpful, please consider clicking Star & Fork. Thanks!**
 
-This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
-- Direct connection: VLESS + XHTTP + TLS fallback
-- Cloudflare CDN: VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP + ECH
+This solution uses the 3X-UI API to deploy two configurations on the same server simultaneously:
+- Direct connection with co-located masquerade ("self-steal"): VLESS + XHTTP + TLS fallback
+- Cloudflare edge optimized CNAME with ECH: VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
+
+The former fully leverages mainland-optimized routes, while the latter is nearly impossible to block (unless the entire `cloudflare-ech.com` is blocked). Both configurations implement ALPN h2 and h3 separation.
 
 This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and a recent version of Debian or Ubuntu. If you need help choosing a server provider, you can visit <https://www.nodeseek.com/> (I have no affiliation with this website).
 

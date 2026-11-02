@@ -2,9 +2,11 @@
 
 最好用的基于Xray-core和3X-UI的代理服务器一键部署脚本。一键完成服务器安全性加固、伪装站搭建、Xray入站创建、3X-UI客户端同步和TLS证书管理等，100%透明开源可审计。**如果你觉得这个repo对你有帮助，可以点个Star和Fork，谢谢！**
 
-本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
-- 直连：VLESS + XHTTP + TLS fallback
-- Cloudflare CDN：VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP + ECH
+本方案基于3X-UI API在同一台服务器上同时部署两套方案：
+- 直连同址伪装（“偷自己”）：VLESS + XHTTP + TLS fallback
+- Cloudflare边缘优选域名套ECH：VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
+
+前者能充分利用大陆优化线路，后者则几乎不可封锁（除非整个`cloudflare-ech.com`被墙）。两套方案都实现了ALPN h2与h3分离
 
 本方案需要一台专用代理服务器，内存至少1GB、使用新版Debian或Ubuntu操作系统，有独立ip。如果你不知道怎么挑服务器商，可以访问<https://www.nodeseek.com/>（我与该网站无任何关系）
 
