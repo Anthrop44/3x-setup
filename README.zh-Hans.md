@@ -4,7 +4,7 @@
 
 本方案基于3X-UI API在同一台服务器上部署多个同址伪装（“偷自己”）方案：
 - 直连：VLESS + XHTTP + TLS fallback
-- Cloudflare CDN：VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
+- Cloudflare CDN：VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP + ECH
 
 本方案需要一台专用代理服务器，内存至少1GB、使用新版Debian或Ubuntu操作系统，有独立ip。如果你不知道怎么挑服务器商，可以访问<https://www.nodeseek.com/>（我与该网站无任何关系）
 
@@ -23,6 +23,7 @@
 - SSL/TLS加密模式选择`完全（严格）`
 - 启用始终使用HTTPS
 - 启用TLS 1.3
+- 确保域名已启用Encrypted ClientHello（ECH，Cloudflare一般默认启用），CDN节点要求客户端及其Xray核心支持ECH
 - 最低TLS版本1.3。如果用户要用Windows 10，也可以降为1.2
 - 启用gRPC
 - 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
@@ -150,8 +151,6 @@ nu sync-config.nu
 **`init.nu`和`sync-config.nu`不会修改`remote/config.json`中已有的键值，因此只要不丢失或手动修改`remote/config.json`，即使重建服务器也不会丢失客户分发URL或订阅URL。未来若要修改入站甚至更换服务器，客户只需在代理客户端内更新一次订阅，不需要重新获取新的分发URL**
 
 代理客户端更新和错误事件保存在`~/3x-setup/log/fetch-apps-update.log`，可执行`get-log.nu`下载。某项资源连续3个每日任务失败后会被禁用；修复上游或网络问题后，在VPS以root执行`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`，再启动`3x-fetch-apps.service`或等待下一次每日任务；`RESOURCE_ID`就是`proxyClientsFilenames`中对应的键名
-
-订阅中的连接节点统一显示为`Direct h2/h3`、`Cloudflare h2/h3`、`Cloudflare ECH h2/h3`，不同CDN地址允许同名。另有一个信息空节点显示`用户名 已用流量/剩余流量`，随订阅更新统计，无限流量的剩余额度显示`∞`
 
 ## 连接3X-UI面板
 

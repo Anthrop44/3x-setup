@@ -163,10 +163,11 @@
 			]
 		},
 		"cdnEchConfigList": {
-			"description": "（可选）为所有cdnDomain配置ECH，保留原普通TLS节点。建议填客户端可直达的DoH地址，如`https://1.1.1.1/dns-query`；也支持Xray的固定ECHConfigList和域名+DNS格式。删除本字段即可关闭",
+			"description": "CDN必需的ECH引导配置，使用cloudflare-ech.com+HTTPS DoH地址，仅查询公共域名的HTTPS记录。默认使用阿里云DoH，不可删除或留空",
 			"type": "string",
 			"minLength": 1,
-			"pattern": "^\\S+$"
+			"pattern": "^cloudflare-ech\\.com\\+https://[^/\\s?#]+/[^\\s#]+$",
+			"default": "cloudflare-ech.com+https://dns.alidns.com/dns-query"
 		},
 		"proxyClientsFilenames": {
 			"description": "代理客户端固定下载文件名",
@@ -215,6 +216,7 @@
 		"dailyTaskHour",
 		"subUpdates",
 		"fingerprint",
+		"cdnEchConfigList",
 		"proxyClientsFilenames",
 		"localSshPort",
 		"3xpanelPort",

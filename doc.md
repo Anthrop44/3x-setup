@@ -119,7 +119,7 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 
 `3x-client-check`校验所有客户端配额、入站关联、订阅中的公网443端口、直连无VLESS加密与无flow、CDN加密参数与Vision流控
 
-`connectivity-check`校验Xray状态和监听地址，启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
+`connectivity-check`校验Xray状态和监听地址，启动临时Xray/SOCKS实例分别执行两个XHTTP后端的本机回环、Caddy直连H2/H3与Cloudflare公网ECH H2/H3端到端测试，直连使用`encryption=none`与空flow，CDN使用入站的公开加密参数与Vision；直连检查同时信任初始自签证书与系统根证书，兼容ACME前的首次部署和生产配置同步，结束或失败时清理临时进程
 
 `direct-tls-check`比较每个fallback入口与已安装伪装站首页，检查HTTP跳转、服务和失败单元；按已安装Caddyfile选择当前证书来源，ACME启用后即使配置同步使用`--noTLS`也会检查公信证书、域名、证书私钥匹配和系统信任链，不再依赖初始自签证书的有效期
 
@@ -180,8 +180,10 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 	- Caddy (TLS termination, H2/H3)
 	- Caddy -> 127.0.0.1:{directXhttpPort} (h2c)
 	- Xray (VLESS + XHTTP, encryption=none, flow empty)
-- XHTTP with Cloudflare CDN
-	- client -> {cdnDomain}/{xhttpPath}:443
+- XHTTP with Cloudflare CDN + ECH
+	- client -> cloudflare-ech.com or {cdnOptDomains[i]}:443
+	- ECH bootstrap: cloudflare-ech.com+https://dns.alidns.com/dns-query
+	- TLS inner SNI / HTTP Host: {cdnDomain}; HTTP path: /{xhttpPath}
 	- Cloudflare cdn -> ip:{CDN_PORT}
 	- vps -> 127.0.0.1:{CDN_PORT}
 	- Caddy -> 127.0.0.1:{xhttpPort} (h2c)
@@ -219,7 +221,7 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 - `path`：客户端订阅ID，作为订阅链接中的`{subscriptionID}`
 - `password`：分发页解锁密码，八位数字字符串，可含前导零；缺失时自动生成，重建和同步时复用已有值
 - 每个客户端会关联`Direct`和`Cloudflare`两个入站；直连与每个CDN地址均生成独立的H2/H3节点
-- 配置`cdnEchConfigList`时，每个CDN地址额外生成ECH H2/H3节点，普通TLS节点及其Host组ID、排序和指纹保持不变
+- 每个CDN地址生成ECH H2/H3节点，`cdnEchConfigList`必填；直连保留普通TLS H2/H3节点
 - `traffic`：可选，每月流量上限，单位GB；缺省或0表示不限量
 
 ## VLESS XHTTP入站
@@ -254,39 +256,36 @@ Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写�
 	- ALPN：分别仅为`h2`和`h3`
 	- 指纹：`{fingerprint}`
 
-- 对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
-	- 备注：统一为`Cloudflare h2`、`Cloudflare h3`，不同地址允许同名，Host组ID仍各自独立
+- 先为公共连接地址`cloudflare-ech.com`创建两个Host组，再对`cdnOptDomains`中的每个域名按数组顺序创建两个Host组
+	- 备注：统一为`Cloudflare ECH h2`、`Cloudflare ECH h3`，不同地址允许同名，Host组ID仍各自独立
 	- 基本
 		- 入站：`Cloudflare`
-		- 地址：`{cdnOptDomains[i]}`
+		- 地址：`cloudflare-ech.com`或`{cdnOptDomains[i]}`，不使用`cdnDomain`建连，避免其A/AAAA查询
 		- 端口：`443`
 	- 安全
 		- 安全：`tls`
-		- SNI：`{cdnDomain}`
+		- 内层SNI：`{cdnDomain}`
 		- ALPN：H2 Host仅为`h2`，H3 Host仅为`h3`
 		- 指纹：`{fingerprint}`
-- 原生CDN地址的备注同样为`Cloudflare h2`和`Cloudflare h3`
-	- 基本
-		- 入站：`Cloudflare`
-		- 地址：`{cdnDomain}`
-		- 端口：`443`
-	- 安全
-		- 安全：`tls`
-		- SNI：`{cdnDomain}`
-		- ALPN：分别仅为`h2`和`h3`
-		- 指纹：`{fingerprint}`
+		- ECH：`{cdnEchConfigList}`，不可为空
 
 ### Cloudflare ECH
 
-`cdnOptDomains`和`cdnEchConfigList`均配置在`remote/constants.json`，由`remote/constants.schema.json`校验。在该常量文件增加`"cdnEchConfigList": "https://1.1.1.1/dns-query"`可为原生及优选CDN地址追加ECH节点；删除该字段关闭ECH变体。DoH地址必须能由客户端直接访问，Xray按`cdnDomain`的HTTPS记录动态获取ECHConfigList并按TTL缓存，也支持Xray的固定Base64配置及`域名+DNS地址`格式
+`cdnOptDomains`和`cdnEchConfigList`均配置在`remote/constants.json`，由`remote/constants.schema.json`校验。CDN只支持ECH，`cdnEchConfigList`必填，默认值如下：
 
-Cloudflare边缘需启用ECH，并为`cdnDomain`提供含`ech`参数的HTTPS记录。ECH节点的SNI和HTTP Host仍是`cdnDomain`，连接地址仍可使用优选域名；外层SNI由Cloudflare的ECH配置决定。保留`fingerprint`设置不代表握手字节不变，ECH会引入内外层ClientHello
+```json
+"cdnEchConfigList": "cloudflare-ech.com+https://dns.alidns.com/dns-query"
+```
 
-普通Host组的`echConfigList`为空；ECH组在原ID末尾追加`ech`，备注统一为`Cloudflare ECH h2`、`Cloudflare ECH h3`，统一排在普通组后。所有CDN节点名称都不包含Vanilla、OPT、用户名或流量，直连仅显示`Direct h2`、`Direct h3`。3X-UI通过订阅链接的`ech`参数下发配置，客户端及其Xray核心需支持ECH与对应指纹组合，导入后应确认ECH设置未被丢弃
+根据[Xray官方文档](https://xtls.github.io/config/transports/tls.html#tlsobject)，`域名+DNS地址`会覆盖ECH查询目标。这里通过阿里云DoH查询`cloudflare-ech.com`的HTTPS记录并按TTL缓存，而非向阿里云提交`cdnDomain`。DoH必须能由客户端直接访问；schema只允许公共查询域名`cloudflare-ech.com`加HTTPS DoH地址，拒绝空值、裸DoH地址、其他查询域名及UDP DNS，避免退回按内层SNI查询
 
-ECH终止于Cloudflare，不改变Caddy源站证书、回源设置和Xray入站。Direct节点仍只使用普通TLS。连通性检查覆盖每个CDN地址的普通及ECH H2/H3链路；Xray获取ECH配置失败时应使连接失败，不能将普通TLS连通视为ECH测试成功
+Cloudflare边缘需为目标区域启用ECH，并接受公共域名提供的ECH配置。内层SNI和HTTP Host仍是`cdnDomain`，外层SNI由Cloudflare的ECH配置决定，通常为`cloudflare-ech.com`，见[Cloudflare官方说明](https://developers.cloudflare.com/ssl/edge-certificates/ech/)。默认连接地址也为`cloudflare-ech.com`，不再保留以`cdnDomain`作为地址的原生节点。`cdnOptDomains`可省略或为空；优选域名不可与`cdnDomain`或公共默认地址重复，也不能通过CNAME指向`cdnDomain`，否则仍可能泄露解析目标
 
-已有部署需要先将两个CDN字段从`config.json`移到`constants.json`，更新远端相关脚本和两个schema，并按上文配置面板订阅备注模板及信息空节点，才能使用新字段及节点展示；`sync-config.nu`仅上传配置、常量及分发目录，不更新远端代码或面板全局设置。首次部署会完成这些设置
+CDN Host组保留原ECH组的`ech`结尾ID，按公共地址、优选域名及H2/H3顺序排序，更新时删除旧非ECH组。直连组ID和普通TLS配置不变。3X-UI通过订阅链接的`ech`参数下发配置，`+`必须编码为`%2B`并在客户端导入后正确还原；客户端及其Xray核心需支持ECH与对应指纹组合，导入后应确认ECH设置未被丢弃
+
+ECH终止于Cloudflare，不改变Caddy源站证书、回源设置和Xray入站。连通性检查保留本机h2c回环及直连TLS检查，CDN公网仅检查每个公共或优选地址的ECH H2/H3链路。[Xray源码](https://github.com/XTLS/Xray-core/blob/main/transport/internet/tls/ech.go)在无法取得ECH配置时使连接失败，不回退普通TLS；仓库也不再提供普通CDN节点作为回退
+
+隐私边界：成功协商ECH时，这条代理建连链路的DNS查询不需要包含`cdnDomain`，旁路观察者只能看到公共外层SNI，阿里云ECH查询也只收到公共域名。Cloudflare作为ECH终止方仍可看到内层域名。分发页、订阅更新、CDN客户端下载和手动访问仍使用含`cdnDomain`的URL，若不通过已建立的代理访问，仍可能经DNS或普通TLS暴露该域名；公开DNS记录、证书及流量关联也不受本改动保护。因此不能承诺`cdnDomain`全程无法被GFW或阿里云获知
 
 ## Caddy配置
 

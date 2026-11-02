@@ -1,6 +1,11 @@
 const ROOT = path self | path dirname | path dirname
 use core.nu ensure
 
+# 使用公共Cloudflare地址建连，避免解析内层SNI域名
+export def cdn-addresses [constants: record] {
+	['cloudflare-ech.com'] | append ($constants.cdnOptDomains? | default [])
+}
+
 # 根据远端根目录返回配置、状态、日志和模板的绝对路径
 export def project-paths [directory: string] {
 	let root = ($directory | path expand)
@@ -82,8 +87,8 @@ export def validate-config [config: record, constants: record, --complete] {
 		let values = ($config.clients | each {|c| $c | get --optional $key } | compact | each { str lowercase })
 		ensure (($values | uniq | length) == ($values | length)) $"Duplicate client ($key)"
 	}
-	let domains = ([$config.cdnDomain] | append ($constants.cdnOptDomains? | default []) | each { str lowercase })
-	ensure (($domains | uniq | length) == ($domains | length)) 'cdnOptDomains must be unique and exclude cdnDomain'
+	let domains = ([$config.cdnDomain] | append (cdn-addresses $constants) | each { str lowercase })
+	ensure (($domains | uniq | length) == ($domains | length)) 'CDN addresses must be unique and exclude cdnDomain; cloudflare-ech.com is reserved'
 	let filenames = ($constants.proxyClientsFilenames | values)
 	ensure (($filenames | each { str lowercase } | uniq | length) == ($filenames | length)) 'Duplicate proxy client filename'
 	for name in $filenames { ensure ($name =~ '^[A-Za-z0-9][A-Za-z0-9._-]*$') 'Unsafe proxy client filename' }

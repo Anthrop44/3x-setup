@@ -6,7 +6,7 @@ The ultimate best one-click proxy server deployment script based on Xray-core an
 
 This solution is based on the 3X-UI API to deploy multiple co-located masquerading ("self-steal") configurations on the same server:
 - Direct connection: VLESS + XHTTP + TLS fallback
-- Cloudflare CDN: VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP
+- Cloudflare CDN: VLESS ENC (ML-KEM-768, xorpub) + Vision + XHTTP + ECH
 
 This solution requires a dedicated proxy server with a dedicated IP address, at least 1GB of RAM, and a recent version of Debian or Ubuntu. If you need help choosing a server provider, you can visit <https://www.nodeseek.com/> (I have no affiliation with this website).
 
@@ -25,6 +25,7 @@ The following is a usage tutorial and does not explain the underlying principles
 - Select **Full (strict)** for the SSL/TLS encryption mode.
 - Enable **Always Use HTTPS**.
 - Enable **TLS 1.3**.
+- Ensure **Encrypted ClientHello (ECH, which should be enabled by default)** is enabled for the zone. CDN nodes require ECH support in both the client and its Xray core.
 - Set **Minimum TLS Version** to 1.3. Lower it to 1.2 only if you must support Windows 10 clients.
 - Enable **gRPC**.
 - Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
@@ -153,8 +154,6 @@ The script will upload `remote/config.json` and `remote/constants.json`, synchro
 **`init.nu` and `sync-config.nu` will not modify existing key-value pairs in `remote/config.json`. As long as `remote/config.json` isn't lost or manually altered, client distribution URLs and subscription URLs will not be lost even if proxy server is rebuilt. In the future, if you need to modify inbound settings or even switch servers, clients only need to update their subscription once within the proxy client—no need to obtain new distribution URLs.**
 
 Proxy-client update events and errors are stored in `~/3x-setup/log/fetch-apps-update.log` and can be downloaded by running `get-log.nu`. A resource is disabled after three consecutive failed daily runs. After fixing the upstream or network problem, run `/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID` as root on the VPS and then start `3x-fetch-apps.service`, or wait for the next daily run. `RESOURCE_ID` is the corresponding key in `proxyClientsFilenames`.
-
-Subscription node names are `Direct h2/h3`, `Cloudflare h2/h3`, and `Cloudflare ECH h2/h3`. Different CDN addresses may share a display name. A separate information placeholder shows `username used/remaining` traffic and refreshes with the subscription; unlimited remaining traffic is shown as `∞`.
 
 ## Connecting to the 3X-UI Panel
 

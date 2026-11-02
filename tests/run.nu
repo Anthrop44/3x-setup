@@ -38,7 +38,7 @@ def test [name: string, body: closure] {
 def fixture [directory: string] {
 	let remote = ($directory | path join remote)
 	mkdir $remote ($remote | path join templates)
-	write-json ($remote | path join constants.json) (open ($ROOT | path join remote constants.json) | reject --optional cdnEchConfigList | upsert cdnOptDomains [opt.example.com])
+	write-json ($remote | path join constants.json) (open ($ROOT | path join remote constants.json) | upsert cdnOptDomains [opt.example.com])
 	cp ($ROOT | path join remote templates Caddyfile.template) ($remote | path join templates)
 	write-json ($remote | path join config.json) {
 		directDomain: direct.example.com, cdnDomain: cdn.example.com
@@ -144,9 +144,9 @@ def main [] {
 					if $alpn != '' { equal $target.port 443; equal $probe.outbounds.0.streamSettings.tlsSettings.alpn [$alpn] }
 				}
 			}
-			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: '', remark: Direct}] | append ([$ctx.config.cdnDomain] | append $ctx.constants.cdnOptDomains | enumerate | each {|domain| {domain: $domain.item, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision, remark: Cloudflare} }) | each {|target|
+			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: '', remark: Direct}] | append ([cloudflare-ech.com] | append $ctx.constants.cdnOptDomains | enumerate | each {|domain| {domain: $domain.item, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision, remark: 'Cloudflare ECH'} }) | each {|target|
 				[h2 h3] | each {|alpn|
-					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: $ctx.constants.fingerprint} | url build-query)
+					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: $ctx.constants.fingerprint, ech: (if $target.remark == Direct { '' } else { $ctx.constants.cdnEchConfigList })} | url build-query)
 					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
 				}
 			} | flatten)
@@ -155,28 +155,42 @@ def main [] {
 		}
 	}
 
-	test 'ECH adds CDN variants while preserving ordinary TLS and direct hosts' {
+	test 'CDN requires ECH with public DNS bootstrap and preserves direct TLS' {
 		with-temp {|temp|
 			let original = (fixture $temp)
-			let ctx = ($original | upsert constants.cdnEchConfigList 'https://1.1.1.1/dns-query')
+			let ctx = ($original | update constants.cdnEchConfigList 'cloudflare-ech.com+https://223.5.5.5/dns-query')
+			equal $original.constants.cdnEchConfigList 'cloudflare-ech.com+https://dns.alidns.com/dns-query'
 			validate-config $ctx.config $ctx.constants --complete
 			sync validate-changes $original.config $ctx.config $original.constants $ctx.constants
 			sync validate-changes $ctx.config $original.config $ctx.constants $original.constants
 			rejects { validate-config $ctx.config ($ctx.constants | update cdnEchConfigList '') } 'too short'
 			rejects { validate-config $ctx.config ($ctx.constants | update cdnEchConfigList 'https://bad resolver/') } 'invalid format'
-			let original_hosts = (host-payloads $original 2)
+			rejects { validate-config $ctx.config ($ctx.constants | reject cdnEchConfigList) } 'cdnEchConfigList: required'
+			for invalid in ['https://dns.alidns.com/dns-query' 'cdn.example.com+https://dns.alidns.com/dns-query' 'cloudflare-ech.com+udp://223.5.5.5' 'cloudflare-ech.com+https://dns.alidns.com/dns query' 'fixed-base64'] {
+				rejects { validate-config $ctx.config ($ctx.constants | update cdnEchConfigList $invalid) } 'invalid format'
+			}
+			rejects { validate-config $ctx.config ($ctx.constants | update cdnOptDomains [CDN.example.com]) } 'exclude cdnDomain'
+			rejects { validate-config $ctx.config ($ctx.constants | update cdnOptDomains [CLOUDFLARE-ECH.com]) } 'reserved'
+			rejects { validate-config ($ctx.config | update cdnDomain cloudflare-ech.com) $ctx.constants } 'reserved'
 			let hosts = (host-payloads $ctx 2)
-			equal ($hosts | length) 8
-			equal ($hosts | first 4) $original_hosts
-			equal ($hosts.groupId | uniq | length) 8
+			equal ($hosts | length) 4
+			equal $hosts.groupId [3xsetupxhttpcdn1h2ech 3xsetupxhttpcdn1h3ech 3xsetupxhttpopt1h2ech 3xsetupxhttpopt1h3ech]
+			equal $hosts.hosts [[cloudflare-ech.com] [cloudflare-ech.com] [opt.example.com] [opt.example.com]]
 			equal ($hosts | last 4 | get remark) ['Cloudflare ECH h2' 'Cloudflare ECH h3' 'Cloudflare ECH h2' 'Cloudflare ECH h3']
 			equal ($hosts | last 4 | get echConfigList | uniq) [$ctx.constants.cdnEchConfigList]
-			equal ($hosts | last 4 | get sortOrder) [4 5 6 7]
+			equal ($hosts | last 4 | get sortOrder) [0 1 2 3]
 			equal ($hosts | last 4 | get sni | uniq) [$ctx.config.cdnDomain]
 			equal ($hosts | last 4 | get fingerprint | uniq) [$ctx.constants.fingerprint]
 			equal (host-payloads $ctx 1 --direct) (host-payloads $original 1 --direct)
+			equal (host-payloads $ctx 1 --direct | get echConfigList) ['' '']
+			equal (host-payloads $ctx 1 --direct | get groupId) [3xsetupxhttpdirecth2 3xsetupxhttpdirecth3]
+			for constants in [($ctx.constants | update cdnOptDomains []) ($ctx.constants | reject cdnOptDomains)] {
+				let base = (host-payloads ($ctx | update constants $constants) 2)
+				equal $base.hosts [[cloudflare-ech.com] [cloudflare-ech.com]]
+			}
+			rejects { host-payloads ($ctx | update constants.cdnEchConfigList '') 2 } 'CDN requires'
 			let keys = (encryption)
-			let ordinary = ([{domain: $ctx.config.directDomain, encryption: none, flow: '', sni: $ctx.config.directDomain, remark: Direct}] | append ([$ctx.config.cdnDomain opt.example.com] | enumerate | each {|domain| {domain: $domain.item, encryption: $keys.encryption, flow: xtls-rprx-vision, sni: $ctx.config.cdnDomain, remark: Cloudflare} }) | each {|target|
+			let ordinary = ([{domain: $ctx.config.directDomain, encryption: none, flow: '', sni: $ctx.config.directDomain, remark: Direct}] | append ([cloudflare-ech.com opt.example.com] | enumerate | each {|domain| {domain: $domain.item, encryption: $keys.encryption, flow: xtls-rprx-vision, sni: $ctx.config.cdnDomain, remark: Cloudflare} }) | each {|target|
 				[h2 h3] | each {|alpn|
 					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: chrome} | url build-query)
 					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
@@ -187,7 +201,8 @@ def main [] {
 				let parts = ($link | split row '#')
 				$"($parts.0)&($query)#($parts.1 | str replace 'Cloudflare ' 'Cloudflare ECH ')"
 			})
-			let links = ($ordinary | append $ech_links)
+			let links = ($ordinary | first 2 | append $ech_links)
+			ensure ($ech_links | all { str contains 'cloudflare-ech.com%2Bhttps%3A%2F%2F223.5.5.5%2Fdns-query' }) 'ECH lookup must survive URL encoding'
 			let enc = {Direct: none, Cloudflare: $keys.encryption}
 			validate-links $ctx $links $enc
 			let info = 'socks://127.0.0.1:1080#alice 1 GB/9 GB'
@@ -206,20 +221,23 @@ def main [] {
 			equal ($settings.remarkTemplate | split row '|' | first) '{{HOST}}'
 			ensure ($settings.remarkTemplate | str contains '{{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}') 'Missing dynamic used/remaining traffic template'
 			rejects { validate-links $ctx ($links | each { str replace --regex '#.*$' '#Cloudflare' }) $enc } 'Host remark'
-			rejects { validate-links $ctx $ordinary $enc } 'Wrong subscription link count'
-			rejects { validate-links $ctx ($ordinary | append ($ordinary | skip 2)) $enc } 'Missing or duplicate'
+			rejects { validate-links $ctx $ordinary $enc } 'Missing or duplicate'
+			rejects { validate-links $ctx ($links | append ($ordinary | skip 2)) $enc } 'Wrong subscription link count'
+			rejects { validate-links $ctx ($links | each { str replace '@cloudflare-ech.com:' '@cdn.example.com:' }) $enc } 'Missing or duplicate'
 			rejects { validate-links $ctx ($links | each { str replace 'ech=' 'ignored=' }) $enc } 'Missing or duplicate'
 			rejects { validate-links $ctx ($links | each { str replace 'fp=chrome' 'fp=firefox' }) $enc } 'TLS fingerprint'
 			for alpn in [h2 h3] {
-				let probe = (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn --ech --address opt.example.com | get outbounds.0)
+				let probe = (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn --address opt.example.com | get outbounds.0)
 				equal $probe.settings.vnext.0.address opt.example.com
 				equal $probe.settings.vnext.0.users.0.flow xtls-rprx-vision
 				equal $probe.streamSettings.tlsSettings {serverName: $ctx.config.cdnDomain, fingerprint: chrome, alpn: [$alpn], echConfigList: $ctx.constants.cdnEchConfigList}
 				equal $probe.streamSettings.xhttpSettings.host $ctx.config.cdnDomain
+				equal (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn | get outbounds.0.settings.vnext.0.address) cloudflare-ech.com
+				ensure ('echConfigList' not-in (proxy-config $ctx test-uuid $keys 12345 --direct --alpn=$alpn | get outbounds.0.streamSettings.tlsSettings)) 'Direct must retain ordinary TLS'
 			}
-			rejects { proxy-config $ctx test-uuid $keys 12345 --ech } 'ECH testing requires'
-			rejects { proxy-config $ctx test-uuid $keys 12345 --ech --direct --alpn h2 } 'ECH testing requires'
-			rejects { proxy-config $original test-uuid $keys 12345 --ech --alpn h2 } 'ECH testing requires'
+			rejects { proxy-config $ctx test-uuid $keys 12345 --alpn h2 --address cdn.example.com } 'public Cloudflare address'
+			rejects { proxy-config ($ctx | update constants.cdnEchConfigList '') test-uuid $keys 12345 --alpn h2 } 'CDN requires'
+			rejects { proxy-config ($ctx | update constants {|| $ctx.constants | reject cdnEchConfigList }) test-uuid $keys 12345 --alpn h2 } 'CDN requires'
 		}
 	}
 

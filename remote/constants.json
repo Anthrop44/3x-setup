@@ -20,7 +20,7 @@
 		"japan.com",
 		"pubs.acs.org"
 	],
-	"cdnEchConfigList": "https://1.1.1.1/dns-query",
+	"cdnEchConfigList": "cloudflare-ech.com+https://dns.alidns.com/dns-query",
 	"proxyClientsFilenames": {
 		"v2rayNWindowsX64": "v2rayN-windows-64.zip",
 		"v2rayNGAndroidArm64": "v2rayNG_latest-fdroid_arm64-v8a.apk",
