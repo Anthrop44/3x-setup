@@ -1,6 +1,6 @@
 # 开发文档
 
-所有本地部署、远端部署、检查和维护逻辑均使用Nushell0.116.1+，JSON直接作为record/list处理，不依赖PowerShell、jq或Python
+所有本地部署、远端部署、检查和维护逻辑均使用Nushell 0.116.1+
 
 本地依赖Nushell、OpenSSH（ssh、scp、ssh-keygen）、OpenSSL 3和tar；Windows需将这些程序加入PATH，Git for Windows提供的OpenSSL也可使用
 
@@ -212,7 +212,7 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 
 订阅加密开启，显示流量信息，客户端应用中的订阅更新间隔来自`subUpdates`，备注模板为`{{HOST}}|{{EMAIL}} {{TRAFFIC_USED}}/{{TRAFFIC_LEFT}}`，通过分段避免空字段留下多余空格。开启`subInfoNodeEnable`，关闭`subShowIdentityOnAllLinks`：连接节点只显示Host备注，首个空节点单独显示`用户名 已用流量/剩余流量`；无限流量的剩余额度显示`∞`。该项由3X-UI原生生成`127.0.0.1:1080`的SOCKS占位链接，随订阅更新统计，不创建真实Xray监听。订阅标题和公告写为“请勿分享！”
 
-Xray模板会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写入Happy Eyeballs设置，减少双栈解析和连接时的异常延迟
+Xray模板启用内置DNS，使用面板默认的`UseIP`查询策略和空上游列表，保留已有DNS配置；这不会单独开放DNS监听端口或改变出站域名解析策略。模板还会确保存在`tag=direct`的`freedom`出站，并在`sockopt`中写入Happy Eyeballs设置
 
 ## 3X-UI客户端
 

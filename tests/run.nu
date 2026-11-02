@@ -11,7 +11,7 @@ use ../remote/features/panel/inbounds.nu inbound-payloads
 use ../remote/features/panel/hosts.nu host-payloads
 use ../remote/features/panel/clients.nu [client-policy stale-clients validate-links]
 use ../remote/features/panel/encryption.nu select-vless-encryption
-use ../remote/features/panel/setup.nu subscription-settings
+use ../remote/features/panel/setup.nu [subscription-settings configure-dns]
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
@@ -56,6 +56,16 @@ def encryption [] {
 
 # 运行本地语法、配置、工作流和业务逻辑测试
 def main [] {
+	test 'built-in DNS is enabled while existing settings are preserved' {
+		let original = {outbounds: [{tag: direct, protocol: freedom}]}
+		let configured = (configure-dns $original)
+		equal $configured.dns {tag: dns_inbound, queryStrategy: UseIP, disableCache: false, disableFallback: false, disableFallbackIfMatch: false, hosts: {}, servers: []}
+		equal $configured.outbounds $original.outbounds
+		equal (configure-dns ($original | upsert dns null)) $configured
+		equal (configure-dns ($original | upsert dns {})) ($original | upsert dns {})
+		let custom = ($original | upsert dns {servers: ['1.1.1.1'], hosts: {'example.com': '192.0.2.1'}})
+		equal (configure-dns $custom) $custom
+	}
 	test 'all Nu modules and entry points parse' {
 		for file in (glob ($ROOT | path join '**/*.nu')) { ensure (nu-check --debug $file) $"Cannot parse ($file)" }
 		checked -- bash -n ($ROOT | path join remote bootstrap.sh)

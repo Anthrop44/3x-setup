@@ -31,7 +31,14 @@ export def configure-outbounds [template: record] {
 	})
 }
 
-# 安装并配置本机3X-UI面板、订阅服务和Xray出站
+# 启用面板的内置DNS，已有配置保持不变
+export def configure-dns [template: record] {
+	if ($template.dns? == null) {
+		$template | upsert dns {tag: dns_inbound, queryStrategy: UseIP, disableCache: false, disableFallback: false, disableFallbackIfMatch: false, hosts: {}, servers: []}
+	} else { $template }
+}
+
+# 安装并配置本机3X-UI面板、订阅服务和Xray模板
 export def apply [ctx: record] {
 	with-temp {|temp|
 		let installer = ($temp | path join 3x-ui-install.sh)
@@ -49,7 +56,7 @@ export def apply [ctx: record] {
 		let settings = (request $session /panel/api/setting/all --post)
 		request $session /panel/api/setting/update --data (subscription-settings $ctx $settings) | ignore
 		let xray = (decode-json (request $session /panel/api/xray/ --post))
-		let template = (configure-outbounds (decode-json $xray.xraySetting))
+		let template = (configure-dns (configure-outbounds (decode-json $xray.xraySetting)))
 		request $session /panel/api/xray/update --form {xraySetting: ($template | to json --raw), outboundTestUrl: ($xray.outboundTestUrl? | default '')} | ignore
 		request $session /panel/api/server/restartXrayService --post | ignore
 		request $session /panel/api/setting/restartPanel --post | ignore
@@ -76,5 +83,6 @@ export def verify [ctx: record] {
 	}
 	let template = (open /usr/local/x-ui/bin/config.json)
 	ensure ($template.outbounds | any {|o| $o.protocol == freedom and $o.tag? == direct and $o.streamSettings?.sockopt?.happyEyeballs? == (happy-eyeballs) }) 'Missing Happy Eyeballs configuration'
+	ensure ($template.dns? | describe | str starts-with 'record') 'Missing built-in DNS configuration'
 	wait-panel $ctx
 }
