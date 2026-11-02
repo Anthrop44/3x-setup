@@ -26,7 +26,7 @@ export def catalog [] {
 		{name: cf-host-check, source: features/panel/hosts.nu, description: 'Verify Direct and CDN Host groups', run: {|ctx| hosts verify $ctx }}
 		{name: 3x-client-init, source: features/panel/clients.nu, description: 'Synchronize clients and restart Xray', run: {|ctx| clients apply $ctx }}
 		{name: 3x-client-check, source: features/panel/clients.nu, description: 'Verify client policies and subscription links', run: {|ctx| clients verify $ctx | ignore }}
-		{name: connectivity-check, source: checks/connectivity.nu, description: 'Test loopback and public XHTTP H2/H3 paths', run: {|ctx| connectivity verify $ctx }}
+		{name: connectivity-check, source: checks/connectivity.nu, description: 'Test both loopback paths and direct XHTTP H2/H3', run: {|ctx| connectivity verify $ctx }}
 		{name: fetch-apps-init, source: features/apps.nu, description: 'Install and start proxy application updater', run: {|ctx| apps apply $ctx }}
 		{name: fetch-apps-check, source: features/apps.nu, description: 'Verify application downloads and updater state', run: {|ctx| apps verify $ctx }}
 		{name: direct-tls-init, source: features/caddy/tls.nu, description: 'Enable public TLS unless --noTLS is set', run: {|ctx| tls apply $ctx }}

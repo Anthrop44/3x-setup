@@ -2,6 +2,7 @@
 const FILE = path self
 use remote/lib/core.nu [ensure checked]
 use modules/setup-config.nu prepare-config
+use modules/ech-preflight.nu check-ech
 use modules/generate-ssh-key.nu initialize-key
 use modules/client-files.nu export-client-files
 use modules/ssh.nu [ssh-target scp-target]
@@ -33,6 +34,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 	for file in (glob ($remote | path join '**/*') | where {|p| ($p | path type) == file and ($p | path parse | get extension) in [nu sh html css json pem pub template txt] }) {
 		open --raw $file | str replace --all "\r\n" "\n" | str replace --all "\r" "\n" | save --force $file
 	}
+	check-ech $project
 	if $prepare_only { print 'Local preparation complete'; return }
 	let tar_path = ($project | path join 3x-setup.tar)
 	let key = ($project | path join id_ed25519)

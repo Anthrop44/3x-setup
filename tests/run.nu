@@ -15,6 +15,7 @@ use ../remote/features/panel/setup.nu [subscription-settings configure-dns]
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
+use ech-preflight.nu test-ech-preflight
 use ../modules/ssh.nu [ssh-target scp-target]
 
 # 断言实际值与预期值相等，否则显示差异并抛错
@@ -56,6 +57,7 @@ def encryption [] {
 
 # 运行本地语法、配置、工作流和业务逻辑测试
 def main [] {
+	test 'native DoH DNS and ECH response validation' { test-ech-preflight }
 	test 'built-in DNS is enabled while existing settings are preserved' {
 		let original = {outbounds: [{tag: direct, protocol: freedom}]}
 		let configured = (configure-dns $original)
@@ -79,7 +81,7 @@ def main [] {
 		}
 		let full = (deploy steps)
 		equal $full.0.name root-init
-		equal ($full | last | get name) direct-tls-check
+		ensure (($full.name | enumerate | where item == direct-tls-check | first | get index) < ($full.name | enumerate | where item == connectivity-check | first | get index)) 'TLS must precede connectivity checks'
 		let reduced = (deploy steps --noAPP)
 		equal ($full | length) (($reduced | length) + 2)
 		ensure ('fetch-apps-init' not-in $reduced.name and 'connectivity-check' in $reduced.name) 'Wrong --noAPP plan'
@@ -358,5 +360,5 @@ def main [] {
 			}
 		}
 	}
-	print 'All 10 test groups passed'
+	print 'All test groups passed'
 }

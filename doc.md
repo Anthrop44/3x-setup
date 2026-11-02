@@ -5,7 +5,7 @@
 ## 入口
 
 - `nu init.nu`：首次部署；缺少`remote/config.json`时创建schema骨架并退出
-- `nu init.nu --prepare-only`：只完成本地校验、补齐字段、密钥准备与分发页生成，不连接服务器
+- `nu init.nu --prepare-only`：完成本地校验、补齐字段、密钥准备、分发页生成与ECH可获取性预检，不连接部署服务器
 - `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；本机直连检查显式信任初始自签证书
 - `nu init.nu --accept-new-host`：在清除重建服务器旧指纹后自动接受新指纹
 - `nu sync-config.nu`：同步`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`，其它部署参数必须保持不变
@@ -75,7 +75,7 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 主要检查：
 
 - `3x-client-check`：客户配额、入站关联、订阅公网端口及直连/CDN各自的加密与flow策略
-- `connectivity-check`：Xray状态和监听地址、两个XHTTP后端的本机回环、直连H2/H3、各CDN地址的ECH H2/H3链路；临时Xray/SOCKS进程在结束或失败时清理，直连检查同时信任初始自签证书和系统根证书
+- `connectivity-check`：Xray状态和监听地址、两个XHTTP后端的本机回环、直连H2/H3；临时Xray/SOCKS进程在结束或失败时清理，直连检查同时信任初始自签证书和系统根证书
 - `direct-tls-check`：伪装站首页、HTTP跳转、服务状态及证书；根据已安装Caddyfile选择证书来源，ACME启用后即使传入`--noTLS`，也检查公信证书的域名、私钥匹配和系统信任链
 
 ## 定时任务
@@ -181,3 +181,7 @@ ECH仅保护代理建连的内层域名，Cloudflare仍可见该域名。分发�
 `directDomain:443`监听公网443/tcp与443/udp，支持H1/H2/H3；`/xhttpPath*`通过h2c反代到`127.0.0.1:directXhttpPort`，其余路径提供伪装站。初始阶段使用`/etc/caddy/3x-direct-*.pem`自签文件证书；公信TLS阶段切换为ACMEHTTP-01，之后由Caddy自动续期，不再向Xray复制证书
 
 `:cdnPort`使用Cloudflare源站证书`/etc/caddy/3x-origin-*.pem`；`/subscriptionPath/*`反代到`127.0.0.1:subscriptionPort`，`/xhttpPath*`通过h2c反代到`127.0.0.1:xhttpPort`，其他路径由伪装站`file_server`返回，因此`/{subscriptionPath}{proxyClientsSuffix}/*`中的客户端文件无需额外Caddy路由即可下载
+
+## 本地ECH预检
+
+`init.nu`和`sync-config.nu`在打包、上传及远端操作前，通过`modules/ech-preflight.nu`使用Nushell内置HTTP和二进制命令，向`cdnEchConfigList`指定的DoH发送HTTPS记录查询；检查DNS响应、目标名称和ECHConfigList格式，最多尝试3次。忽略环境HTTP代理，系统级隧道仍可能影响实际路由。失败即停止，不上传文件

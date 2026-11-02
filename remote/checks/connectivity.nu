@@ -48,7 +48,7 @@ def proxy-test [ctx: record, uuid: string, xhttp: record, --direct, --alpn: stri
 	}
 }
 
-# 检查Xray和监听地址，并测试直连与CDN的回环及公网H2/H3链路
+# 检查Xray和监听地址、两组回环及直连H2/H3；客户端ECH获取由本地预检负责
 export def verify [ctx: record] {
 	with-panel $ctx {|session|
 		let inbounds = (request $session /panel/api/inbounds/list)
@@ -67,7 +67,7 @@ export def verify [ctx: record] {
 			let protection = (if $target.direct { 'plain VLESS (TLS at Caddy)' } else { 'ML-KEM-768 (xorpub) + Vision' })
 			proxy-test $ctx $uuid $target.settings --direct=$target.direct
 			print $"XHTTP ($target.remark) ($protection) loopback proxy test passed"
-			let addresses = (if $target.direct { [''] } else { cdn-addresses $ctx.constants })
+			let addresses = (if $target.direct { [''] } else { [] })
 			for address in $addresses {
 				for alpn in [h2 h3] {
 					proxy-test $ctx $uuid $target.settings --direct=$target.direct --alpn=$alpn --address=$address

@@ -2,6 +2,7 @@
 const FILE = path self
 use remote/lib/core.nu [checked ensure]
 use modules/setup-config.nu prepare-config
+use modules/ech-preflight.nu check-ech
 use modules/client-files.nu export-client-files
 use modules/ssh.nu [remote-nu ssh-run scp-target]
 
@@ -11,6 +12,7 @@ def main [] {
 	let setup = (prepare-config $project)
 	let config = $setup.config
 	export-client-files $project $config $setup.constants
+	check-ech $project
 	let upload = ($project | path join $"sync-(random uuid).tar")
 	let staging = $"/root/3x-sync-(random uuid)"
 	try {
