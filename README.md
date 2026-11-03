@@ -27,7 +27,6 @@ The following is a usage tutorial and does not explain the underlying principles
 - Select **Full (strict)** for the SSL/TLS encryption mode.
 - Enable **Always Use HTTPS**.
 - Enable **TLS 1.3**.
-- Ensure **Encrypted ClientHello (ECH, which should be enabled by default)** is enabled for the zone. CDN nodes require ECH support in both the client and its Xray core.
 - Set **Minimum TLS Version** to 1.3. Lower it to 1.2 only if you must support Windows 10 clients.
 - Enable **gRPC**.
 - Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
@@ -185,7 +184,7 @@ Please run this regularly or redeploy proxy server to stay up-to-date with upstr
 
 This solution may not work on Windows 10 clients, as Windows 10 lacks full TLS 1.3 support.
 
-This solution was tested using 3X-UI version v3.10.2 and Xray-core version v26.10.10. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
+This solution was tested using 3X-UI version v3.11.0. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
 
 This project is not an idempotent deployer. It must be executed on a freshly rebuilt, clean server and should not be used on servers running existing production services.
 
@@ -194,6 +193,8 @@ Do not leak private configurations like `remote/config.json`. **If leaked, rebui
 If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Direct XHTTP nodes require a trusted certificate in production; local deployment checks explicitly trust the bootstrap certificate. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
 
 Your private key `./id_ed25519` (in the repository root) will be the **only** method to log in to the proxy server. Please back up and store it securely.
+
+You need to make sure ECH is enabled for your `cdnDomain`. Usually no extra steps are required, as Cloudflare enables ECH by default for all domains.
 
 ## Acknowledgements
 
