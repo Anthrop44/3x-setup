@@ -12,7 +12,7 @@ use ../remote/features/panel/hosts.nu host-payloads
 use ../remote/features/panel/clients.nu [client-policy stale-clients validate-links]
 use ../remote/features/panel/encryption.nu select-vless-encryption
 use ../remote/features/panel/routing.nu
-use ../remote/features/panel/setup.nu [subscription-settings configure-dns]
+use ../remote/features/panel/setup.nu [subscription-settings configure-dns configure-geodata]
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
@@ -68,6 +68,17 @@ def main [] {
 		equal (configure-dns ($original | upsert dns {})) ($original | upsert dns {})
 		let custom = ($original | upsert dns {servers: ['1.1.1.1'], hosts: {'example.com': '192.0.2.1'}})
 		equal (configure-dns $custom) $custom
+	}
+	test 'geodata uses the configured hour and preserves custom sources' {
+		let custom = {file: geoip.dat, url: 'https://example.org/custom.dat'}
+		let site = {file: geosite.dat, url: 'https://example.org/geosite.dat'}
+		let sources = [($custom | update url 'https://example.org/geoip.dat') $site]
+		let fresh = (configure-geodata {} $sources 4)
+		equal $fresh.geodata {cron: '0 4 * * *', assets: $sources, outbound: direct}
+		let existing = {geodata: {assets: [$custom], outbound: proxy}}
+		let updated = (configure-geodata $existing $sources 23)
+		equal $updated.geodata {assets: [$custom $site], outbound: proxy, cron: '0 23 * * *'}
+		equal (configure-geodata $updated $sources 23) $updated
 	}
 	test 'outbound blocklist parsing, replacement and removal' {
 		with-temp {|temp|

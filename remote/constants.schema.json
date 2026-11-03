@@ -127,7 +127,7 @@
 			"pattern": "^[a-zA-Z0-9]+$"
 		},
 		"dailyTaskHour": {
-			"description": "VPS本地时区的每日任务开始小时，任务会在此后随机延迟一小时内执行",
+			"description": "VPS本地时区的每日任务开始小时，geodata在整点更新，systemd任务在随后一小时内随机执行",
 			"type": "integer",
 			"default": 4,
 			"minimum": 0,

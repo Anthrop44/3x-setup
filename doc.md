@@ -85,7 +85,9 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 - `jobs/cloudflare-ufw.nu`：通过`features/system.nu`下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
 - `jobs/fetch-apps.nu`：通过`features/apps.nu`精确匹配GitHub稳定release的asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
 
-每日任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
+上述systemd任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
+
+3X-UI使用Xray原生geodata定时更新。部署时从面板读取标准数据源，默认通过直连出站下载，已有同名文件的自定义来源优先。Xray按VPS当地时间每天在`dailyTaskHour`整点（默认04:00）更新并热加载规则库
 
 ## 配置同步与日志
 
