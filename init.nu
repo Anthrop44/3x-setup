@@ -1,6 +1,7 @@
 #!/usr/bin/env nu
 const FILE = path self
 use remote/lib/core.nu [ensure checked]
+use remote/features/panel/routing.nu read-blocklist
 use modules/setup-config.nu prepare-config
 use modules/ech-preflight.nu check-ech
 use modules/generate-ssh-key.nu initialize-key
@@ -28,6 +29,7 @@ def main [--noTLS, --noAPP, --accept-new-host, --prepare-only] {
 		ensure ($content starts-with $file.prefix) $"Invalid prefix: ($file.name)"
 		ensure (($content | str trim) ends-with $file.suffix) $"Invalid suffix: ($file.name)"
 	}
+	read-blocklist ($project | path join remote ban-outbound.txt) | ignore
 	let setup = (prepare-config $project --initial)
 	let config = $setup.config
 	export-client-files $project $config $setup.constants

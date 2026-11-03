@@ -8,7 +8,7 @@
 - `nu init.nu --prepare-only`：完成本地校验、补齐字段、密钥准备、分发页生成与ECH可获取性预检，不连接部署服务器
 - `nu init.nu --noAPP --noTLS`：跳过代理应用分发与ACME，用自签证书测试；本机直连检查显式信任初始自签证书
 - `nu init.nu --accept-new-host`：在清除重建服务器旧指纹后自动接受新指纹
-- `nu sync-config.nu`：同步`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`，其它部署参数必须保持不变
+- `nu sync-config.nu`：同步`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`，并更新`ban-outbound.txt`，其它部署参数必须保持不变
 - `nu get-log.nu`：下载所有阶段日志，已有非空`log/`轮转为`log0/`等目录
 - `nu ssh-tunnel.nu --startup-timeout-seconds 60`：保留终端交互认证，访问仅本机监听的面板
 - `nu update-all.nu`：更新APT软件与3X-UI，并触发已安装的代理客户端更新器
@@ -85,13 +85,17 @@ nu main.nu deploy --from cf-host-init --noAPP --noTLS
 - `jobs/cloudflare-ufw.nu`：通过`features/system.nu`下载并校验官方IPv4/IPv6列表后刷新UFW回源规则，flock防止并发
 - `jobs/fetch-apps.nu`：通过`features/apps.nu`精确匹配GitHub稳定release的asset，检查大小和可用SHA-256，在同目录下载后原子替换；状态保存在`/var/lib/3x-fetch-apps/state.json`，错误和更新记录在`log/fetch-apps-update.log`。元数据失败或下载失败均按资源累计，连续3次失败后禁用，保留旧文件；`/usr/local/sbin/3x-fetch-apps --reset RESOURCE_ID`恢复资源
 
-每日任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
+上述systemd任务均按`dailyTaskHour`运行，附加0到1小时随机延迟，`Persistent=true`
+
+3X-UI使用Xray原生geodata定时更新。部署时从面板读取标准数据源，默认通过直连出站下载，已有同名文件的自定义来源优先。Xray按VPS当地时间每天在`dailyTaskHour`整点（默认04:00）更新并热加载规则库
 
 ## 配置同步与日志
 
-`sync-config.nu`将`config.json`、`constants.json`和完整分发目录打包上传到唯一暂存目录，远端再次校验两个文件，只允许更改`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
+`sync-config.nu`将`config.json`、`constants.json`、`ban-outbound.txt`和完整分发目录打包上传到唯一暂存目录，远端再次校验配置、常量和出站禁用清单，只允许更改`config.json`中的`clients`及`constants.json`中的`cdnOptDomains`和`cdnEchConfigList`；systemd临时服务在SSH断开后继续同步。API检查通过后才替换线上分发目录，保留旧目录直到替换成功
 
-`workflows/sync.nu`显式执行`cf-host-init` -> `cf-host-check` -> `3x-client-init` -> `3x-client-check` -> `connectivity-check` -> `direct-tls-check`；同步不申请证书
+`ban-outbound.txt`每行一项。域名规则支持`domain:`和`geosite:`，IP规则支持`geoip:`、IPv4、IPv6及CIDR。空行和以`#`开头的行会被忽略。两类规则独立匹配，均使用面板内置的`blocked`出站。清空清单后同步会移除项目管理的规则，面板自带的规则继续生效
+
+`workflows/sync.nu`显式执行`cf-host-init` -> `cf-host-check` -> `3x-routing-init` -> `3x-client-init` -> `3x-client-check` -> `connectivity-check` -> `direct-tls-check`；同步不申请证书
 
 部署或同步失败不会自动重试已经执行的有副作用阶段。`get-log.nu`先尝试`sshPort`，连不上时回退到`constants.json`的`initialSshPort`，因此引导未完成或SSH端口尚未切换时也能取到日志
 
@@ -107,8 +111,8 @@ nu --no-config-file tests/run.nu
 
 ## 网络架构
 
-- 直连：客户端 -> `directDomain:443`（H2/TCP或H3/UDP） -> Caddy -> `127.0.0.1:directXhttpPort`（h2c） -> Xray
-- CDN：客户端 -> `cloudflare-ech.com`或优选域名`:443`（ECH H2/H3） -> Cloudflare -> 服务器`cdnPort` -> Caddy -> `127.0.0.1:xhttpPort`（h2c） -> Xray；内层SNI和HTTP Host均为`cdnDomain`
+- 直连：客户端 -> `directDomain:443` -> Caddy -> `127.0.0.1:directXhttpPort` -> Xray
+- CDN：客户端 -> `cloudflare-ech.com`或优选域名`:443`（ECH） -> Cloudflare -> 服务器`cdnPort` -> Caddy -> `127.0.0.1:xhttpPort` -> Xray；内层SNI和HTTP Host均为`cdnDomain`
 
 分发页和订阅通过`cdnDomain`访问，路径分别为`/{distributionPath}/{clientPath}.html`和`/{subscriptionPath}/{subscriptionID}`；应用下载同时支持直连和CDN，路径见下文Caddy配置
 

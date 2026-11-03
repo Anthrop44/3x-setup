@@ -11,7 +11,8 @@ use ../remote/features/panel/inbounds.nu inbound-payloads
 use ../remote/features/panel/hosts.nu host-payloads
 use ../remote/features/panel/clients.nu [client-policy stale-clients validate-links]
 use ../remote/features/panel/encryption.nu select-vless-encryption
-use ../remote/features/panel/setup.nu [subscription-settings configure-dns]
+use ../remote/features/panel/routing.nu
+use ../remote/features/panel/setup.nu [subscription-settings configure-dns configure-geodata]
 use ../remote/checks/connectivity.nu proxy-config
 use ../remote/features/apps.nu
 use ../modules/setup-config.nu prepare-config
@@ -68,6 +69,45 @@ def main [] {
 		let custom = ($original | upsert dns {servers: ['1.1.1.1'], hosts: {'example.com': '192.0.2.1'}})
 		equal (configure-dns $custom) $custom
 	}
+	test 'geodata uses the configured hour and preserves custom sources' {
+		let custom = {file: geoip.dat, url: 'https://example.org/custom.dat'}
+		let site = {file: geosite.dat, url: 'https://example.org/geosite.dat'}
+		let sources = [($custom | update url 'https://example.org/geoip.dat') $site]
+		let fresh = (configure-geodata {} $sources 4)
+		equal $fresh.geodata {cron: '0 4 * * *', assets: $sources, outbound: direct}
+		let existing = {geodata: {assets: [$custom], outbound: proxy}}
+		let updated = (configure-geodata $existing $sources 23)
+		equal $updated.geodata {assets: [$custom $site], outbound: proxy, cron: '0 23 * * *'}
+		equal (configure-geodata $updated $sources 23) $updated
+	}
+	test 'outbound blocklist parsing, replacement and removal' {
+		with-temp {|temp|
+			let file = ($temp | path join ban-outbound.txt)
+			" # geoip:cn\r\n domain:CN \r\ndomain:cn\ngeosite:private\ngeoip:private\n192.0.2.1\n2001:db8::/32" | save $file
+			let entries = (routing read-blocklist $file)
+			equal $entries {domain: [domain:cn geosite:private], ip: [geoip:private '192.0.2.1' '2001:db8::/32']}
+			for invalid in ['geoip:' '256.1.1.1' '192.0.2.1/33' '2001:::1' '::1/129'] {
+				$invalid | save --force $file
+				rejects { routing read-blocklist $file } 'Invalid IP entry'
+			}
+			let api = {inboundTag: [api], outboundTag: api}
+			let private = {ip: [geoip:private], outboundTag: blocked}
+			let bt = {protocol: [bittorrent], outboundTag: blocked}
+			let original = {outbounds: [{tag: direct, protocol: freedom} {tag: blocked, protocol: blackhole}], routing: {domainStrategy: AsIs, rules: [$api $private $bt]}}
+			let legacy = ($original | update outbounds { append {tag: 3x-setup-ban-outbound, protocol: blackhole} } | update routing.rules { append {outboundTag: 3x-setup-ban-outbound, domain: [domain:old]} })
+			let first = (routing configure $legacy $entries)
+			equal $first.outbounds $original.outbounds
+			equal $first.routing.rules.0 $api
+			equal $first.routing.rules.1.domain $entries.domain
+			equal $first.routing.rules.2.ip $entries.ip
+			equal ($first.routing.rules | get outboundTag) [api blocked blocked blocked blocked]
+			equal (routing configure $first $entries) $first
+			let changed = (routing configure $first {domain: [], ip: [geoip:cn]})
+			equal $changed.routing.rules.1.ip [geoip:cn]
+			'' | save --force $file
+			equal (routing configure $changed (routing read-blocklist $file)) $original
+		}
+	}
 	test 'all Nu modules and entry points parse' {
 		for file in (glob ($ROOT | path join '**/*.nu')) { ensure (nu-check --debug $file) $"Cannot parse ($file)" }
 		checked -- bash -n ($ROOT | path join remote bootstrap.sh)
@@ -85,7 +125,7 @@ def main [] {
 		let reduced = (deploy steps --noAPP)
 		equal ($full | length) (($reduced | length) + 2)
 		ensure ('fetch-apps-init' not-in $reduced.name and 'connectivity-check' in $reduced.name) 'Wrong --noAPP plan'
-		equal (sync steps | get name) [cf-host-init cf-host-check 3x-client-init 3x-client-check connectivity-check direct-tls-check]
+		equal (sync steps | get name) [cf-host-init cf-host-check 3x-routing-init 3x-client-init 3x-client-check connectivity-check direct-tls-check]
 		equal (check-stage clients | get source) features/panel/clients.nu
 		equal (check-stage connectivity | get source) checks/connectivity.nu
 		rejects { find-stage unknown } 'Unknown stage'

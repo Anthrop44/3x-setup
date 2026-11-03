@@ -5,6 +5,7 @@ use ../features/caddy/tls.nu
 use ../features/panel
 use ../features/panel/inbounds.nu
 use ../features/panel/hosts.nu
+use ../features/panel/routing.nu
 use ../features/panel/clients.nu
 use ../features/apps.nu
 use ../checks/connectivity.nu
@@ -24,6 +25,7 @@ export def catalog [] {
 		{name: 3x-inbound-check, source: features/panel/inbounds.nu, description: 'Verify inbound transport and encryption', run: {|ctx| inbounds verify $ctx }}
 		{name: cf-host-init, source: features/panel/hosts.nu, description: 'Synchronize Direct and CDN Host groups', run: {|ctx| hosts apply $ctx }}
 		{name: cf-host-check, source: features/panel/hosts.nu, description: 'Verify Direct and CDN Host groups', run: {|ctx| hosts verify $ctx }}
+		{name: 3x-routing-init, source: features/panel/routing.nu, description: 'Synchronize outbound domain and IP blocklist', run: {|ctx| routing apply $ctx }}
 		{name: 3x-client-init, source: features/panel/clients.nu, description: 'Synchronize clients and restart Xray', run: {|ctx| clients apply $ctx }}
 		{name: 3x-client-check, source: features/panel/clients.nu, description: 'Verify client policies and subscription links', run: {|ctx| clients verify $ctx | ignore }}
 		{name: connectivity-check, source: checks/connectivity.nu, description: 'Test both loopback paths and direct XHTTP H2/H3', run: {|ctx| connectivity verify $ctx }}

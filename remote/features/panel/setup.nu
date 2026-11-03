@@ -38,6 +38,16 @@ export def configure-dns [template: record] {
 	} else { $template }
 }
 
+# 采用面板的标准数据源，保留模板中已有的自定义来源
+export def configure-geodata [template: record, sources: list, hour: int] {
+	let geodata = ($template.geodata? | default {})
+	let assets = ($geodata.assets? | default [])
+	let files = ($assets | each {|asset| $asset.file })
+	ensure ($sources | is-not-empty) 'Missing standard geodata sources'
+	let merged = ($assets | append ($sources | where {|source| $source.file not-in $files }))
+	$template | upsert geodata ($geodata | merge {cron: $"0 ($hour) * * *", assets: $merged, outbound: ($geodata.outbound? | default direct)})
+}
+
 # 安装并配置本机3X-UI面板、订阅服务和Xray模板
 export def apply [ctx: record] {
 	with-temp {|temp|
@@ -57,7 +67,8 @@ export def apply [ctx: record] {
 		request $session /panel/api/setting/update --data (subscription-settings $ctx $settings) | ignore
 		let xray = (decode-json (request $session /panel/api/xray/ --post))
 		let template = (configure-dns (configure-outbounds (decode-json $xray.xraySetting)))
-		request $session /panel/api/xray/update --form {xraySetting: ($template | to json --raw), outboundTestUrl: ($xray.outboundTestUrl? | default '')} | ignore
+		let updated = (configure-geodata $template $xray.geodataSources $ctx.constants.dailyTaskHour)
+		request $session /panel/api/xray/update --xray-template $updated --test-url ($xray.outboundTestUrl? | default '') | ignore
 		request $session /panel/api/server/restartXrayService --post | ignore
 		request $session /panel/api/setting/restartPanel --post | ignore
 	}
@@ -83,6 +94,9 @@ export def verify [ctx: record] {
 	}
 	let template = (open /usr/local/x-ui/bin/config.json)
 	ensure ($template.outbounds | any {|o| $o.protocol == freedom and $o.tag? == direct and $o.streamSettings?.sockopt?.happyEyeballs? == (happy-eyeballs) }) 'Missing Happy Eyeballs configuration'
+	ensure ($template.geodata?.cron? == $"0 ($ctx.constants.dailyTaskHour) * * *") 'Unexpected geodata update schedule'
+	let files = ($template.geodata.assets | get file)
+	ensure ('geoip.dat' in $files and 'geosite.dat' in $files) 'Missing scheduled geodata files'
 	ensure ($template.dns? | describe | str starts-with 'record') 'Missing built-in DNS configuration'
 	wait-panel $ctx
 }

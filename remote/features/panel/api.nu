@@ -2,11 +2,16 @@ use ../../lib/core.nu [ensure with-temp decode-json retry]
 use ../../lib/network.nu curl-text
 
 # 携带Cookie和CSRF令牌调用面板API，校验成功状态并返回obj
-export def request [session: record, endpoint: string, --post, --data: any, --form: record] {
+export def request [session: record, endpoint: string, --post, --data: any, --xray-template: record, --test-url: string = ''] {
 	mut args = [-b $session.cookie -c $session.cookie -H $"X-CSRF-Token: ($session.csrf)"]
 	if $post { $args = ($args | append [-X POST]) }
 	if $data != null { $args = ($args | append [-H 'Content-Type: application/json' --data ($data | to json --raw)]) }
-	if $form != null { for entry in ($form | transpose key value) { $args = ($args | append [--data-urlencode $"($entry.key)=($entry.value)"]) } }
+	if $xray_template != null {
+		# curl从会话临时文件读取模板，避免大清单超出单个命令行参数的长度限制
+		let file = ($session.cookie | path dirname | path join template.json)
+		$xray_template | to json --raw | save --force $file
+		$args = ($args | append [--data-urlencode $"xraySetting@($file)" --data-urlencode $"outboundTestUrl=($test_url)"])
+	}
 	let response = (curl-text -- ...$args $"($session.url)($endpoint)" | from json)
 	ensure ($response.success? == true) $"3X-UI API failed: ($endpoint): ($response.msg? | default 'invalid response')"
 	$response.obj?

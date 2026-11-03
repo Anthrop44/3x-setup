@@ -10,7 +10,7 @@ export def deployment-stages [--noAPP] {
 		direct-tls-init direct-tls-check
 		3x-inbound-init 3x-inbound-check
 		cf-host-init cf-host-check
-		3x-client-init 3x-client-check connectivity-check
+		3x-routing-init 3x-client-init 3x-client-check connectivity-check
 		fetch-apps-init fetch-apps-check
 	] | where {|name| not $noAPP or ($name not-in [fetch-apps-init fetch-apps-check]) }
 }
