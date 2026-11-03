@@ -182,6 +182,8 @@ Please run this regularly or redeploy proxy server to stay up-to-date with upstr
 
 ## Warning
 
+By default, this solution blocks outbound connections to major Chinese technology companies to improve security. You can edit `remote/ban-outbound.txt` to adjust the outbound blackhole policy.
+
 This solution may not work on Windows 10 clients, as Windows 10 lacks full TLS 1.3 support.
 
 This solution was tested using 3X-UI version v3.11.0. If the 3X-UI API changes in the future, issues may arise. However, it is not recommended to pin the 3X-UI version just to use this solution. If you encounter any issues, please open an issue.
@@ -190,7 +192,7 @@ This project is not an idempotent deployer. It must be executed on a freshly reb
 
 Do not leak private configurations like `remote/config.json`. **If leaked, rebuild the server immediately and change its IP address and domain names.**
 
-If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. Direct XHTTP nodes require a trusted certificate in production; local deployment checks explicitly trust the bootstrap certificate. Self-signed certificates are for testing only—**never use them in production! You must rebuild the server immediately after testing!**
+If you want to test this script by rebuilding the server multiple times with the same domain, please use `nu init.nu --noTLS` to temporarily use self-signed certificates. This avoids triggering CA rate limits which would block certificate issuance. In this case, the direct inbound cannot be used.
 
 Your private key `./id_ed25519` (in the repository root) will be the **only** method to log in to the proxy server. Please back up and store it securely.
 

@@ -57,7 +57,7 @@ export def apply [ctx: record] {
 		request $session /panel/api/setting/update --data (subscription-settings $ctx $settings) | ignore
 		let xray = (decode-json (request $session /panel/api/xray/ --post))
 		let template = (configure-dns (configure-outbounds (decode-json $xray.xraySetting)))
-		request $session /panel/api/xray/update --form {xraySetting: ($template | to json --raw), outboundTestUrl: ($xray.outboundTestUrl? | default '')} | ignore
+		request $session /panel/api/xray/update --xray-template $template --test-url ($xray.outboundTestUrl? | default '') | ignore
 		request $session /panel/api/server/restartXrayService --post | ignore
 		request $session /panel/api/setting/restartPanel --post | ignore
 	}

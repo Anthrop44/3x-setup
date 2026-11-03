@@ -2,11 +2,12 @@ use ../lib/core.nu [ensure checked]
 use ../lib/config.nu [project-paths context validate-config]
 use ../lib/runner.nu run-workflow
 use stages.nu plan
+use ../features/panel/routing.nu read-blocklist
 
 # 返回配置同步所需的Host、客户、连通性和TLS阶段
 # 此阶段白名单独立维护，不依赖部署计划的末尾阶段
 export def steps [] {
-	plan [cf-host-init cf-host-check 3x-client-init 3x-client-check connectivity-check direct-tls-check]
+	plan [cf-host-init cf-host-check 3x-routing-init 3x-client-init 3x-client-check connectivity-check direct-tls-check]
 }
 
 # 确保已有部署仅修改客户、CDN优选域名和ECH订阅设置
@@ -26,6 +27,9 @@ export def execute [directory: string, staging: string] {
 	validate-changes (open $paths.config) $config (open $paths.constants) $constants
 	let source_dir = ($staging | path join fake-site $config.distributionPath)
 	ensure ($source_dir | path join template.css | path exists) 'Distribution stylesheet missing'
+	let blocklist = ($staging | path join ban-outbound.txt)
+	read-blocklist $blocklist | ignore
+	mv --force $blocklist ($directory | path join ban-outbound.txt)
 	cp --force ($staging | path join config.json) $paths.config
 	cp --force ($staging | path join constants.json) $paths.constants
 	# The local entry point starts this workflow in a transient systemd service.
