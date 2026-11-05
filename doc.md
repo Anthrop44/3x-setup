@@ -143,7 +143,7 @@ Xray模板启用内置DNS，使用面板默认的`UseIP`查询策略和空上游
 | --- | --- | --- |
 | 端口 | `directXhttpPort` | `xhttpPort` |
 | VLESS加密 | `decryption`与`encryption`均为`none` | `getNewVlessEnc`生成`mlkem768_xorpub`密钥对 |
-| flow | `disableFlow: true`，客户端flow留空 | `xtls-rprx-vision` |
+| flow | `disableFlow: true`，客户端flow留空 | `xtls-rprx-vision-udp443` |
 
 ## XHTTP主机
 
