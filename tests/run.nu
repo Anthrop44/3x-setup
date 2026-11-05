@@ -191,12 +191,12 @@ def main [] {
 				for alpn in ['' h2 h3] {
 					let probe = (proxy-config $ctx test-uuid $keys 12345 --direct=$direct --alpn=$alpn)
 					let target = $probe.outbounds.0.settings.vnext.0
-					equal $target.users.0.flow (if $direct { '' } else { 'xtls-rprx-vision' })
+					equal $target.users.0.flow (if $direct { '' } else { 'xtls-rprx-vision-udp443' })
 					equal $target.users.0.encryption (if $direct { 'none' } else { $keys.encryption })
 					if $alpn != '' { equal $target.port 443; equal $probe.outbounds.0.streamSettings.tlsSettings.alpn [$alpn] }
 				}
 			}
-			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: '', remark: Direct}] | append ([cloudflare-ech.com] | append $ctx.constants.cdnOptDomains | enumerate | each {|domain| {domain: $domain.item, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision, remark: 'Cloudflare ECH'} }) | each {|target|
+			let links = ([{domain: $ctx.config.directDomain, sni: $ctx.config.directDomain, encryption: none, flow: '', remark: Direct}] | append ([cloudflare-ech.com] | append $ctx.constants.cdnOptDomains | enumerate | each {|domain| {domain: $domain.item, sni: $ctx.config.cdnDomain, encryption: $keys.encryption, flow: xtls-rprx-vision-udp443, remark: 'Cloudflare ECH'} }) | each {|target|
 				[h2 h3] | each {|alpn|
 					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: $ctx.constants.fingerprint, ech: (if $target.remark == Direct { '' } else { $ctx.constants.cdnEchConfigList })} | url build-query)
 					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
@@ -242,7 +242,7 @@ def main [] {
 			}
 			rejects { host-payloads ($ctx | update constants.cdnEchConfigList '') 2 } 'CDN requires'
 			let keys = (encryption)
-			let ordinary = ([{domain: $ctx.config.directDomain, encryption: none, flow: '', sni: $ctx.config.directDomain, remark: Direct}] | append ([cloudflare-ech.com opt.example.com] | enumerate | each {|domain| {domain: $domain.item, encryption: $keys.encryption, flow: xtls-rprx-vision, sni: $ctx.config.cdnDomain, remark: Cloudflare} }) | each {|target|
+			let ordinary = ([{domain: $ctx.config.directDomain, encryption: none, flow: '', sni: $ctx.config.directDomain, remark: Direct}] | append ([cloudflare-ech.com opt.example.com] | enumerate | each {|domain| {domain: $domain.item, encryption: $keys.encryption, flow: xtls-rprx-vision-udp443, sni: $ctx.config.cdnDomain, remark: Cloudflare} }) | each {|target|
 				[h2 h3] | each {|alpn|
 					let query = ({type: xhttp, security: tls, sni: $target.sni, encryption: $target.encryption, flow: $target.flow, alpn: $alpn, fp: chrome} | url build-query)
 					$"vless://test-uuid@($target.domain):443?($query)#($target.remark) ($alpn)"
@@ -281,7 +281,7 @@ def main [] {
 			for alpn in [h2 h3] {
 				let probe = (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn --address opt.example.com | get outbounds.0)
 				equal $probe.settings.vnext.0.address opt.example.com
-				equal $probe.settings.vnext.0.users.0.flow xtls-rprx-vision
+				equal $probe.settings.vnext.0.users.0.flow xtls-rprx-vision-udp443
 				equal $probe.streamSettings.tlsSettings {serverName: $ctx.config.cdnDomain, fingerprint: chrome, alpn: [$alpn], echConfigList: $ctx.constants.cdnEchConfigList}
 				equal $probe.streamSettings.xhttpSettings.host $ctx.config.cdnDomain
 				equal (proxy-config $ctx test-uuid $keys 12345 --alpn=$alpn | get outbounds.0.settings.vnext.0.address) cloudflare-ech.com

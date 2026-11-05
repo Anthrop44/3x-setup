@@ -19,7 +19,7 @@ export def proxy-config [ctx: record, uuid: string, xhttp: record, socks_port: i
 			{certificates: [{certificateFile: /etc/caddy/3x-direct-cert.pem, usage: verify}]}
 		} else { {echConfigList: $ctx.constants.cdnEchConfigList} }))}
 	} else { {} }))
-	let user = {id: $uuid, encryption: (if $direct { 'none' } else { $xhttp.encryption }), flow: (if $direct { '' } else { 'xtls-rprx-vision' })}
+	let user = {id: $uuid, encryption: (if $direct { 'none' } else { $xhttp.encryption }), flow: (if $direct { '' } else { 'xtls-rprx-vision-udp443' })}
 	let address = (if $address != '' { $address } else if $tls and not $direct { cdn-addresses $ctx.constants | first } else { '127.0.0.1' })
 	let port = (if $tls { 443 } else if $direct { $ctx.constants.directXhttpPort } else { $ctx.constants.xhttpPort })
 	{log: {loglevel: warning}, inbounds: [{tag: socks, listen: '127.0.0.1', port: $socks_port, protocol: socks, settings: {auth: noauth, udp: false}}], outbounds: [{tag: proxy, protocol: vless, settings: {vnext: [{address: $address, port: $port, users: [$user]}]}, streamSettings: $stream}]}

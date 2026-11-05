@@ -32,7 +32,7 @@ export def apply [ctx: record] {
 		for client in $ctx.config.clients {
 			if ($current | any {|c| $c.email == $client.client and $c.subId == $client.path }) { continue }
 			# The panel suppresses this flow on Direct (disableFlow), while Cloudflare retains Vision
-			let policy = (client-policy $client | merge {auth: (token 24), flow: xtls-rprx-vision, security: auto, expiryTime: 0, limitIp: 0, enable: true, tgId: 0, comment: ''})
+			let policy = (client-policy $client | merge {auth: (token 24), flow: xtls-rprx-vision-udp443, security: auto, expiryTime: 0, limitIp: 0, enable: true, tgId: 0, comment: ''})
 			request $session /panel/api/clients/add --data {client: $policy, inboundIds: $ids} | ignore
 		}
 		request $session /panel/api/server/restartXrayService --post | ignore
@@ -62,7 +62,7 @@ export def validate-links [ctx: record, value: any, encryption: record, --client
 		ensure (($usage | length) == 2 and ($usage | all {|part| ($part | str trim | is-not-empty) and $part !~ '[{}]' })) 'Wrong traffic information node usage'
 		$all | skip 1
 	})
-	let targets = ((host-payloads $ctx 0 --direct | each { insert encryption $encryption.Direct | insert flow '' }) | append (host-payloads $ctx 0 | each { insert encryption $encryption.Cloudflare | insert flow xtls-rprx-vision }))
+	let targets = ((host-payloads $ctx 0 --direct | each { insert encryption $encryption.Direct | insert flow '' }) | append (host-payloads $ctx 0 | each { insert encryption $encryption.Cloudflare | insert flow xtls-rprx-vision-udp443 }))
 	ensure (($links | length) == ($targets | length)) 'Wrong subscription link count'
 	ensure ($encryption.Direct == none) 'Direct XHTTP must not use VLESS Encryption'
 	for target in $targets {
