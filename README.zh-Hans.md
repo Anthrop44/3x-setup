@@ -22,11 +22,10 @@
 	- 进入`规则` -> `概述` -> `Origin Rules` -> `创建规则`
 	- `如果传入请求匹配` -> `自定义筛选表达式` -> 编辑表达式：`http.host in {"cdnDomain"}`（把`cdnDomain`改成你真正的域名）
 	- `目标端口`：重写到`cdnPort`
-- SSL/TLS加密模式选择`完全（严格）`
-- 启用始终使用HTTPS
-- 启用TLS 1.3
-- 最低TLS版本1.3。如果用户要用Windows 10，也可以降为1.2
-- 启用gRPC
+- 设置 SSL/TLS
+    - 进入`SSL/TLS`-> `概述` -> `配置` -> 加密模式选择`完全（严格）`并保存
+    - 进入`SSL/TLS`-> `边缘证书` -> 启用`始终使用HTTPS`、启用`TLS 1.3`、设置`最低TLS版本`为`1.3`。如果用户要用Windows 10，也可以降为1.2
+- 进入`网络` -> 启用gRPC
 - 为`cdnDomain`生成Cloudflare源站ECC证书和私钥
 	- 进入`SSL/TLS`->`源站服务器`
 	- 点击创建证书

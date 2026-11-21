@@ -24,11 +24,10 @@ The following is a usage tutorial and does not explain the underlying principles
 	- Go to **Rules** -> **Overview** -> **Origin Rules** -> **Create rule**.
 	- Under **If incoming requests match**, select **Custom filter expression**, then enter: `http.host in {"cdnDomain"}`. (Change `cdnDomain` to your actual domain)
 	- Under **Destination port**, rewrite it to `cdnPort`.
-- Select **Full (strict)** for the SSL/TLS encryption mode.
-- Enable **Always Use HTTPS**.
-- Enable **TLS 1.3**.
-- Set **Minimum TLS Version** to 1.3. Lower it to 1.2 only if you must support Windows 10 clients.
-- Enable **gRPC**.
+- Configure SSL/TLS
+    - Go to **SSL/TLS** -> **Overview** -> **Configure** -> select encryption mode Full **(Strict)** and save
+    - Go to **SSL/TLS** -> **Edge Certificates** -> enable **Always Use HTTPS**, enable **TLS 1.3**, and set **Minimum TLS Version** to **1.3**. Lower it to 1.2 only if you must support Windows 10 clients.
+- Go to **Network** -> enable **gRPC**
 - Generate a Cloudflare Origin CA ECC certificate and private key for `cdnDomain`:
 	- Go to **SSL/TLS** -> **Origin Server**.
 	- Click **Create Certificate**.
